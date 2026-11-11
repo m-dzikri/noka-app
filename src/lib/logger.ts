@@ -19,6 +19,8 @@ const SENSITIVE_KEY_SUBSTRINGS = [
   "cookie",
   "set-cookie",
   "authorization",
+  "reseturl",
+  "reset_url",
   "notecontent",
   "note_content",
   "initialbalance",

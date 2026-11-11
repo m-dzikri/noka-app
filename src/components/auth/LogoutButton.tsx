@@ -1,0 +1,51 @@
+"use client";
+
+import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { runClientLogoutCleanup } from "@/features/auth/client-cleanup";
+import { useI18n } from "@/lib/i18n/context";
+
+/**
+ * Header logout button that revokes server session, wipes private client storage, and redirects to /login (OFFLINE-5).
+ */
+export function LogoutButton() {
+  const router = useRouter();
+  const { t } = useI18n();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (loggingOut) {
+      return;
+    }
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      }).catch(() => undefined);
+    } finally {
+      await runClientLogoutCleanup();
+      router.push("/login");
+      router.refresh();
+      setLoggingOut(false);
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={loggingOut}
+      onClick={handleLogout}
+      aria-label={t.auth.logoutButton}
+      className="gap-1.5"
+    >
+      <LogOut className="h-4 w-4" aria-hidden="true" />
+      <span>{loggingOut ? t.auth.loggingOutButton : t.auth.logoutButton}</span>
+    </Button>
+  );
+}
+

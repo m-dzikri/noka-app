@@ -22,13 +22,21 @@ export class ApiError extends Error {
   public readonly status: number;
   public readonly code: string;
   public readonly details?: unknown;
+  public readonly headers?: Record<string, string>;
 
-  constructor(status: number, code: string, message: string, details?: unknown) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details?: unknown,
+    headers?: Record<string, string>,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.details = details;
+    this.headers = headers;
   }
 }
 
@@ -47,6 +55,7 @@ export function apiError(
   code: string,
   message: string,
   details?: unknown,
+  headers?: Record<string, string>,
 ): NextResponse<ApiErrorEnvelope> {
   return NextResponse.json(
     {
@@ -57,7 +66,7 @@ export function apiError(
         ...(details !== undefined ? { details } : {}),
       },
     },
-    { status },
+    headers ? { status, headers } : { status },
   );
 }
 
@@ -73,7 +82,13 @@ export function handleApiError(error: unknown, log: Logger = logger): NextRespon
         error,
       });
     }
-    return apiError(error.status, error.code, error.message, error.details);
+    return apiError(
+      error.status,
+      error.code,
+      error.message,
+      error.details,
+      error.headers,
+    );
   }
 
   if (error instanceof SyntaxError) {
