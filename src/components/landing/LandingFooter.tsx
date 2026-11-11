@@ -27,9 +27,9 @@ export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
             data-testid="landing-privacy-points"
             className="grid grid-cols-1 gap-3 md:grid-cols-3"
           >
-            {t.landing.footer.privacyPoints.map((point) => (
+            {t.landing.footer.privacyPoints.map((point, index) => (
               <li
-                key={point}
+                key={index}
                 className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-canvas)] px-4 py-3 text-sm leading-relaxed text-[var(--text-secondary)]"
               >
                 {point}
