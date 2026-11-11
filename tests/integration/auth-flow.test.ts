@@ -178,6 +178,8 @@ describe("auth registration, sessions, 12 categories, logout, and rate limits (T
       data: { user: { id: string } };
     };
     createdUserIds.push(createdJson.data.user.id);
+    const registerSessionCookie = extractCookieValue(registerRes, "noka_session");
+    expect(registerSessionCookie).not.toBeNull();
 
     // Zero DB query when noka_session cookie is missing or malformed length.
     const getDbSpy = vi.spyOn(dbModule, "getDb");
@@ -222,6 +224,25 @@ describe("auth registration, sessions, 12 categories, logout, and rate limits (T
       error: { code: "INVALID_CREDENTIALS" },
     });
 
+    const unknownEmailLogin = await loginPost(
+      new NextRequest("http://localhost:3000/api/auth/login", {
+        method: "POST",
+        headers: {
+          origin: "http://localhost:3000",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          email: `unknown.${crypto.randomUUID()}@example.test`,
+          password: "SecretPassword99",
+        }),
+      }),
+    );
+    expect(unknownEmailLogin.status).toBe(401);
+    expect(await unknownEmailLogin.json()).toMatchObject({
+      ok: false,
+      error: { code: "INVALID_CREDENTIALS" },
+    });
+
     // Valid login under HTTPS APP_URL attaches Secure cookie attribute.
     const previousAppUrl = process.env.APP_URL;
     process.env.APP_URL = "https://noka.example.com";
@@ -245,21 +266,21 @@ describe("auth registration, sessions, 12 categories, logout, and rate limits (T
     process.env.APP_URL = previousAppUrl;
     resetEnvCacheForTest();
 
-    // Force-expire session in DB -> rejected with 401 UNAUTHORIZED.
-    await dbModule
-      .getDb()
-      .update(sessions)
-      .set({ expiresAt: new Date(Date.now() - 60_000) })
-      .where(eq(sessions.tokenHash, hashToken(loginCookie!.value)));
-
-    const expiredMe = await meGet(
+    // Active session works before logout and its DB row exists.
+    const activeMe = await meGet(
       new NextRequest("http://localhost:3000/api/auth/me", {
         headers: { cookie: `noka_session=${loginCookie!.value}` },
       }),
     );
-    expect(expiredMe.status).toBe(401);
+    expect(activeMe.status).toBe(200);
+    const activeRowsBeforeLogout = await dbModule
+      .getDb()
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(eq(sessions.tokenHash, hashToken(loginCookie!.value)));
+    expect(activeRowsBeforeLogout).toHaveLength(1);
 
-    // Logout removes cookie & DB row and remains idempotent when called without cookie.
+    // Logout removes active DB row, clears cookie, and rejects reused session token with 401.
     const logoutRes1 = await logoutPost(
       new NextRequest("http://localhost:3000/api/auth/logout", {
         method: "POST",
@@ -278,6 +299,39 @@ describe("auth registration, sessions, 12 categories, logout, and rate limits (T
       "Max-Age=0",
     );
 
+    const activeRowsAfterLogout = await dbModule
+      .getDb()
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(eq(sessions.tokenHash, hashToken(loginCookie!.value)));
+    expect(activeRowsAfterLogout).toHaveLength(0);
+
+    const postLogoutMe = await meGet(
+      new NextRequest("http://localhost:3000/api/auth/me", {
+        headers: { cookie: `noka_session=${loginCookie!.value}` },
+      }),
+    );
+    expect(postLogoutMe.status).toBe(401);
+    expect(await postLogoutMe.json()).toMatchObject({
+      ok: false,
+      error: { code: "UNAUTHORIZED" },
+    });
+
+    // Force-expire separate session in DB -> rejected with 401 UNAUTHORIZED.
+    await dbModule
+      .getDb()
+      .update(sessions)
+      .set({ expiresAt: new Date(Date.now() - 60_000) })
+      .where(eq(sessions.tokenHash, hashToken(registerSessionCookie!.value)));
+
+    const expiredMe = await meGet(
+      new NextRequest("http://localhost:3000/api/auth/me", {
+        headers: { cookie: `noka_session=${registerSessionCookie!.value}` },
+      }),
+    );
+    expect(expiredMe.status).toBe(401);
+
+    // Logout remains idempotent when called without cookie.
     const logoutRes2 = await logoutPost(
       new NextRequest("http://localhost:3000/api/auth/logout", {
         method: "POST",

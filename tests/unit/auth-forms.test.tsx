@@ -1,8 +1,19 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const routerPushMock = vi.fn();
-const routerRefreshMock = vi.fn();
+const {
+  routerPushMock,
+  routerRefreshMock,
+  redirectMock,
+  getSessionUserMock,
+} = vi.hoisted(() => ({
+  routerPushMock: vi.fn(),
+  routerRefreshMock: vi.fn(),
+  redirectMock: vi.fn((target: string) => {
+    throw new Error(`NEXT_REDIRECT:${target}`);
+  }),
+  getSessionUserMock: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -10,8 +21,17 @@ vi.mock("next/navigation", () => ({
     replace: vi.fn(),
     refresh: routerRefreshMock,
   }),
+  usePathname: () => "/app",
+  redirect: redirectMock,
 }));
 
+vi.mock("@/features/auth/session", () => ({
+  getSessionUser: getSessionUserMock,
+}));
+
+import AppWorkspaceLayout from "@/app/(app)/app/layout";
+import LoginPage from "@/app/(auth)/login/page";
+import RegisterPage from "@/app/(auth)/register/page";
 import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -26,6 +46,8 @@ describe("auth forms, instant ID/EN + theme switching & logout wipe (AC-2.5)", (
   beforeEach(() => {
     routerPushMock.mockClear();
     routerRefreshMock.mockClear();
+    redirectMock.mockClear();
+    getSessionUserMock.mockReset();
   });
 
   it("retains typed LoginForm values when toggling ID/EN and Dark mode, and maps rate-limit errors", async () => {
@@ -255,6 +277,173 @@ describe("auth forms, instant ID/EN + theme switching & logout wipe (AC-2.5)", (
       unregister();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("validates active-token ResetPasswordForm, maps 400 token errors, and completes reset", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: {
+              code: "INVALID_OR_EXPIRED_TOKEN",
+              message: "Invalid token",
+            },
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ ok: true, data: { reset: true } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      render(
+        <PreferencesProvider
+          initialLocale="id"
+          initialTheme="light"
+          hasCookieLocale={true}
+          hasCookieTheme={true}
+        >
+          <ResetPasswordForm initialToken="raw-reset-token-123" />
+        </PreferencesProvider>,
+      );
+
+      const newPwdInput = screen.getByLabelText("Kata Sandi Baru");
+      const confirmInput = screen.getByLabelText("Konfirmasi Kata Sandi Baru");
+
+      // Local validation prevents network call for < 8 chars and password mismatch.
+      fireEvent.change(newPwdInput, { target: { value: "short" } });
+      fireEvent.change(confirmInput, { target: { value: "different" } });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Simpan Kata Sandi Baru" }),
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(screen.getByText("Kata sandi minimal 8 karakter.")).toBeVisible();
+      expect(
+        screen.getByText("Konfirmasi kata sandi tidak cocok."),
+      ).toBeVisible();
+
+      // Valid matching password -> API 400 maps localized token error.
+      fireEvent.change(newPwdInput, { target: { value: "newstrongpass99" } });
+      fireEvent.change(confirmInput, { target: { value: "newstrongpass99" } });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Simpan Kata Sandi Baru" }),
+      );
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Tautan atur ulang kata sandi tidak valid atau sudah kedaluwarsa.",
+      );
+
+      // Retry succeeds -> shows confirmation status and /login link.
+      fireEvent.click(
+        screen.getByRole("button", { name: "Simpan Kata Sandi Baru" }),
+      );
+
+      const status = await screen.findByRole("status");
+      expect(status).toHaveTextContent("Kata sandi berhasil diperbarui");
+      expect(screen.getByRole("link", { name: "Masuk" })).toHaveAttribute(
+        "href",
+        "/login",
+      );
+
+      const [calledUrl, init] = fetchMock.mock.calls[1] as [
+        string,
+        RequestInit,
+      ];
+      expect(calledUrl).toBe("/api/auth/reset-password");
+      expect(JSON.parse(String(init.body))).toEqual({
+        token: "raw-reset-token-123",
+        newPassword: "newstrongpass99",
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("enforces server-side session redirects on AppWorkspaceLayout, LoginPage, and RegisterPage", async () => {
+    const activeUser = {
+      id: "u-1",
+      name: "Raka Pratama",
+      email: "raka@noka.test",
+      locale: "id" as const,
+      theme: "light" as const,
+      cycleStartDay: "1",
+    };
+
+    // Unauthenticated /app layout redirects to /login.
+    getSessionUserMock.mockResolvedValueOnce(null);
+    await expect(
+      AppWorkspaceLayout({ children: <div>Workspace Content</div> }),
+    ).rejects.toThrow("NEXT_REDIRECT:/login");
+    expect(redirectMock).toHaveBeenCalledWith("/login");
+
+    // Authenticated /app layout renders AppShell with user and LogoutButton.
+    getSessionUserMock.mockResolvedValueOnce(activeUser);
+    const workspaceTree = await AppWorkspaceLayout({
+      children: <div>Protected Workspace Content</div>,
+    });
+    const { unmount } = render(
+      <PreferencesProvider
+        initialLocale="id"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        {workspaceTree}
+      </PreferencesProvider>,
+    );
+    expect(screen.getByText("Protected Workspace Content")).toBeVisible();
+    expect(screen.getAllByText("Raka Pratama").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Keluar" })).toBeVisible();
+    unmount();
+
+    // Authenticated /login and /register redirect to /app.
+    getSessionUserMock.mockResolvedValueOnce(activeUser);
+    await expect(LoginPage()).rejects.toThrow("NEXT_REDIRECT:/app");
+
+    getSessionUserMock.mockResolvedValueOnce(activeUser);
+    await expect(RegisterPage()).rejects.toThrow("NEXT_REDIRECT:/app");
+    expect(redirectMock).toHaveBeenCalledWith("/app");
+
+    // Unauthenticated /login and /register render their forms cleanly.
+    getSessionUserMock.mockResolvedValueOnce(null);
+    const loginTree = await LoginPage();
+    const loginView = render(
+      <PreferencesProvider
+        initialLocale="id"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        {loginTree}
+      </PreferencesProvider>,
+    );
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Masuk ke Noka" }),
+    ).toBeVisible();
+    loginView.unmount();
+
+    getSessionUserMock.mockResolvedValueOnce(null);
+    const registerTree = await RegisterPage();
+    render(
+      <PreferencesProvider
+        initialLocale="id"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        {registerTree}
+      </PreferencesProvider>,
+    );
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Buat Akun Noka" }),
+    ).toBeVisible();
   });
 });
 

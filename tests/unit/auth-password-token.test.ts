@@ -3,6 +3,19 @@
 import bcrypt from "bcryptjs";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { sendEmailsMock } = vi.hoisted(() => ({
+  sendEmailsMock: vi.fn(),
+}));
+
+vi.mock("resend", () => ({
+  Resend: class MockResend {
+    emails = {
+      send: sendEmailsMock,
+    };
+  },
+}));
+
 import {
   registerClientLogoutCleanup,
   runClientLogoutCleanup,
@@ -14,11 +27,13 @@ import {
   hashToken,
   verifyPassword,
 } from "@/features/auth/password";
+import { ApiError } from "@/lib/api-response";
 import { resetEnvCacheForTest } from "@/lib/env";
 import {
   apiFetch,
   setUnauthorizedRedirectHandlerForTest,
 } from "@/lib/http-client";
+import { ResendMailer } from "@/lib/mailer/resend";
 import {
   checkRateLimit,
   clearRateLimitsForTest,
@@ -39,6 +54,7 @@ describe("auth crypto, CSRF, rate limiter, and apiFetch cleanup (TS-002-01)", ()
     });
     resetEnvCacheForTest();
     clearRateLimitsForTest();
+    sendEmailsMock.mockReset();
   });
 
   afterEach(() => {
@@ -51,6 +67,7 @@ describe("auth crypto, CSRF, rate limiter, and apiFetch cleanup (TS-002-01)", ()
     resetEnvCacheForTest();
     clearRateLimitsForTest();
     setUnauthorizedRedirectHandlerForTest(null);
+    sendEmailsMock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -104,13 +121,25 @@ describe("auth crypto, CSRF, rate limiter, and apiFetch cleanup (TS-002-01)", ()
       checkRateLimit("sweep-bucket", `old-${i}`, 2, 1_000, startMs);
     }
 
-    // After full window elapsed, original bucket is allowed again cleanly.
-    const recovered = checkRateLimit(
+    // After the oldest attempt ages out (+1s increments across 5 attempts),
+    // pruning preserves the remaining 4 active attempts so only 1 slot frees up.
+    const partiallyRecovered = checkRateLimit(
       "auth:forgot-password",
       "203.0.113.10:user@example.test",
       5,
       windowMs,
       startMs + windowMs + 1,
+    );
+    expect(partiallyRecovered.allowed).toBe(true);
+    expect(partiallyRecovered.remaining).toBe(0);
+
+    // After full window passes since the newest timestamp, quota resets cleanly.
+    const recovered = checkRateLimit(
+      "auth:forgot-password",
+      "203.0.113.10:user@example.test",
+      5,
+      windowMs,
+      startMs + windowMs * 2 + 2,
     );
     expect(recovered.allowed).toBe(true);
     expect(recovered.remaining).toBe(4);
@@ -287,6 +316,142 @@ describe("auth crypto, CSRF, rate limiter, and apiFetch cleanup (TS-002-01)", ()
       unregister();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("retains active staggered rate-limit timestamps across >500-key bucket sweeps", () => {
+    const startMs = 1_700_000_000_000;
+    const windowMs = 15 * 60 * 1000;
+    const staggerOffsetMs = 5 * 60 * 1000; // +300s inside the 900s window
+
+    // Initial attempt at t=0, followed by 4 staggered attempts at t=+300s (total 5).
+    expect(
+      checkRateLimit("auth:login", "staggered-user", 5, windowMs, startMs).allowed,
+    ).toBe(true);
+    for (let i = 0; i < 4; i += 1) {
+      expect(
+        checkRateLimit(
+          "auth:login",
+          "staggered-user",
+          5,
+          windowMs,
+          startMs + staggerOffsetMs + i,
+        ).allowed,
+      ).toBe(true);
+    }
+
+    // Seed >500 short-lived expired buckets at t=0, then trigger sweep at t=+905s
+    // when the t=0 attempt expired but the 4 attempts at t=+300s still remain active.
+    for (let i = 0; i < 510; i += 1) {
+      checkRateLimit("sweep-short", `k-${i}`, 2, 1_000, startMs);
+    }
+    checkRateLimit("sweep-trigger", "probe", 2, 1_000, startMs + windowMs + 5_000);
+
+    // Only the t=0 attempt aged out -> 4 attempts survive, leaving 1 remaining slot.
+    const fifthActive = checkRateLimit(
+      "auth:login",
+      "staggered-user",
+      5,
+      windowMs,
+      startMs + windowMs + 5_000,
+    );
+    expect(fifthActive.allowed).toBe(true);
+    expect(fifthActive.remaining).toBe(0);
+
+    const sixthBlocked = checkRateLimit(
+      "auth:login",
+      "staggered-user",
+      5,
+      windowMs,
+      startMs + windowMs + 6_000,
+    );
+    expect(sixthBlocked.allowed).toBe(false);
+    expect(sixthBlocked.retryAfterSeconds).toBe(294);
+  });
+
+  it("delivers escaped password reset emails via ResendMailer and maps errors to 503 safely", async () => {
+    delete envMap.RESEND_API_KEY;
+    delete envMap.EMAIL_FROM;
+    resetEnvCacheForTest();
+    expect(() => new ResendMailer()).toThrowError(ApiError);
+    try {
+      new ResendMailer();
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiError);
+      expect((error as ApiError).status).toBe(503);
+      expect((error as ApiError).code).toBe("MAIL_DELIVERY_UNAVAILABLE");
+    }
+
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.EMAIL_FROM = "Noka <noreply@noka.test>";
+    resetEnvCacheForTest();
+    const mailer = new ResendMailer();
+
+    sendEmailsMock.mockResolvedValueOnce({ data: { id: "msg_1" }, error: null });
+    await mailer.sendPasswordReset({
+      to: "dinda@noka.test",
+      name: "<Dinda>",
+      resetUrl: "https://noka.app/reset-password?token=raw-secret-token",
+      locale: "id",
+    });
+
+    expect(sendEmailsMock).toHaveBeenCalledTimes(1);
+    const sentPayload = sendEmailsMock.mock.calls[0][0] as {
+      from: string;
+      to: string;
+      subject: string;
+      html: string;
+      text: string;
+    };
+    expect(sentPayload.from).toBe("Noka <noreply@noka.test>");
+    expect(sentPayload.to).toBe("dinda@noka.test");
+    expect(sentPayload.subject).toBe("Atur ulang kata sandi Noka Anda");
+    expect(sentPayload.html).toContain("&lt;Dinda&gt;");
+    expect(sentPayload.html).toContain(
+      "https://noka.app/reset-password?token=raw-secret-token",
+    );
+    expect(sentPayload.text).toContain(
+      "https://noka.app/reset-password?token=raw-secret-token",
+    );
+
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+
+    sendEmailsMock.mockResolvedValueOnce({
+      data: null,
+      error: { name: "validation_error", message: "Bad sender" },
+    });
+    await expect(
+      mailer.sendPasswordReset({
+        to: "secret-user@noka.test",
+        name: "Raka",
+        resetUrl: "https://noka.app/reset-password?token=secret-token-2",
+        locale: "en",
+      }),
+    ).rejects.toMatchObject({
+      status: 503,
+      code: "MAIL_DELIVERY_UNAVAILABLE",
+    });
+
+    sendEmailsMock.mockRejectedValueOnce(new Error("Upstream socket closed"));
+    await expect(
+      mailer.sendPasswordReset({
+        to: "secret-user@noka.test",
+        name: "Raka",
+        resetUrl: "https://noka.app/reset-password?token=secret-token-3",
+        locale: "en",
+      }),
+    ).rejects.toMatchObject({
+      status: 503,
+      code: "MAIL_DELIVERY_UNAVAILABLE",
+    });
+
+    const stderrOutput = stderrSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(stderrOutput).toContain("mailer.resend_rejected");
+    expect(stderrOutput).toContain("mailer.resend_failed");
+    expect(stderrOutput).not.toContain("secret-user@noka.test");
+    expect(stderrOutput).not.toContain("secret-token-2");
+    expect(stderrOutput).not.toContain("secret-token-3");
   });
 });
 
