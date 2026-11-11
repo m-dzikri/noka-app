@@ -119,7 +119,7 @@ export function Modal({
   return (
     <div
       data-testid="modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#161616]/60 p-4 backdrop-blur-[2px]"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -134,7 +134,7 @@ export function Modal({
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={cn(
-          "w-full max-w-md rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-canvas)] p-6 shadow-lg",
+          "w-full max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-lg",
           className,
         )}
       >
@@ -159,7 +159,7 @@ export function Modal({
             type="button"
             aria-label={resolvedCloseLabel}
             onClick={onClose}
-            className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-[var(--radius-md)] border border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] cursor-pointer"
+            className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-full border border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] cursor-pointer"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>

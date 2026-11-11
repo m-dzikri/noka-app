@@ -9,10 +9,12 @@
   --color-ink-secondary: var(--text-secondary);
   --color-ink-muted: var(--text-muted);
   --color-line: var(--border-default);
+  --color-line-subtle: var(--border-subtle);
   --color-line-strong: var(--border-strong);
   --color-accent: var(--accent-primary);
   --color-accent-hover: var(--accent-hover);
   --color-accent-ink: var(--accent-foreground);
+  --color-accent-text: var(--accent-text);
   --color-income: var(--status-income);
   --color-expense: var(--status-expense);
   --color-danger: var(--danger-bg);
@@ -22,6 +24,8 @@
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
 }
 
 html,
@@ -30,6 +34,30 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
   text-rendering: optimizeLegibility;
+}
+
+.noka-hero-grid {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center top;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    rgb(34 34 34 / 1) 0%,
+    rgb(34 34 34 / 0.95) 68%,
+    rgb(34 34 34 / 0.78) 76%,
+    rgb(34 34 34 / 0.3) 89%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(34 34 34 / 1) 0%,
+    rgb(34 34 34 / 0.95) 68%,
+    rgb(34 34 34 / 0.78) 76%,
+    rgb(34 34 34 / 0.3) 89%,
+    transparent 100%
+  );
 }
 
 :focus-visible {
@@ -47,4 +75,3 @@ body {
     scroll-behavior: auto !important;
   }
 }
-

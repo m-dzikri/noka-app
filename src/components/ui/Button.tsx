@@ -5,10 +5,12 @@ import { cn } from "@/lib/cn";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
+export type ButtonShape = "default" | "pill";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   size?: ButtonSize;
+  shape?: ButtonShape;
   loading?: boolean;
   ref?: Ref<HTMLButtonElement>;
 }
@@ -30,12 +32,18 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
   lg: "min-h-11 px-5 py-2.5 text-base",
 };
 
+const SHAPE_CLASSES: Record<ButtonShape, string> = {
+  default: "rounded-[var(--radius-md)]",
+  pill: "rounded-full",
+};
+
 /**
  * Accessible button primitive adhering to Noka Light/Dark tokens.
  */
 export function Button({
   variant = "primary",
   size = "md",
+  shape = "default",
   type = "button",
   loading = false,
   disabled,
@@ -51,7 +59,8 @@ export function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center gap-2 font-medium transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+        SHAPE_CLASSES[shape],
         VARIANT_CLASSES[variant],
         SIZE_CLASSES[size],
         className,

@@ -27,7 +27,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       title={actionLabel}
       onClick={() => updatePreferences({ theme: isDark ? "light" : "dark" })}
       className={cn(
-        "inline-flex min-h-10 min-w-10 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] cursor-pointer",
+        "inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-subtle)] cursor-pointer",
         className,
       )}
     >

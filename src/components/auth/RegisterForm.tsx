@@ -171,12 +171,17 @@ export function RegisterForm() {
             required
           />
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button
+            type="submit"
+            shape="pill"
+            disabled={submitting}
+            className="w-full font-semibold"
+          >
             {submitting ? t.auth.registeringButton : t.auth.registerButton}
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="justify-center border-t border-[var(--border-default)] pt-4 text-sm text-[var(--text-secondary)]">
+      <CardFooter className="justify-center border-t border-[var(--border-subtle)] pt-4 text-sm text-[var(--text-secondary)]">
         <span>{t.auth.hasAccountPrompt}</span>
         <Link
           href="/login"

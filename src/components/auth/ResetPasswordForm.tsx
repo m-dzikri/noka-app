@@ -119,7 +119,7 @@ export function ResetPasswordForm({ initialToken }: ResetPasswordFormProps) {
             </div>
             <Link
               href="/login"
-              className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-[var(--accent-primary)] px-4 py-2 text-sm font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
             >
               {t.auth.loginButton}
             </Link>
@@ -160,7 +160,12 @@ export function ResetPasswordForm({ initialToken }: ResetPasswordFormProps) {
               required
             />
 
-            <Button type="submit" disabled={submitting} className="w-full">
+            <Button
+              type="submit"
+              shape="pill"
+              disabled={submitting}
+              className="w-full font-semibold"
+            >
               {submitting
                 ? t.auth.resettingPasswordButton
                 : t.auth.resetPasswordButton}
@@ -168,7 +173,7 @@ export function ResetPasswordForm({ initialToken }: ResetPasswordFormProps) {
           </form>
         )}
       </CardContent>
-      <CardFooter className="justify-center border-t border-[var(--border-default)] pt-4 text-sm">
+      <CardFooter className="justify-center border-t border-[var(--border-subtle)] pt-4 text-sm">
         <Link
           href="/login"
           className="font-semibold text-[var(--text-primary)] underline-offset-4 hover:underline"

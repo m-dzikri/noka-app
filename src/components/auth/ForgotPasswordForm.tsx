@@ -106,7 +106,12 @@ export function ForgotPasswordForm() {
               required
             />
 
-            <Button type="submit" disabled={submitting} className="w-full">
+            <Button
+              type="submit"
+              shape="pill"
+              disabled={submitting}
+              className="w-full font-semibold"
+            >
               {submitting
                 ? t.auth.sendingResetLinkButton
                 : t.auth.sendResetLinkButton}
@@ -114,7 +119,7 @@ export function ForgotPasswordForm() {
           </form>
         )}
       </CardContent>
-      <CardFooter className="justify-center border-t border-[var(--border-default)] pt-4 text-sm">
+      <CardFooter className="justify-center border-t border-[var(--border-subtle)] pt-4 text-sm">
         <Link
           href="/login"
           className="font-semibold text-[var(--text-primary)] underline-offset-4 hover:underline"

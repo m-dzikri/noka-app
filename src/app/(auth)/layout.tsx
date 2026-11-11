@@ -18,17 +18,23 @@ export default function AuthLayout({
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--bg-canvas)] text-[var(--text-primary)]">
-      <header className="border-b border-[var(--border-default)] bg-[var(--bg-canvas)]/95">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
-          <Link
-            href="/"
-            className="inline-flex min-h-10 items-center text-base font-bold tracking-tight text-[var(--text-primary)]"
-          >
-            {t.common.appName}
-          </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <LocaleToggle />
-            <ThemeToggle />
+      <header className="sticky top-0 z-20 pt-2.5">
+        <div className="mx-auto w-full max-w-[1360px] px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 px-3 py-1.5 shadow-[var(--shadow-pill)] backdrop-blur-md sm:px-4">
+            <Link
+              href="/"
+              className="inline-flex min-h-10 min-w-10 shrink-0 items-center gap-2 px-1.5 text-base font-bold tracking-tight text-[var(--text-primary)]"
+            >
+              <span
+                aria-hidden="true"
+                className="inline-block h-3.5 w-3.5 rounded-full bg-[var(--accent-primary)]"
+              />
+              <span>{t.common.appName}</span>
+            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <LocaleToggle />
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </header>

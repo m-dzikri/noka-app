@@ -22,8 +22,8 @@ export default function OpenGraphImage() {
           flexDirection: "column",
           justifyContent: "space-between",
           padding: "64px",
-          backgroundColor: "#0f172a",
-          color: "#f8fafc",
+          backgroundColor: "#161616",
+          color: "#ededed",
           fontFamily: "sans-serif",
         }}
       >
@@ -48,8 +48,8 @@ export default function OpenGraphImage() {
               style={{
                 width: "20px",
                 height: "20px",
-                borderRadius: "6px",
-                backgroundColor: "#4ade80",
+                borderRadius: "9999px",
+                backgroundColor: "#ff7448",
                 display: "flex",
               }}
             />
@@ -58,10 +58,10 @@ export default function OpenGraphImage() {
           <div
             style={{
               display: "flex",
-              padding: "8px 16px",
+              padding: "8px 18px",
               borderRadius: "9999px",
-              border: "1px solid #475569",
-              color: "#cbd5e1",
+              border: "1px solid #4a4a4a",
+              color: "#c9c9c9",
               fontSize: "20px",
             }}
           >
@@ -84,7 +84,7 @@ export default function OpenGraphImage() {
               fontWeight: 700,
               lineHeight: 1.1,
               letterSpacing: "-0.03em",
-              color: "#ffffff",
+              color: "#f7f7f6",
             }}
           >
             Seringan Notepad, Serapi Buku Kas.
@@ -94,7 +94,7 @@ export default function OpenGraphImage() {
               display: "flex",
               fontSize: "28px",
               lineHeight: 1.4,
-              color: "#cbd5e1",
+              color: "#c9c9c9",
             }}
           >
             Markdown Notes • Smart Quick Capture • Safe-to-Spend • Privacy Blur
@@ -113,11 +113,11 @@ export default function OpenGraphImage() {
                 key={label}
                 style={{
                   display: "flex",
-                  padding: "10px 20px",
-                  borderRadius: "10px",
-                  backgroundColor: "#1e293b",
-                  border: "1px solid #334155",
-                  color: "#f8fafc",
+                  padding: "10px 22px",
+                  borderRadius: "9999px",
+                  backgroundColor: "#222222",
+                  border: "1px solid #333333",
+                  color: "#ededed",
                   fontSize: "22px",
                   fontWeight: 600,
                 }}

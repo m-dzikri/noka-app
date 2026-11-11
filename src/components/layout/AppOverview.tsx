@@ -36,7 +36,7 @@ export function AppOverview() {
       <div className="grid gap-4 sm:grid-cols-2">
         <Card className="flex flex-col justify-between gap-4">
           <CardHeader className="mb-0">
-            <div className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] bg-[var(--bg-subtle)] text-[var(--text-primary)]">
+            <div className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--bg-subtle)] text-[var(--accent-text)]">
               <FileText className="h-5 w-5" aria-hidden="true" />
             </div>
             <CardTitle>{t.common.notesCardTitle}</CardTitle>
@@ -45,7 +45,7 @@ export function AppOverview() {
           <CardContent>
             <Link
               href="/app/notes"
-              className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] bg-[var(--accent-primary)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] transition-colors"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full bg-[var(--accent-primary)] px-4.5 py-2 text-sm font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
             >
               <span>{t.common.openNotes}</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -55,7 +55,7 @@ export function AppOverview() {
 
         <Card className="flex flex-col justify-between gap-4">
           <CardHeader className="mb-0">
-            <div className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] bg-[var(--bg-subtle)] text-[var(--text-primary)]">
+            <div className="mb-2 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--bg-subtle)] text-[var(--accent-text)]">
               <Wallet className="h-5 w-5" aria-hidden="true" />
             </div>
             <CardTitle>{t.common.financeCardTitle}</CardTitle>
@@ -64,7 +64,7 @@ export function AppOverview() {
           <CardContent>
             <Link
               href="/app/finance"
-              className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-canvas)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] px-4.5 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)]"
             >
               <span>{t.common.openFinance}</span>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />

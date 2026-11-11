@@ -42,6 +42,8 @@ export interface LandingDictionary {
   seoDescription: string;
   header: {
     primaryNavAriaLabel: string;
+    previewLink: string;
+    featuresLink: string;
     openWorkspace: string;
     signIn: string;
     signUp: string;
@@ -127,6 +129,8 @@ export interface Dictionary {
     openMenuAriaLabel: string;
     closeMenuAriaLabel: string;
     mobileMenuAriaLabel: string;
+    languageLabel: string;
+    themeLabel: string;
     notes: string;
     finance: string;
     settings: string;

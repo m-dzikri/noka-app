@@ -28,6 +28,8 @@ export const idDictionary: Dictionary = {
     openMenuAriaLabel: "Buka menu navigasi",
     closeMenuAriaLabel: "Tutup menu navigasi",
     mobileMenuAriaLabel: "Menu seluler",
+    languageLabel: "Bahasa",
+    themeLabel: "Tema",
     notes: "Catatan",
     finance: "Keuangan",
     settings: "Pengaturan",
@@ -149,6 +151,8 @@ export const idDictionary: Dictionary = {
       "Catatan Markdown, checklist GFM interaktif, Quick Capture offline, Safe-to-Spend harian, dan Privacy Blur dalam satu workspace ringan.",
     header: {
       primaryNavAriaLabel: "Navigasi utama landing",
+      previewLink: "Pratinjau",
+      featuresLink: "Fitur",
       openWorkspace: "Buka Workspace",
       signIn: "Masuk",
       signUp: "Daftar",

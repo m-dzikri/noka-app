@@ -37,11 +37,12 @@ export function LogoutButton() {
     <Button
       type="button"
       variant="ghost"
-      size="sm"
+      size="md"
+      shape="pill"
       disabled={loggingOut}
       onClick={handleLogout}
       aria-label={t.auth.logoutButton}
-      className="gap-1.5"
+      className="w-full justify-between gap-2 border border-[var(--border-default)] md:w-auto md:justify-center md:border-transparent"
     >
       <LogOut className="h-4 w-4" aria-hidden="true" />
       <span>{loggingOut ? t.auth.loggingOutButton : t.auth.logoutButton}</span>

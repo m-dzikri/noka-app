@@ -81,7 +81,7 @@ export const MobileMenuButton = forwardRef<
       title={label}
       onClick={onToggle}
       className={cn(
-        "inline-flex min-h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]",
+        "inline-flex min-h-10 min-w-10 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[var(--border-default)] bg-[var(--bg-surface)] p-2 text-[var(--text-primary)] transition-colors hover:bg-[var(--bg-subtle)]",
         className,
       )}
     >

@@ -73,6 +73,7 @@ export function FeaturePreviewCard() {
           <Button
             type="button"
             variant={demoBlurred ? "primary" : "secondary"}
+            shape="pill"
             aria-pressed={demoBlurred}
             onClick={() => setDemoBlurred((prev) => !prev)}
             className="min-h-10 shrink-0"
@@ -94,12 +95,15 @@ export function FeaturePreviewCard() {
         </div>
       </div>
 
-      <Card className="flex flex-col gap-5 p-4 sm:p-6">
+      <Card className="flex flex-col gap-6 rounded-3xl p-5 sm:p-8">
         {/* (a) Preset Smart Quick Capture Demo */}
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-              <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <Sparkles
+                className="h-4 w-4 shrink-0 text-[var(--accent-text)]"
+                aria-hidden="true"
+              />
               <span>{t.landing.preview.quickCaptureLabel}</span>
             </div>
             <span className="text-xs text-[var(--text-secondary)]">
@@ -117,10 +121,10 @@ export function FeaturePreviewCard() {
                   aria-pressed={isSelected}
                   onClick={() => setSelectedPresetId(preset.id)}
                   className={cn(
-                    "min-h-10 cursor-pointer rounded-[var(--radius-md)] border px-3 py-2 font-mono text-xs font-medium transition-colors sm:text-sm",
+                    "min-h-10 cursor-pointer rounded-full border px-3.5 py-2 font-mono text-xs font-medium transition-colors sm:text-sm",
                     isSelected
-                      ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--accent-foreground)]"
-                      : "border-[var(--border-default)] bg-[var(--bg-canvas)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] hover:border-[var(--border-strong)]",
+                      ? "border-[var(--accent-primary)] bg-[var(--accent-primary)] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)]"
+                      : "border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-canvas)]",
                   )}
                 >
                   {preset.chip}
@@ -131,7 +135,7 @@ export function FeaturePreviewCard() {
 
           <div
             data-testid="quick-capture-result"
-            className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
           >
             <div className="flex flex-col gap-1">
               <span className="text-xs font-medium text-[var(--text-secondary)]">
@@ -140,7 +144,7 @@ export function FeaturePreviewCard() {
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={cn(
-                    "inline-flex items-center rounded-full border border-[var(--border-default)] bg-[var(--bg-canvas)] px-2.5 py-0.5 text-xs font-semibold",
+                    "inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2.5 py-0.5 text-xs font-semibold",
                     activePreset.id === "expense" &&
                       "text-[var(--status-expense)]",
                     activePreset.id === "income" &&
@@ -191,7 +195,7 @@ export function FeaturePreviewCard() {
 
         {/* (b) Interactive GFM Checklist + (c) Safe-to-Spend & Linked Notes */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-canvas)] p-4">
+          <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 sm:p-5">
             <p className="text-sm font-semibold text-[var(--text-primary)]">
               {t.landing.preview.checklistHeading}
             </p>
@@ -201,7 +205,7 @@ export function FeaturePreviewCard() {
                 return (
                   <label
                     key={item.id}
-                    className="flex min-h-11 cursor-pointer items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm transition-colors hover:bg-[var(--bg-subtle)]"
+                    className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3.5 py-2 text-sm transition-colors hover:border-[var(--border-default)]"
                   >
                     <input
                       type="checkbox"
@@ -224,10 +228,13 @@ export function FeaturePreviewCard() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-                <Wallet className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <Wallet
+                  className="h-4 w-4 shrink-0 text-[var(--accent-text)]"
+                  aria-hidden="true"
+                />
                 <span>{t.landing.preview.safeToSpendTitle}</span>
               </div>
               <p className="text-base text-[var(--text-primary)]">
@@ -250,9 +257,12 @@ export function FeaturePreviewCard() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-1.5 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-subtle)] p-4">
+            <div className="flex flex-col gap-1.5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 sm:p-5">
               <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
-                <Link2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <Link2
+                  className="h-4 w-4 shrink-0 text-[var(--accent-text)]"
+                  aria-hidden="true"
+                />
                 <span>{t.landing.preview.linkedNotesTitle}</span>
               </div>
               <p className="text-sm text-[var(--text-primary)]">

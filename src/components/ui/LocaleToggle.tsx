@@ -19,7 +19,7 @@ export function LocaleToggle({ className }: LocaleToggleProps) {
       role="group"
       aria-label={t.preferences.localeToggleLabel}
       className={cn(
-        "inline-flex min-h-10 items-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] p-0.5",
+        "inline-flex min-h-10 items-center rounded-full border border-[var(--border-default)] bg-[var(--bg-subtle)] p-0.5",
         className,
       )}
     >
@@ -29,9 +29,9 @@ export function LocaleToggle({ className }: LocaleToggleProps) {
         title={t.preferences.switchToId}
         onClick={() => updatePreferences({ locale: "id" })}
         className={cn(
-          "inline-flex min-h-10 min-w-10 items-center justify-center rounded-[calc(var(--radius-md)-2px)] px-3 text-xs font-semibold transition-colors cursor-pointer",
+          "inline-flex min-h-10 min-w-10 items-center justify-center rounded-full px-3 text-xs font-semibold transition-colors cursor-pointer",
           locale === "id"
-            ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)]"
+            ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)]"
             : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
         )}
       >
@@ -43,9 +43,9 @@ export function LocaleToggle({ className }: LocaleToggleProps) {
         title={t.preferences.switchToEn}
         onClick={() => updatePreferences({ locale: "en" })}
         className={cn(
-          "inline-flex min-h-10 min-w-10 items-center justify-center rounded-[calc(var(--radius-md)-2px)] px-3 text-xs font-semibold transition-colors cursor-pointer",
+          "inline-flex min-h-10 min-w-10 items-center justify-center rounded-full px-3 text-xs font-semibold transition-colors cursor-pointer",
           locale === "en"
-            ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)]"
+            ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)]"
             : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
         )}
       >

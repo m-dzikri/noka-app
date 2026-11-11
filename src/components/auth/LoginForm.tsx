@@ -164,12 +164,17 @@ export function LoginForm() {
             </Link>
           </div>
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button
+            type="submit"
+            shape="pill"
+            disabled={submitting}
+            className="w-full font-semibold"
+          >
             {submitting ? t.auth.loggingInButton : t.auth.loginButton}
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="justify-center border-t border-[var(--border-default)] pt-4 text-sm text-[var(--text-secondary)]">
+      <CardFooter className="justify-center border-t border-[var(--border-subtle)] pt-4 text-sm text-[var(--text-secondary)]">
         <span>{t.auth.noAccountPrompt}</span>
         <Link
           href="/register"
