@@ -54,7 +54,7 @@ export function FeaturePreviewCard() {
     <section
       id="preview"
       aria-labelledby="landing-preview-heading"
-      className="flex flex-col gap-5"
+      className="flex scroll-mt-48 flex-col gap-5 sm:scroll-mt-24"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex max-w-2xl flex-col gap-1.5">
