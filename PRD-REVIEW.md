@@ -14,8 +14,8 @@ Secara fondasi, `PRD.md` (v1.0) sudah sangat baik dalam mendefinisikan visi prod
 
 ## 2. Step 0: Grounding in Reality & Unverified Claims
 
-1. **Referensi Desain `https://nomu.store/` (Belum Terverifikasi Langsung):**  
-   `PRD.md` merujuk gaya visual `nomu.store` (minimalis, kontras tinggi, tipografi sans-serif tegas, kartu interaktif, animasi halus) berdasarkan ringkasan web sekunder, bukan inspeksi langsung *live DOM/CSS* di browser. Di `PRD.v2.md`, posisi ini dicatat jujur sebagai **inspirasi visual** yang tunduk pada token internal Noka (`NFR-4`) dan standar kontras WCAG 2.1 AA (`NFR-5`).
+1. **Referensi Gaya Visual Awal (Belum Terverifikasi Langsung):**  
+   `PRD.md` v1.0 merujuk gaya visual eksternal (minimalis, kontras tinggi, tipografi sans-serif tegas, kartu interaktif, animasi halus) berdasarkan ringkasan sekunder, bukan inspeksi langsung *live DOM/CSS* di browser. Di `PRD.v2.md`, posisi ini dicatat sebagai inspirasi visual internal yang tunduk pada token Noka (`NFR-4`) dan standar kontras WCAG 2.1 AA (`NFR-5`).
 2. **Realitas Browser untuk Offline Sync (iOS Safari):**  
    `PRD.md` tidak menyebut pemicu sinkronisasi offline. Pada kenyataannya, **iOS Safari tidak mendukung `Background Sync API` (`SyncManager`)**, sehingga sinkronisasi offline pada web app lintas perangkat wajib bertumpu pada event `online`, fokus/pembukaan aplikasi, dan tombol sinkronisasi manual (`FR-16`, `DEC-8`).
 3. **Tech Stack & Layanan Infrastruktur Belum Terkunci:**  

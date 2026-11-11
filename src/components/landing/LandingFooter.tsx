@@ -15,22 +15,25 @@ export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
   const { t } = useI18n();
 
   return (
-    <footer className="border-t border-[var(--border-default)] bg-[var(--bg-surface)]">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
+    <footer className="border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+      <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 px-4 py-10 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 text-base font-semibold text-[var(--text-primary)]">
-            <ShieldCheck className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <ShieldCheck
+              className="h-5 w-5 shrink-0 text-[var(--accent-text)]"
+              aria-hidden="true"
+            />
             <span>{t.landing.footer.privacyHeading}</span>
           </div>
 
           <ul
             data-testid="landing-privacy-points"
-            className="grid grid-cols-1 gap-3 md:grid-cols-3"
+            className="grid grid-cols-1 gap-4 md:grid-cols-3"
           >
             {t.landing.footer.privacyPoints.map((point, index) => (
               <li
                 key={index}
-                className="rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-canvas)] px-4 py-3 text-sm leading-relaxed text-[var(--text-secondary)]"
+                className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-5 py-4 text-sm leading-relaxed text-[var(--text-secondary)]"
               >
                 {point}
               </li>
@@ -38,7 +41,7 @@ export function LandingFooter({ isAuthenticated }: LandingFooterProps) {
           </ul>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-default)] pt-6 text-sm text-[var(--text-secondary)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-6 text-sm text-[var(--text-secondary)]">
           <span>{t.landing.footer.copyright}</span>
           <div className="flex flex-wrap items-center gap-4">
             {isAuthenticated ? (

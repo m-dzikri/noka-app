@@ -44,9 +44,9 @@ export function WorkspaceNav({ currentPath, className }: WorkspaceNavProps) {
             href={item.href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-10 items-center gap-1.5 rounded-[var(--radius-md)] px-3 py-1.5 text-sm font-medium transition-colors",
+              "inline-flex min-h-10 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors",
               isActive
-                ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)]"
+                ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)] shadow-[var(--shadow-sm)]"
                 : "text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]",
             )}
           >

@@ -28,6 +28,8 @@ export const enDictionary: Dictionary = {
     openMenuAriaLabel: "Open navigation menu",
     closeMenuAriaLabel: "Close navigation menu",
     mobileMenuAriaLabel: "Mobile menu",
+    languageLabel: "Language",
+    themeLabel: "Theme",
     notes: "Notes",
     finance: "Finance",
     settings: "Settings",
@@ -149,6 +151,8 @@ export const enDictionary: Dictionary = {
       "Markdown notes, interactive GFM checklists, offline Smart Quick Capture, daily Safe-to-Spend, and one-click Privacy Blur in one lightweight workspace.",
     header: {
       primaryNavAriaLabel: "Landing primary navigation",
+      previewLink: "Preview",
+      featuresLink: "Features",
       openWorkspace: "Open Workspace",
       signIn: "Sign in",
       signUp: "Sign up",

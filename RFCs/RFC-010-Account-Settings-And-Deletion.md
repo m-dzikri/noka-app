@@ -95,3 +95,4 @@ Semua route memakai amplop `API-1` (`apiOk`/`apiError`/`handleApiError`), `requi
 ## Implementation Considerations
 
 - **Ordering in Account Deletion**: FK `ON DELETE RESTRICT` pada `transactions`/`transfers` di `RFC-001` melindungi dompet/kategori dari hapus parsial (`DATA-4`), sehingga `DELETE /api/account` wajib menghapus `transfers`, `transactions`, `wallets`, dan `categories` sebelum menghapus `users`.
+- **Visual System (`CHANGE-REQUEST-002`, `UI-1`–`UI-3`):** Halaman `/app/settings` (`ProfileSettingsForm`, `ChangePasswordForm`, `DeleteAccountSection`) berjalan di dalam `AppShell` (`max-w-[1360px]`), menjaga lebar baca form yang nyaman dengan kartu `rounded-2xl`, input `--bg-surface` + `--border-default`, tombol aksi pill/rounded sesuai palet `#ededed`/`#222222`/`#ff7448`, serta `Modal` konfirmasi hapus ber-backdrop `#161616/60`.

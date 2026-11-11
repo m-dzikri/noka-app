@@ -13,7 +13,7 @@
 
 Pengguna—terutama mahasiswa dan pekerja kantoran—sering kali memecah pencatatan hariannya ke dua tempat terpisah: catatan cepat di Notepad/Notes HP dan pencatatan keuangan di spreadsheet atau aplikasi finansial yang terasa kaku dan terlalu banyak form. **Noka** menyatukan keduanya dalam satu rumah dengan navigasi yang tetap terpisah secara bersih (**Catatan** dan **Keuangan**), namun terhubung secara opsional melalui **Smart Quick Capture**, **Linked Notes ↔ Transaksi**, **Safe-to-Spend harian**, serta **Privacy Blur** sekali klik.
 
-Secara visual, Noka mengadopsi arah desain minimalis modern berkonsep kontras tinggi dengan tipografi sans-serif tegas, *whitespace* lega, dan komponen kartu interaktif yang terinspirasi dari `nomu.store`, dilengkapi mode **Light & Dark**, pilihan bahasa **Indonesia & Inggris (ID/EN)**, halaman perkenalan publik ramah SEO, serta kemampuan **PWA Offline-First**. Proyek ini dirancang dengan standar kualitas tinggi untuk menjadi proyek portofolio siap produksi dalam target **1 minggu (v1.0)** sebelum dilanjutkan ke modul finansial lanjutan (**v1.1**).
+Secara visual, Noka mengadopsi arah desain minimalis modern berkonsep hangat dan kontras jelas (`#ededed`, `#222222`, aksen `#ff7448`, tanpa putih/hitam murni) dengan tipografi sans-serif tegas, header mengambang berbentuk pil, hero terpusat berlatar grid halus yang memudar ke bawah, *whitespace* seimbang, dan komponen kartu interaktif, dilengkapi mode **Light & Dark**, pilihan bahasa **Indonesia & Inggris (ID/EN)**, halaman perkenalan publik ramah SEO, serta kemampuan **PWA Offline-First**. Proyek ini dirancang dengan standar kualitas tinggi untuk menjadi proyek portofolio siap produksi dalam target **1 minggu (v1.0)** sebelum dilanjutkan ke modul finansial lanjutan (**v1.1**).
 
 ---
 
@@ -103,7 +103,7 @@ Secara visual, Noka mengadopsi arah desain minimalis modern berkonsep kontras ti
 ### Jalur Kritis & Inti v1.0 (*Must Have*)
 
 - **FR-1** *(Must Have — v1.0)* — **Public Landing Page & Bilingual Showcase:**  
-  Sistem menyediakan landing page publik (dapat diakses tanpa login) dengan estetika minimalis modern terinspirasi arah visual `nomu.store` (tipografi sans-serif tegas, *whitespace* lega, kartu fitur interaktif, animasi halus yang menghormati *reduced motion*), dilengkapi pengalih tema Light/Dark, pengalih bahasa ID/EN, metadata SEO, ringkasan privasi data di footer, dan CTA menuju Daftar/Masuk.
+  Sistem menyediakan landing page publik (dapat diakses tanpa login) dengan estetika minimalis modern bernuansa hangat (header pil mengambang, hero terpusat penuh satu layar awal desktop & mobile di atas latar grid kotak-kotak yang memudar ke bawah setelah satu layar penuh, tipografi sans-serif tegas, layout desktop seimbang, kartu fitur interaktif, animasi halus yang menghormati *reduced motion*), dilengkapi pengalih tema Light/Dark, pengalih bahasa ID/EN, metadata SEO, ringkasan privasi data di footer, dan CTA menuju Daftar/Masuk.
 
 - **FR-2** *(Must Have — v1.0)* — **Autentikasi Langsung Masuk & Manajemen Profil:**  
   Pengguna dapat mendaftar menggunakan Email, Nama, dan Password (minimal 8 karakter) lalu langsung masuk ke aplikasi tanpa verifikasi email wajib. Pengguna dapat login, logout (yang sekaligus menghapus cache privat offline pada browser), mengubah profil, mengganti password (dengan verifikasi password lama), memilih bahasa default (ID/EN), memilih tema (Light/Dark), dan mengatur tanggal mulai siklus bulanan (1–28 atau `akhir bulan`, dengan penyesuaian otomatis ke hari terakhir bulan untuk bulan yang lebih pendek).
@@ -183,8 +183,8 @@ Secara visual, Noka mengadopsi arah desain minimalis modern berkonsep kontras ti
 - **NFR-3 — Desain Responsif Lintas Perangkat:**  
   Seluruh halaman dan modal berfungsi rapi tanpa *horizontal overflow* atau elemen terpotong pada Mobile (≥ 360px), Tablet (768px–1024px), dan Desktop (≥ 1280px), dengan navigasi utama dan tombol *Quick Capture* nyaman dijangkau satu tangan di ponsel.
 
-- **NFR-4 — Estetika Visual (`nomu.store` Inspiration) & Konsistensi Tema:**  
-  Menggunakan token desain minimalis modern berkonsep kontras tinggi dengan tipografi sans-serif terstruktur, *whitespace* lega, kartu interaktif bersih pada **Light Mode** dan **Dark Mode**, serta mematuhi preferensi sistem `prefers-reduced-motion`. *(Catatan Grounding: Karena referensi `nomu.store` tidak diaudit kode sumber/token pastinya secara langsung, detail palet dan animasi ditetapkan sebagai token desain internal Noka pada tahap aturan/RFC).*
+- **NFR-4 — Estetika Visual Hangat & Konsistensi Tema:**  
+  Menggunakan token desain minimalis modern Noka dengan tiga warna inti (`#ededed`, `#222222`, `#ff7448` tanpa putih/hitam murni `#ffffff`/`#000000`), tipografi sans-serif terstruktur, header pil mengambang, *whitespace* seimbang pada desktop, kartu interaktif bersih pada **Light Mode** dan **Dark Mode**, serta mematuhi preferensi sistem `prefers-reduced-motion`.
 
 - **NFR-5 — Aksesibilitas (a11y):**  
   Rasio kontras teks memenuhi standar minimum **WCAG 2.1 Level AA** pada Light Mode dan Dark Mode. Seluruh aksi inti dapat dioperasikan lewat keyboard (termasuk pintasan *Quick Capture*), memiliki *focus ring* terlihat jelas, serta atribut ARIA akurat pada tombol ikon seperti *Privacy Blur*, *Pin*, dan pengalih tema/bahasa.
@@ -291,7 +291,7 @@ Keputusan-keputusan berikut mengikat desain produk dan arsitektur; setiap peruba
 | **DEC-7** | Seluruh data bersifat **100% privat per akun** pada v1.0. | Menjaga arsitektur otorisasi tetap sederhana, aman, dan selesai tepat waktu dalam 1 minggu. | Kolaborasi multi-user atau berbagi catatan publik antar-akun. |
 | **DEC-8** | Mode offline v1.0 menggunakan **IndexedDB cache + antrean tulis offline + *Last-Write-Wins*** untuk teks/catatan, dipicu oleh event `online`/fokus/manual. | Memberikan pengalaman offline-first andal termasuk di iOS Safari (tanpa bergantung pada `Background Sync API`). | Online-only, CRDT kompleks, atau mengandalkan `SyncManager` yang gagal di iOS Safari. |
 | **DEC-9** | Lampiran catatan pada v1.0 dibatasi **gambar saja (JPEG/PNG/WebP), maks. 5 MB/file dan 5 gambar/catatan, serta hanya dapat diunggah saat online**. | Menjaga konsumsi storage tetap terkendali dan menghindari kerumitan antrean unggah blob biner offline di minggu pertama. | Unggahan file bebas ukuran/format atau antrean blob 5 MB offline di v1.0. |
-| **DEC-10** | UI dan Landing Page mendukung **Bilingual (ID/EN)** serta **Light & Dark Mode** berinspirasi desain `nomu.store`. | Meningkatkan daya tarik untuk target lokal maupun penilai portofolio internasional, serta kenyamanan siang/malam. | Aplikasi satu bahasa saja atau tanpa Dark Mode. |
+| **DEC-10** | UI dan Landing Page mendukung **Bilingual (ID/EN)** serta **Light & Dark Mode** dengan sistem desain hangat internal Noka (`#ededed`, `#222222`, `#ff7448`). | Meningkatkan daya tarik untuk target lokal maupun penilai portofolio internasional, serta kenyamanan siang/malam. | Aplikasi satu bahasa saja atau tanpa Dark Mode. |
 | **DEC-11** | **Saldo dompet diturunkan dari `saldoAwal` + ledger transaksi & transfer**, bukan kolom saldo bebas yang ditimpa *Last-Write-Wins*. | Mencegah saldo dompet korup atau selisih saat dua perangkat mencatat transaksi secara offline lalu melakukan sinkronisasi. | Menimpa kolom saldo akhir dompet langsung dengan LWW dari klien. |
 | **DEC-12** | **Safe-to-Spend** menggunakan rumus pasti `max(0, floor(totalSaldoDompetTerpilih / sisaHariSiklusInklusif))`, default aktif hanya pada Tunai & E-Wallet. | Menghilangkan ambiguitas perhitungan dan mencegah dana tabungan di Bank ikut terhitung sebagai jatah jajan harian. | Menggabungkan seluruh saldo Bank secara paksa atau menampilkan rumus ganda yang ambigu. |
 | **DEC-13** | Kebijakan **integritas referensial**: dompet bertransaksi diarsipkan (bukan dihapus), kategori terhapus memindahkan transaksi ke *Lainnya*, folder terhapus memindahkan catatan ke akar, dan catatan terhapus melepas tautan transaksi tanpa menghapus transaksi. | Menjaga keakuratan buku kas historis dan mencegah hilangnya data keuangan atau catatan secara tidak sengaja. | Penghapusan berantai (*cascade delete*) yang diam-diam menghapus transaksi atau catatan. |
@@ -305,8 +305,8 @@ Keputusan-keputusan berikut mengikat desain produk dan arsitektur; setiap peruba
 
 1. **Pemilihan Tech Stack, Layanan Email & Object Storage Hosting:**  
    Stack implementasi konkret (misalnya Next.js full-stack + PostgreSQL/SQLite + S3/R2/Supabase Storage + Resend/SMTP untuk reset password) belum dikunci agar tetap fleksibel untuk dievaluasi pada tahap penyusunan aturan teknis (`RULES.md`) dan arsitektur (`RFCs`).
-2. **Verifikasi Visual Referensi `nomu.store`:**  
-   Desain `nomu.store` dalam dokumen ini mengacu pada ringkasan gaya visual (minimalis, kontras tinggi, tipografi sans-serif, kartu interaktif), bukan hasil inspeksi token warna/font langsung di browser. Pada tahap implementasi UI/Landing Page, seluruh token warna dan rasio kontras tetap mengikuti standar aksesibilitas internal Noka (`NFR-4`, `NFR-5`).
+2. **Standarisasi Token Visual & Aksesibilitas:**  
+   Seluruh palet warna (`#ededed`, `#222222`, `#ff7448`, permukaan *off-white*/*off-black* tanpa `#ffffff`/`#000000`), header pil mengambang, dan grid latar hero mengikuti token desain internal Noka serta rasio kontras WCAG 2.1 Level AA (`NFR-4`, `NFR-5`).
 3. **Kamus Kategori Bawaan & Sinonim Parser Lokal:**  
    Daftar lengkap kategori awal (misal Makanan & Minuman, Transportasi, Belanja, Tagihan, Hiburan, Gaji, Bonus, Lainnya) beserta daftar sinonim kata kunci ID/EN untuk parser *Smart Quick Capture* (`FR-11`) akan dispesifikasikan secara rinci pada RFC fitur terkait.
 4. **Batas Kuota Hosting Gratis / Portofolio:**  

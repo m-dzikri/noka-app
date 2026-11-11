@@ -41,18 +41,18 @@ export function renderPasswordResetEmail(input: SendPasswordResetInput): {
 
   const html = `<!doctype html>
 <html lang="${input.locale}">
-  <body style="font-family: sans-serif; color: #0f172a; background: #ffffff; padding: 24px; line-height: 1.6;">
-    <div style="max-width: 520px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px;">
-      <h1 style="font-size: 20px; margin: 0 0 12px;">${escapeHtml(auth.forgotPasswordEmailHeading)}</h1>
+  <body style="font-family: sans-serif; color: #222222; background: #ededed; padding: 24px; line-height: 1.6;">
+    <div style="max-width: 520px; margin: 0 auto; background: #f7f7f6; border: 1px solid #d6d6d4; border-radius: 16px; padding: 24px;">
+      <h1 style="font-size: 20px; margin: 0 0 12px; color: #222222;">${escapeHtml(auth.forgotPasswordEmailHeading)}</h1>
       <p style="margin: 0 0 12px;">${htmlGreeting}</p>
       <p style="margin: 0 0 20px;">${escapeHtml(auth.forgotPasswordEmailIntro)}</p>
       <p style="margin: 0 0 20px;">
-        <a href="${safeUrl}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 6px; font-weight: 600;">
+        <a href="${safeUrl}" style="display: inline-block; background: #ff7448; color: #222222; text-decoration: none; padding: 10px 20px; border-radius: 9999px; font-weight: 600;">
           ${escapeHtml(auth.forgotPasswordEmailAction)}
         </a>
       </p>
-      <p style="font-size: 13px; color: #475569; margin: 0 0 8px;">${escapeHtml(auth.forgotPasswordEmailExpiry)}</p>
-      <p style="font-size: 13px; color: #475569; margin: 0;">${escapeHtml(auth.forgotPasswordEmailIgnore)}</p>
+      <p style="font-size: 13px; color: #595959; margin: 0 0 8px;">${escapeHtml(auth.forgotPasswordEmailExpiry)}</p>
+      <p style="font-size: 13px; color: #595959; margin: 0;">${escapeHtml(auth.forgotPasswordEmailIgnore)}</p>
     </div>
   </body>
 </html>`;

@@ -36,7 +36,7 @@ function UserBadge({
     <span
       data-testid={testId}
       className={cn(
-        "inline-flex min-h-9 items-center truncate rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]",
+        "inline-flex min-h-10 items-center truncate rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]",
         maxWidthClass,
       )}
       title={user.email}
@@ -97,100 +97,112 @@ export function AppShell({
     <div className="flex min-h-dvh flex-col bg-[var(--bg-canvas)] text-[var(--text-primary)]">
       <a
         href="#noka-main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-[var(--radius-md)] focus:bg-[var(--accent-primary)] focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--accent-foreground)]"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-full focus:bg-[var(--accent-primary)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--accent-foreground)]"
       >
         {t.nav.skipToContent}
       </a>
 
-      <header
-        ref={containerRef}
-        className="sticky top-0 z-30 border-b border-[var(--border-default)] bg-[var(--bg-canvas)]/95 backdrop-blur"
-      >
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-3 py-2 sm:px-6 sm:py-2.5">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link
-              href="/app"
-              onClick={close}
-              className="inline-flex min-h-10 shrink-0 items-center text-base font-bold tracking-tight text-[var(--text-primary)]"
-            >
-              {t.common.appName}
-            </Link>
-            <WorkspaceNav
-              currentPath={resolvedPath}
-              className="hidden md:flex"
-            />
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2">
-            {syncStatusSlot}
-            {privacyBlurSlot}
-            <div className="hidden md:flex md:items-center md:gap-2">
-              <LocaleToggle />
-              <ThemeToggle />
-              {user ? (
-                <UserBadge
-                  user={user}
-                  maxWidthClass="max-w-40"
-                  testId="app-shell-user-badge"
+      <header ref={containerRef} className="sticky top-0 z-30 pt-2.5">
+        <div className="mx-auto w-full max-w-[1360px] px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-2 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 px-3 py-1.5 shadow-[var(--shadow-pill)] backdrop-blur-md sm:px-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <Link
+                href="/app"
+                onClick={close}
+                className="inline-flex min-h-10 min-w-10 shrink-0 items-center gap-2 px-1.5 text-base font-bold tracking-tight text-[var(--text-primary)]"
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-3.5 w-3.5 rounded-full bg-[var(--accent-primary)]"
                 />
-              ) : null}
-              {logoutSlot}
+                <span>{t.common.appName}</span>
+              </Link>
+              <WorkspaceNav
+                currentPath={resolvedPath}
+                className="hidden md:flex"
+              />
             </div>
-            <MobileMenuButton
-              ref={buttonRef}
-              isOpen={isOpen}
-              controlsId={menuId}
-              onToggle={toggle}
-              className="md:hidden"
-            />
-          </div>
-        </div>
 
-        {isOpen ? (
-          <div
-            id={menuId}
-            data-testid="app-shell-mobile-menu"
-            className="border-t border-[var(--border-default)] bg-[var(--bg-canvas)] px-3 py-3 sm:px-6 md:hidden"
-          >
-            <nav
-              aria-label={t.nav.mobileMenuAriaLabel}
-              className="mx-auto flex w-full max-w-5xl flex-col gap-3"
-            >
-              <div className="flex items-center justify-between gap-2">
+            <div className="flex shrink-0 items-center gap-2">
+              {syncStatusSlot}
+              {privacyBlurSlot}
+              <div className="hidden md:flex md:items-center md:gap-2">
                 <LocaleToggle />
                 <ThemeToggle />
+                {user ? (
+                  <UserBadge
+                    user={user}
+                    maxWidthClass="max-w-28 lg:max-w-44"
+                    testId="app-shell-user-badge"
+                  />
+                ) : null}
+                {logoutSlot}
               </div>
-              {user || logoutSlot ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-default)] pt-3">
-                  {user ? (
-                    <UserBadge user={user} maxWidthClass="max-w-56" />
-                  ) : (
-                    <span />
-                  )}
-                  {logoutSlot}
-                </div>
-              ) : null}
-            </nav>
+              <MobileMenuButton
+                ref={buttonRef}
+                isOpen={isOpen}
+                controlsId={menuId}
+                onToggle={toggle}
+                className="md:hidden"
+              />
+            </div>
           </div>
-        ) : null}
+
+          {isOpen ? (
+            <div
+              id={menuId}
+              data-testid="app-shell-mobile-menu"
+              className="mt-2 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)]/98 p-3 shadow-[var(--shadow-pill)] backdrop-blur-md md:hidden"
+            >
+              <nav
+                aria-label={t.nav.mobileMenuAriaLabel}
+                className="flex flex-col gap-2"
+              >
+                {user ? (
+                  <div className="flex w-full">
+                    <UserBadge user={user} maxWidthClass="w-full" />
+                  </div>
+                ) : null}
+
+                <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/60 px-3 py-1.5">
+                  <span className="text-sm font-medium text-[var(--text-secondary)]">
+                    {t.nav.languageLabel}
+                  </span>
+                  <LocaleToggle />
+                </div>
+
+                <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/60 px-3 py-1.5">
+                  <span className="text-sm font-medium text-[var(--text-secondary)]">
+                    {t.nav.themeLabel}
+                  </span>
+                  <ThemeToggle />
+                </div>
+
+                {logoutSlot ? (
+                  <div className="flex flex-col pt-1">{logoutSlot}</div>
+                ) : null}
+              </nav>
+            </div>
+          ) : null}
+        </div>
       </header>
 
       {quickCaptureSlot ? (
-        <div className="mx-auto w-full max-w-5xl px-3 pt-4 sm:px-6">
+        <div className="mx-auto w-full max-w-[1360px] px-3 pt-4 sm:px-6 lg:px-8">
           {quickCaptureSlot}
         </div>
       ) : null}
 
       <main
         id="noka-main-content"
-        className="mx-auto w-full max-w-5xl flex-1 px-3 py-5 pb-24 sm:px-6 md:pb-8"
+        className="mx-auto w-full max-w-[1360px] flex-1 px-3 py-5 pb-24 sm:px-6 md:pb-8 lg:px-8"
       >
         {children}
       </main>
 
       <nav
         aria-label={t.nav.mobileNavAriaLabel}
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-default)] bg-[var(--bg-canvas)]/95 px-2 py-1.5 backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border-subtle)] bg-[var(--bg-surface)]/95 px-2 py-1.5 backdrop-blur-md md:hidden"
       >
         <div className="mx-auto grid max-w-md grid-cols-4 items-center gap-1">
           <Link
@@ -201,9 +213,9 @@ export function AppShell({
                 : undefined
             }
             className={cn(
-              "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 text-xs font-medium",
+              "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-xs font-medium transition-colors",
               isWorkspaceRouteActive(resolvedPath, "/app/notes")
-                ? "text-[var(--text-primary)] underline underline-offset-4"
+                ? "bg-[var(--bg-subtle)] font-semibold text-[var(--text-primary)] underline underline-offset-4"
                 : "text-[var(--text-secondary)]",
             )}
           >
@@ -215,7 +227,7 @@ export function AppShell({
             type="button"
             onClick={handleMobileQuickAction}
             aria-label={t.nav.quickAction}
-            className="flex min-h-11 items-center justify-center gap-1 rounded-[var(--radius-md)] bg-[var(--accent-primary)] px-2 text-xs font-semibold text-[var(--accent-foreground)] cursor-pointer"
+            className="flex min-h-11 items-center justify-center gap-1 rounded-full bg-[var(--accent-primary)] px-2 text-xs font-semibold text-[var(--accent-foreground)] shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--accent-hover)] cursor-pointer"
           >
             <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="truncate">{t.common.quickActionButton}</span>
@@ -229,9 +241,9 @@ export function AppShell({
                 : undefined
             }
             className={cn(
-              "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 text-xs font-medium",
+              "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-xs font-medium transition-colors",
               isWorkspaceRouteActive(resolvedPath, "/app/finance")
-                ? "text-[var(--text-primary)] underline underline-offset-4"
+                ? "bg-[var(--bg-subtle)] font-semibold text-[var(--text-primary)] underline underline-offset-4"
                 : "text-[var(--text-secondary)]",
             )}
           >
@@ -247,9 +259,9 @@ export function AppShell({
                 : undefined
             }
             className={cn(
-              "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 text-xs font-medium",
+              "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-xs font-medium transition-colors",
               isWorkspaceRouteActive(resolvedPath, "/app/settings")
-                ? "text-[var(--text-primary)] underline underline-offset-4"
+                ? "bg-[var(--bg-subtle)] font-semibold text-[var(--text-primary)] underline underline-offset-4"
                 : "text-[var(--text-secondary)]",
             )}
           >

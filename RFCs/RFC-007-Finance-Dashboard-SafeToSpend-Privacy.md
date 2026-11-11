@@ -83,3 +83,9 @@ Menghadirkan **Dashboard Keuangan (`/app/finance`)** yang utuh (`F13`), kalkulat
 - [ ] **AC-7.3 (Privacy Blur Bebas Flash & `<PrivacyAmount />` — `F17`, `UI-4`, `UI-5`, `ARCH-4`):** `privacy-server.ts` & `PrivacyProvider` di `(app)/app/layout.tsx` (bukan root Landing Page) menyinkronkan cookie `noka_privacy_blur` (`"1"`/`"0"`) dan `localStorage` (`"true"`/`"false"`, dibaca saat cookie absen) tanpa flash SSR; `PrivacyBlurToggle` (`AppShell` `privacyBlurSlot`) memiliki `aria-pressed` & `focus-visible` ring; `<PrivacyAmount />` (`signMode` default `"auto"`, `0` tanpa `+`, negatif dengan `-`) mengubah seluruh nominal di dashboard & toggle langsung tanpa reload.
 - [ ] **AC-7.4 (Dashboard UI Terintegrasi & Responsif — `F13`, `UI-3`, `I18N-1`, `I18N-2`):** `FinanceWorkspace.tsx` (di dalam `src/app/(app)/app/finance/page.tsx`) merender `SafeToSpendCard`, `CashflowSummaryCards`, `WalletListSection` (dengan toggle arsip), `LedgerFilterBar`, `LedgerList` Load More, serta modal `RFC-006` dengan refresh ringkasan otomatis; seluruh teks ID/EN terketik di `types.ts`/`id.ts`/`en.ts` tanpa overflow di `360px`, `768px`, `1280px`.
 - [ ] **AC-7.5 (Tests & Quality — `TEST-1`, `TEST-2`, `TEST-3`, `QUAL-2`, `QUAL-3`):** `tests/unit/safe-to-spend.test.ts`, `tests/unit/privacy-blur.test.tsx`, dan `tests/integration/finance-summary.test.ts` lulus penuh bersama `npm run lint` dan `npx tsc --noEmit`.
+
+---
+
+## Implementation Considerations
+
+- **Visual System (`CHANGE-REQUEST-002`, `UI-1`–`UI-3`):** `SafeToSpendCard`, `CashflowSummaryCards`, `WalletListSection`, `LedgerFilterBar`, `LedgerList`, dan `PrivacyBlurToggle` mengikuti floating pill `AppShell` (`max-w-[1360px]`), pemakaian `Card` `rounded-2xl` dengan `--border-subtle`, aksen `#ff7448` (`--accent-primary` + `--accent-foreground: #222222`/`#1a1a1a`), dan `--border-default` pada kontrol filter interaktif.
