@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+import AuthLayout from "@/app/(auth)/layout";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { AppOverview } from "@/components/layout/AppOverview";
 import { AppShell } from "@/components/layout/AppShell";
@@ -295,7 +296,12 @@ describe("UI primitives, AppShell & accessible Modal (TS-001-07)", () => {
     expect(hamburger).toHaveAttribute("aria-expanded", "true");
     const mobileMenu = screen.getByTestId("app-shell-mobile-menu");
     const drawer = within(mobileMenu);
+    const drawerNav = drawer.getByRole("navigation", { name: "Menu seluler" });
+    expect(drawerNav.className).toContain("flex-col");
+    expect(drawerNav.children.length).toBe(4);
 
+    expect(drawer.getByText("Bahasa")).toBeInTheDocument();
+    expect(drawer.getByText("Tema")).toBeInTheDocument();
     expect(drawer.getByRole("button", { name: "ID" })).toBeInTheDocument();
     expect(drawer.getByRole("button", { name: "EN" })).toBeInTheDocument();
     const drawerThemeBtn = drawer.getByRole("button", { name: /mode gelap/i });
@@ -351,6 +357,21 @@ describe("UI primitives, AppShell & accessible Modal (TS-001-07)", () => {
     expect(openTrigger).toHaveAttribute("aria-expanded", "true");
     const guestMenu = screen.getByTestId("landing-mobile-menu");
     const guestDrawer = within(guestMenu);
+    const guestDrawerNav = guestDrawer.getByRole("navigation", {
+      name: "Menu seluler",
+    });
+    expect(guestDrawerNav.className).toContain("flex-col");
+    expect(guestMenu.innerHTML).not.toContain("grid-cols-2");
+
+    expect(guestDrawer.getByText("Bahasa")).toBeInTheDocument();
+    expect(guestDrawer.getByText("Tema")).toBeInTheDocument();
+    expect(
+      guestDrawer.getByRole("link", { name: "Pratinjau" }),
+    ).toHaveAttribute("href", "#preview");
+    expect(guestDrawer.getByRole("link", { name: "Fitur" })).toHaveAttribute(
+      "href",
+      "#features",
+    );
 
     expect(guestDrawer.getByRole("link", { name: "Masuk" })).toHaveAttribute(
       "href",
@@ -424,6 +445,30 @@ describe("UI primitives, AppShell & accessible Modal (TS-001-07)", () => {
     expect(screen.getByTestId("landing-mobile-menu")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("link", { name: "Noka" }));
     expect(screen.queryByTestId("landing-mobile-menu")).toBeNull();
+  });
+
+  it("renders AuthLayout as a floating pill header without a mobile hamburger toggle", () => {
+    const { container } = render(
+      <PreferencesProvider
+        initialLocale="id"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        <AuthLayout>
+          <div>Form Auth</div>
+        </AuthLayout>
+      </PreferencesProvider>,
+    );
+
+    const header = container.querySelector("header");
+    expect(header).not.toBeNull();
+    expect(header?.querySelector(".rounded-full")).not.toBeNull();
+    expect(header?.querySelector("button[aria-controls]")).toBeNull();
+    expect(screen.getByRole("button", { name: "ID" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /mode gelap/i }),
+    ).toBeInTheDocument();
   });
 });
 

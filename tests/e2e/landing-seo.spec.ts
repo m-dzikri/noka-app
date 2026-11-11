@@ -133,7 +133,7 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     expect(iconRes.status()).toBe(200);
     expect(iconRes.headers()["content-type"]).toContain("image/svg+xml");
 
-    // 4. Verify rendered anonymous hierarchy, 3 footer privacy points, and guest CTAs.
+    // 4. Verify rendered anonymous hierarchy, centered hero + fading grid, floating pill header, and guest CTAs.
     await page.goto("/");
     await expect(page.locator("h1")).toHaveCount(1);
     await expect(page.locator("h2")).toHaveCount(2);
@@ -141,6 +141,51 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     await expect(
       page.getByTestId("landing-privacy-points").locator("li"),
     ).toHaveCount(3);
+
+    const visualDesign = await page.evaluate(() => {
+      const heroSection = document.querySelector('[data-testid="landing-hero"]');
+      const previewHeading = document.getElementById("landing-preview-heading");
+      const heroGrid = document.querySelector(
+        '[data-testid="landing-hero-grid"]',
+      );
+      const pillBar = document.querySelector("header > div > div");
+      if (!heroSection || !previewHeading || !heroGrid || !pillBar) {
+        return null;
+      }
+      const gridStyle = window.getComputedStyle(heroGrid);
+      const gridRect = heroGrid.getBoundingClientRect();
+      const heroRect = heroSection.getBoundingClientRect();
+      const previewRect = previewHeading.getBoundingClientRect();
+      const pillRadius = Number.parseFloat(
+        window.getComputedStyle(pillBar).borderTopLeftRadius || "0",
+      );
+      return {
+        viewportHeight: window.innerHeight,
+        heroAlign: window.getComputedStyle(heroSection).textAlign,
+        heroBottom: heroRect.bottom,
+        previewHeadingTop: previewRect.top,
+        gridPointerEvents: gridStyle.pointerEvents,
+        gridHeight: gridRect.height,
+        gridMask:
+          gridStyle.maskImage ||
+          gridStyle.getPropertyValue("-webkit-mask-image"),
+        pillRadius,
+      };
+    });
+    expect(visualDesign).not.toBeNull();
+    expect(visualDesign!.heroAlign).toBe("center");
+    expect(visualDesign!.heroBottom).toBeGreaterThanOrEqual(
+      visualDesign!.viewportHeight - 8,
+    );
+    expect(visualDesign!.previewHeadingTop).toBeGreaterThanOrEqual(
+      visualDesign!.viewportHeight - 1,
+    );
+    expect(visualDesign!.gridPointerEvents).toBe("none");
+    expect(visualDesign!.gridHeight).toBeGreaterThan(
+      visualDesign!.viewportHeight,
+    );
+    expect(visualDesign!.gridMask).toContain("linear-gradient");
+    expect(visualDesign!.pillRadius).toBeGreaterThanOrEqual(999);
 
     const header = page.locator("header");
     const isMobileViewport = (page.viewportSize()?.width ?? 1280) < 640;
@@ -450,10 +495,23 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     for (const vp of viewports) {
       await page.setViewportSize(vp);
       const metrics = await page.evaluate(() => {
+        window.scrollTo(0, 0);
         const overflow =
           document.documentElement.scrollWidth > window.innerWidth;
         const headerEl = document.querySelector("header");
         const headerHeight = headerEl?.getBoundingClientRect().height ?? 0;
+        const heroBottom =
+          document
+            .querySelector('[data-testid="landing-hero"]')
+            ?.getBoundingClientRect().bottom ?? 0;
+        const previewHeadingTop =
+          document
+            .getElementById("landing-preview-heading")
+            ?.getBoundingClientRect().top ?? 0;
+        const gridHeight =
+          document
+            .querySelector('[data-testid="landing-hero-grid"]')
+            ?.getBoundingClientRect().height ?? 0;
         const visibleHeaderInteractive = Array.from(
           document.querySelectorAll("header a, header button"),
         ).filter((el) => {
@@ -473,6 +531,9 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
         return {
           overflow,
           headerHeight,
+          heroBottom,
+          previewHeadingTop,
+          gridHeight,
           visibleCount: visibleHeaderInteractive.length,
           minHeight,
           minWidth,
@@ -481,6 +542,18 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
       expect(metrics.overflow, `Horizontal overflow at ${vp.width}px`).toBe(
         false,
       );
+      expect(
+        metrics.heroBottom,
+        `Hero did not fill first viewport at ${vp.width}x${vp.height}`,
+      ).toBeGreaterThanOrEqual(vp.height - 8);
+      expect(
+        metrics.previewHeadingTop,
+        `Preview heading peeked into first viewport at ${vp.width}x${vp.height}`,
+      ).toBeGreaterThanOrEqual(vp.height - 1);
+      expect(
+        metrics.gridHeight,
+        `Grid height did not exceed first viewport at ${vp.width}x${vp.height}`,
+      ).toBeGreaterThan(vp.height);
       expect(
         metrics.headerHeight,
         `Header height exceeded single-row 72px bound at ${vp.width}px`,
@@ -515,6 +588,11 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
             const rect = el.getBoundingClientRect();
             return rect.width > 0 && rect.height > 0;
           });
+          const drawerNavRows = Array.from(
+            document.querySelectorAll(
+              '[data-testid="landing-mobile-menu"] nav > *, [data-testid="landing-mobile-menu"] nav > div > div > a',
+            ),
+          ).map((el) => el.getBoundingClientRect());
           const minHeight = Math.min(
             ...visibleDrawerControls.map(
               (el) => el.getBoundingClientRect().height,
@@ -525,11 +603,31 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
               (el) => el.getBoundingClientRect().width,
             ),
           );
+          // Every drawer item row (language row, theme row, anchors, and stacked CTA buttons) must flow top-to-bottom.
+          const topRows = Array.from(
+            document.querySelectorAll(
+              '[data-testid="landing-mobile-menu"] nav > *',
+            ),
+          ).map((el) => el.getBoundingClientRect());
+          const isTopRowsVertical = topRows.every(
+            (rect, idx) => idx === 0 || rect.top >= topRows[idx - 1].bottom - 1,
+          );
+          const ctaLinks = Array.from(
+            document.querySelectorAll(
+              '[data-testid="landing-mobile-menu"] nav > div > div > a',
+            ),
+          ).map((el) => el.getBoundingClientRect());
+          const isCtaLinksVertical = ctaLinks.every(
+            (rect, idx) => idx === 0 || rect.top >= ctaLinks[idx - 1].bottom - 1,
+          );
           return {
             overflow,
             controlCount: visibleDrawerControls.length,
             minHeight,
             minWidth,
+            drawerRowCount: drawerNavRows.length,
+            isTopRowsVertical,
+            isCtaLinksVertical,
           };
         });
 
@@ -541,6 +639,8 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
           drawerMetrics.controlCount,
           `Expected visible controls inside mobile drawer at ${vp.width}px`,
         ).toBeGreaterThanOrEqual(5);
+        expect(drawerMetrics.isTopRowsVertical).toBe(true);
+        expect(drawerMetrics.isCtaLinksVertical).toBe(true);
         expect(
           drawerMetrics.minHeight,
           `Mobile drawer control height < 40px at ${vp.width}px`,
@@ -554,6 +654,29 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
         await expect(openDrawer).toHaveCount(0);
       }
     }
+
+    // Verify /login at mobile uses single-row floating pill header WITHOUT hamburger menu.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/login");
+    const loginMetrics = await page.evaluate(() => {
+      const headerEl = document.querySelector("header");
+      const pillBar = document.querySelector("header > div > div");
+      return {
+        overflow: document.documentElement.scrollWidth > window.innerWidth,
+        headerHeight: headerEl?.getBoundingClientRect().height ?? 0,
+        hamburgerCount: document.querySelectorAll("header button[aria-controls]")
+          .length,
+        pillRadius: pillBar
+          ? Number.parseFloat(
+              window.getComputedStyle(pillBar).borderTopLeftRadius || "0",
+            )
+          : 0,
+      };
+    });
+    expect(loginMetrics.overflow).toBe(false);
+    expect(loginMetrics.headerHeight).toBeLessThanOrEqual(72);
+    expect(loginMetrics.hamburgerCount).toBe(0);
+    expect(loginMetrics.pillRadius).toBeGreaterThanOrEqual(999);
 
     expect(consoleErrors).toEqual([]);
     expect(pageErrors).toEqual([]);
