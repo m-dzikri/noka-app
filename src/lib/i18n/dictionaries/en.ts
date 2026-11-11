@@ -25,6 +25,9 @@ export const enDictionary: Dictionary = {
   nav: {
     workspaceAriaLabel: "Workspace navigation",
     mobileNavAriaLabel: "Mobile navigation",
+    openMenuAriaLabel: "Open navigation menu",
+    closeMenuAriaLabel: "Close navigation menu",
+    mobileMenuAriaLabel: "Mobile menu",
     notes: "Notes",
     finance: "Finance",
     settings: "Settings",
@@ -139,6 +142,127 @@ export const enDictionary: Dictionary = {
     bonus: "Bonus",
     refund: "Refund",
     other_income: "Other",
+  },
+  landing: {
+    seoTitle: "Noka — Light as a Notepad, Tidy as a Ledger",
+    seoDescription:
+      "Markdown notes, interactive GFM checklists, offline Smart Quick Capture, daily Safe-to-Spend, and one-click Privacy Blur in one lightweight workspace.",
+    header: {
+      primaryNavAriaLabel: "Landing primary navigation",
+      openWorkspace: "Open Workspace",
+      signIn: "Sign in",
+      signUp: "Sign up",
+    },
+    hero: {
+      eyebrow: "Markdown Notes & Multi-Wallet IDR Ledger",
+      title: "Light as a Notepad, Tidy as a Ledger.",
+      subtitle:
+        "Capture ideas, check off GFM tasks, and log expenses in seconds—working smoothly offline and protected by one-click Privacy Blur.",
+      primaryGuestCta: "Start Free",
+      secondaryGuestCta: "Sign in",
+      primaryAuthCta: "Open Workspace",
+      secondaryAuthCta: "Explore Preview",
+      trustLine:
+        "No email gate to start • 100% local text parsing • Strict per-account data isolation",
+    },
+    preview: {
+      sectionTitle: "Interactive Showcase",
+      sectionSubtitle:
+        "Try Quick Capture presets, GFM checklist toggles, Safe-to-Spend, Linked Notes, and Privacy Blur right here—with zero network requests.",
+      quickCaptureLabel: "Choose a Quick Capture preset",
+      quickCaptureHint:
+        "Type naturally: non-monetary numbers like chapter numbers or meeting times remain Notes.",
+      detectedHeading: "Local Detection Preview",
+      checklistHeading: "Interactive GFM Checklist",
+      safeToSpendTitle: "Daily Safe-to-Spend",
+      safeToSpendVisibleAmount: "Rp85.000",
+      safeToSpendSuffix: " / day • 12 days left",
+      safeToSpendSubtext: "Cash & E-Wallet included • Bank savings excluded",
+      linkedNotesTitle: "Linked Notes ↔ Transactions",
+      linkedNotesDetailPrefix: "Thesis & Research • 2 transactions • Net ",
+      linkedNotesVisibleAmount: "-Rp125.000",
+      privacyBlurButtonShow: "Enable Demo Privacy Blur",
+      privacyBlurButtonHide: "Disable Demo Privacy Blur",
+      privacyBlurHint:
+        "Preview-only demo toggle; leaves your account preferences untouched.",
+      presets: [
+        {
+          id: "expense",
+          chip: "kopi kenangan 24rb gopay",
+          kindLabel: "Expense",
+          categoryLabel: "Food & Drink",
+          walletLabel: "GoPay",
+          amountSign: "neutral",
+          amountText: "Rp24.000",
+          hintText: "Detected automatically: IDR 24rb amount + GoPay wallet",
+        },
+        {
+          id: "income",
+          chip: "+gaji 5jt bca",
+          kindLabel: "Income",
+          categoryLabel: "Salary",
+          walletLabel: "BCA",
+          amountSign: "positive",
+          amountText: "+Rp5.000.000",
+          hintText: "Leading + marks an income entry into your BCA wallet",
+        },
+        {
+          id: "note",
+          chip: "bab 3 skripsi",
+          kindLabel: "Note",
+          categoryLabel: "No Transaction",
+          noteTitle: "bab 3 skripsi",
+          hintText:
+            "Conservative rule: numbers like \"bab 3\" stay a note without false currency parsing",
+        },
+      ],
+      checklistItems: [
+        { id: "chk-1", label: "Review chapter 3 draft before advisor review" },
+        { id: "chk-2", label: "Log today's coffee and commute expenses" },
+        { id: "chk-3", label: "Check remaining Safe-to-Spend budget for the cycle" },
+      ],
+    },
+    features: {
+      sectionTitle: "Built for Speed and Everyday Clarity",
+      sectionSubtitle:
+        "Five core pillars that keep personal notes and IDR cashflow organized without bloat.",
+      items: [
+        {
+          title: "Markdown Notes & GFM Checklists",
+          description:
+            "Clean distraction-free editor with safe Markdown preview and clickable GFM task checkboxes without raw syntax friction.",
+        },
+        {
+          title: "Offline Smart Quick Capture",
+          description:
+            "One fast capture input distinguishes IDR transactions from numbered notes conservatively, 100% locally on your device.",
+        },
+        {
+          title: "Linked Notes ↔ Transactions",
+          description:
+            "Attach income or expense records to a specific note and view total inflow, outflow, and net balance in context.",
+        },
+        {
+          title: "Daily Safe-to-Spend",
+          description:
+            "Deterministic daily spending guardrail computed from selected daily wallet balances divided by remaining cycle days.",
+        },
+        {
+          title: "One-Click Privacy Blur",
+          description:
+            "Mask every balance and transaction amount on screen immediately as Rp ••••• when working in public spaces.",
+        },
+      ],
+    },
+    footer: {
+      privacyHeading: "Privacy & Data Control in Your Hands",
+      privacyPoints: [
+        "Strict per-account isolation: notes, wallets, and image attachments stay 100% private.",
+        "Quick Capture parsing runs 100% locally on your device without calling external AI APIs.",
+        "Full ownership: self-service account deletion wipes database records and local offline caches.",
+      ],
+      copyright: "Noka • Note + Kas",
+    },
   },
 };
 

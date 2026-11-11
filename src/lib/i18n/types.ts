@@ -15,6 +15,93 @@ export type PersistPreferencesHandler = (
   patch: PreferencesPatch,
 ) => Promise<void> | void;
 
+export interface LandingFeatureItem {
+  title: string;
+  description: string;
+}
+
+export interface LandingQuickCapturePreset {
+  id: "expense" | "income" | "note";
+  chip: string;
+  kindLabel: string;
+  categoryLabel: string;
+  walletLabel?: string;
+  amountSign?: "positive" | "negative" | "neutral";
+  amountText?: string;
+  noteTitle?: string;
+  hintText: string;
+}
+
+export interface LandingChecklistItem {
+  id: string;
+  label: string;
+}
+
+export interface LandingDictionary {
+  seoTitle: string;
+  seoDescription: string;
+  header: {
+    primaryNavAriaLabel: string;
+    openWorkspace: string;
+    signIn: string;
+    signUp: string;
+  };
+  hero: {
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    primaryGuestCta: string;
+    secondaryGuestCta: string;
+    primaryAuthCta: string;
+    secondaryAuthCta: string;
+    trustLine: string;
+  };
+  preview: {
+    sectionTitle: string;
+    sectionSubtitle: string;
+    quickCaptureLabel: string;
+    quickCaptureHint: string;
+    detectedHeading: string;
+    checklistHeading: string;
+    safeToSpendTitle: string;
+    safeToSpendVisibleAmount: string;
+    safeToSpendSuffix: string;
+    safeToSpendSubtext: string;
+    linkedNotesTitle: string;
+    linkedNotesDetailPrefix: string;
+    linkedNotesVisibleAmount: string;
+    privacyBlurButtonShow: string;
+    privacyBlurButtonHide: string;
+    privacyBlurHint: string;
+    presets: [
+      LandingQuickCapturePreset,
+      LandingQuickCapturePreset,
+      LandingQuickCapturePreset,
+    ];
+    checklistItems: [
+      LandingChecklistItem,
+      LandingChecklistItem,
+      LandingChecklistItem,
+    ];
+  };
+  features: {
+    sectionTitle: string;
+    sectionSubtitle: string;
+    items: [
+      LandingFeatureItem,
+      LandingFeatureItem,
+      LandingFeatureItem,
+      LandingFeatureItem,
+      LandingFeatureItem,
+    ];
+  };
+  footer: {
+    privacyHeading: string;
+    privacyPoints: [string, string, string];
+    copyright: string;
+  };
+}
+
 export interface Dictionary {
   common: {
     appName: string;
@@ -37,6 +124,9 @@ export interface Dictionary {
   nav: {
     workspaceAriaLabel: string;
     mobileNavAriaLabel: string;
+    openMenuAriaLabel: string;
+    closeMenuAriaLabel: string;
+    mobileMenuAriaLabel: string;
     notes: string;
     finance: string;
     settings: string;
@@ -140,8 +230,9 @@ export interface Dictionary {
     refund: string;
     other_income: string;
   };
-  // Optional namespaces populated incrementally by RFC-003 through RFC-010 without stubs.
-  landing?: Record<string, unknown>;
+  // Strongly typed landing page & SEO dictionary populated in RFC-003.
+  landing: LandingDictionary;
+  // Optional namespaces populated incrementally by RFC-004 through RFC-010 without stubs.
   notes?: Record<string, unknown>;
   folders?: Record<string, unknown>;
   finance?: Record<string, unknown>;

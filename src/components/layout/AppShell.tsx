@@ -5,6 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { FileText, Plus, Settings, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { LocaleToggle } from "@/components/ui/LocaleToggle";
+import {
+  MobileMenuButton,
+  useMobileMenu,
+} from "@/components/ui/MobileMenuButton";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import {
   isWorkspaceRouteActive,
@@ -17,6 +21,29 @@ export interface AppShellUser {
   id: string;
   name: string;
   email: string;
+}
+
+function UserBadge({
+  user,
+  maxWidthClass,
+  testId,
+}: {
+  user: AppShellUser;
+  maxWidthClass: string;
+  testId?: string;
+}) {
+  return (
+    <span
+      data-testid={testId}
+      className={cn(
+        "inline-flex min-h-9 items-center truncate rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]",
+        maxWidthClass,
+      )}
+      title={user.email}
+    >
+      {user.name}
+    </span>
+  );
 }
 
 export interface AppShellProps {
@@ -46,6 +73,8 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
+  const { isOpen, toggle, close, menuId, containerRef, buttonRef } =
+    useMobileMenu();
 
   const resolvedPath = currentPath ?? pathname ?? "/app";
 
@@ -73,12 +102,16 @@ export function AppShell({
         {t.nav.skipToContent}
       </a>
 
-      <header className="sticky top-0 z-30 border-b border-[var(--border-default)] bg-[var(--bg-canvas)]/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-3 py-2.5 sm:px-6">
-          <div className="flex flex-wrap items-center gap-3">
+      <header
+        ref={containerRef}
+        className="sticky top-0 z-30 border-b border-[var(--border-default)] bg-[var(--bg-canvas)]/95 backdrop-blur"
+      >
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2 px-3 py-2 sm:px-6 sm:py-2.5">
+          <div className="flex min-w-0 items-center gap-3">
             <Link
               href="/app"
-              className="inline-flex min-h-10 items-center text-base font-bold tracking-tight text-[var(--text-primary)]"
+              onClick={close}
+              className="inline-flex min-h-10 shrink-0 items-center text-base font-bold tracking-tight text-[var(--text-primary)]"
             >
               {t.common.appName}
             </Link>
@@ -88,23 +121,58 @@ export function AppShell({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {syncStatusSlot}
             {privacyBlurSlot}
-            <LocaleToggle />
-            <ThemeToggle />
-            {user ? (
-              <span
-                data-testid="app-shell-user-badge"
-                className="inline-flex min-h-9 max-w-40 items-center truncate rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]"
-                title={user.email}
-              >
-                {user.name}
-              </span>
-            ) : null}
-            {logoutSlot}
+            <div className="hidden md:flex md:items-center md:gap-2">
+              <LocaleToggle />
+              <ThemeToggle />
+              {user ? (
+                <UserBadge
+                  user={user}
+                  maxWidthClass="max-w-40"
+                  testId="app-shell-user-badge"
+                />
+              ) : null}
+              {logoutSlot}
+            </div>
+            <MobileMenuButton
+              ref={buttonRef}
+              isOpen={isOpen}
+              controlsId={menuId}
+              onToggle={toggle}
+              className="md:hidden"
+            />
           </div>
         </div>
+
+        {isOpen ? (
+          <div
+            id={menuId}
+            data-testid="app-shell-mobile-menu"
+            className="border-t border-[var(--border-default)] bg-[var(--bg-canvas)] px-3 py-3 sm:px-6 md:hidden"
+          >
+            <nav
+              aria-label={t.nav.mobileMenuAriaLabel}
+              className="mx-auto flex w-full max-w-5xl flex-col gap-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <LocaleToggle />
+                <ThemeToggle />
+              </div>
+              {user || logoutSlot ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border-default)] pt-3">
+                  {user ? (
+                    <UserBadge user={user} maxWidthClass="max-w-56" />
+                  ) : (
+                    <span />
+                  )}
+                  {logoutSlot}
+                </div>
+              ) : null}
+            </nav>
+          </div>
+        ) : null}
       </header>
 
       {quickCaptureSlot ? (

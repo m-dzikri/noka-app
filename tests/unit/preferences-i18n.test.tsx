@@ -133,8 +133,11 @@ describe("PreferencesProvider and instant ID/EN + Light/Dark switching (TS-001-0
       name: /mode gelap/i,
     });
     expect(themeButton).toHaveAttribute("aria-pressed", "false");
+    expect(themeButton.textContent?.trim()).toBe("");
     fireEvent.click(themeButton);
 
+    expect(themeButton).toHaveAttribute("aria-pressed", "true");
+    expect(themeButton.textContent?.trim()).toBe("");
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(window.localStorage.getItem("noka_theme")).toBe("dark");
     expect(document.cookie).toContain("noka_theme=dark");
