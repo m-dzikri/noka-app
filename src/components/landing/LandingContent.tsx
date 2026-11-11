@@ -128,7 +128,7 @@ export function LandingContent({ isAuthenticated }: LandingContentProps) {
               const Icon = FEATURE_ICONS[index];
               return (
                 <Card
-                  key={feature.title}
+                  key={index}
                   className="flex flex-col gap-2.5 transition-transform duration-150 hover:-translate-y-0.5"
                 >
                   <div className="inline-flex h-9 w-9 items-center justify-center rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-canvas)] text-[var(--text-primary)]">

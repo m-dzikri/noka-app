@@ -25,6 +25,9 @@ export const idDictionary: Dictionary = {
   nav: {
     workspaceAriaLabel: "Navigasi ruang kerja",
     mobileNavAriaLabel: "Navigasi seluler",
+    openMenuAriaLabel: "Buka menu navigasi",
+    closeMenuAriaLabel: "Tutup menu navigasi",
+    mobileMenuAriaLabel: "Menu seluler",
     notes: "Catatan",
     finance: "Keuangan",
     settings: "Pengaturan",

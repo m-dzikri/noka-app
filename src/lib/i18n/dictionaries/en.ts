@@ -25,6 +25,9 @@ export const enDictionary: Dictionary = {
   nav: {
     workspaceAriaLabel: "Workspace navigation",
     mobileNavAriaLabel: "Mobile navigation",
+    openMenuAriaLabel: "Open navigation menu",
+    closeMenuAriaLabel: "Close navigation menu",
+    mobileMenuAriaLabel: "Mobile menu",
     notes: "Notes",
     finance: "Finance",
     settings: "Settings",

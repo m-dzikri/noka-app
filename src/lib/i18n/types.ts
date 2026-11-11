@@ -124,6 +124,9 @@ export interface Dictionary {
   nav: {
     workspaceAriaLabel: string;
     mobileNavAriaLabel: string;
+    openMenuAriaLabel: string;
+    closeMenuAriaLabel: string;
+    mobileMenuAriaLabel: string;
     notes: string;
     finance: string;
     settings: string;
