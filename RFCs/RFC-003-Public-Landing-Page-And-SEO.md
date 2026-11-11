@@ -69,8 +69,10 @@ Membangun halaman perkenalan publik Noka (`/`) pada route group terisolasi `(pub
 ## Implementation Notes
 
 - **`src/app/layout.tsx` (`generateMetadata()`):** Dipindahkan dari ekspor statis `metadata` ke `generateMetadata()` dengan `metadataBase: new URL(getAppUrl())` agar seluruh metadata turunan (termasuk OG image di root/auth route) memakai `APP_URL` dinamis tanpa peringatan build statis Next.js.
-- **`src/components/ui/LocaleToggle.tsx`:** Ukuran minimum ditingkatkan menjadi `min-h-10` (`40px`) agar seluruh tombol kontrol di `LandingHeader` (termasuk mobile `360px`) memenuhi target sentuh `>= 40px` (`UI-2`).
+- **`src/components/ui/LocaleToggle.tsx`:** Ukuran minimum ditingkatkan menjadi `min-h-10 min-w-10 inline-flex items-center justify-center` (`>= 40×40 px` simetris pada tombol `"ID"` dan `"EN"`) agar seluruh tombol kontrol di `LandingHeader` (termasuk mobile `360px`) memenuhi target sentuh dua dimensi `>= 40px` (`UI-2`, tindak lanjut saran review Round 1 — disetujui user via Opsi A).
+- **`src/components/landing/FeaturePreviewCard.tsx` (`#preview`):** `<section id="preview">` memakai `scroll-mt-48 sm:scroll-mt-24` sambil mempertahankan `sticky top-0 z-20` pada `LandingHeader` (Opsi A disetujui user) sehingga tautan CTA `"Lihat Pratinjau"` tidak tertutup header baik saat header mobile wrapping di `360px` maupun satu baris di `>= sm`.
+- **`tests/e2e/landing-seo.spec.ts`:** Diperketat dengan verifikasi `<meta name="description">` ID/EN, `<changefreq>` & `<priority>` pada `sitemap.xml`, clearance jangkar `#preview` terhadap posisi bawah `<header>` setelah klik, `localStorage.getItem("noka_privacy_blur") === null` pasca Demo Privacy Blur, `width >= 40px` & `height >= 40px` di semua viewport (`360px`–`1280px`), serta `0` console/page error.
 - **Typed `LandingDictionary`:** Namespace `landing` di `src/lib/i18n/types.ts` didefinisikan dengan kontrak tipe ketat (`LandingDictionary`, `LandingQuickCapturePreset`, `LandingChecklistItem`, `LandingFeatureItem`) dan diwajibkan pada `Dictionary`.
-- **Verifikasi Produksi (`next start` di `127.0.0.1:3103`):**
+- **Verifikasi Produksi (`next start` di `127.0.0.1:3103` pasca-perbaikan Round 1):**
   - Playwright E2E (`tests/e2e/landing-seo.spec.ts`): 4/4 test (`TS-003-01` & `TS-003-02` pada `desktop` & `mobile`) lulus.
-  - Chrome Lighthouse (mobile preset produksi): Performance **97**, Accessibility **100**, Best Practices **96**, SEO **100**, LCP **762 ms** (`0.8 s`), CLS **0**.
+  - Chrome Lighthouse (mobile preset produksi): Performance **99**, Accessibility **100**, Best Practices **96**, SEO **100**, LCP **771 ms** (`0.8 s`), FCP **771 ms** (`0.8 s`), CLS **0**.
