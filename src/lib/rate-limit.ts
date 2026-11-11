@@ -56,12 +56,13 @@ export function checkRateLimit(
     : [];
 
   if (recentTimestamps.length >= limit) {
-    const oldestAllowedAt = recentTimestamps[0];
+    const oldestAllowedAt = Math.min(...recentTimestamps);
+    const newestAllowedAt = Math.max(...recentTimestamps);
     const resetAt = oldestAllowedAt + windowMs;
     const retryAfterSeconds = Math.max(1, Math.ceil((resetAt - nowMs) / 1000));
     store.set(compositeKey, {
       timestamps: recentTimestamps,
-      expiresAt: resetAt,
+      expiresAt: newestAllowedAt + windowMs,
     });
     return {
       allowed: false,
@@ -72,10 +73,11 @@ export function checkRateLimit(
   }
 
   recentTimestamps.push(nowMs);
-  const resetAt = recentTimestamps[0] + windowMs;
+  const resetAt = Math.min(...recentTimestamps) + windowMs;
+  const newestAllowedAt = Math.max(...recentTimestamps);
   store.set(compositeKey, {
     timestamps: recentTimestamps,
-    expiresAt: resetAt,
+    expiresAt: newestAllowedAt + windowMs,
   });
 
   return {

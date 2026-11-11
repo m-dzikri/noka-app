@@ -24,6 +24,9 @@ import type { Locale, Theme } from "@/lib/i18n/types";
 import { getMailer } from "@/lib/mailer";
 
 const PASSWORD_RESET_TTL_MS = 30 * 60 * 1000;
+// Precomputed valid cost-12 bcrypt hash for constant-time unknown-email login checks.
+const DUMMY_PASSWORD_HASH =
+  "$2b$12$xDcvEaP9.FMPNb/mAhS/Buu.yriIUSL9vlvfYrWlKkJkzxMSMf4Pu";
 
 type TransactionRunner = Parameters<
   Parameters<AppDatabase["transaction"]>[0]
@@ -155,6 +158,7 @@ export async function loginUser(
 
   const userRow = rows[0];
   if (!userRow) {
+    await verifyPassword(input.password, DUMMY_PASSWORD_HASH);
     throw new ApiError(
       401,
       "INVALID_CREDENTIALS",

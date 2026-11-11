@@ -68,6 +68,6 @@ export function CardFooter({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("mt-4 flex items-center gap-1.5", className)} {...props} />;
+  return <div className={cn("mt-4 flex flex-wrap items-center gap-1.5", className)} {...props} />;
 }
 
