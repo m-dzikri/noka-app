@@ -47,7 +47,7 @@ Membangun halaman perkenalan publik Noka (`/`) pada route group terisolasi `(pub
 ### File Structure
 - `src/app/(public)/page.tsx`
 - `src/app/layout.tsx` (diperbarui ke `generateMetadata()` dengan `metadataBase: new URL(getAppUrl())`)
-- `src/app/robots.ts`, `src/app/sitemap.ts`, `src/app/opengraph-image.tsx`
+- `src/app/robots.ts`, `src/app/sitemap.ts`, `src/app/opengraph-image.tsx`, `src/app/icon.svg`
 - `src/lib/env.ts` (memakai ulang helper `getAppUrl()` dari `RFC-001`)
 - `src/components/landing/LandingContent.tsx`, `src/components/landing/LandingHeader.tsx`, `src/components/landing/FeaturePreviewCard.tsx`, `src/components/landing/LandingFooter.tsx`
 - `src/components/ui/LocaleToggle.tsx`, `src/components/ui/ThemeToggle.tsx` (`min-h-10 min-w-10` ikon-saja agar tombol header memenuhi target sentuh `>= 40px`), dan `src/components/ui/MobileMenuButton.tsx` (`useMobileMenu`)
@@ -77,8 +77,12 @@ Membangun halaman perkenalan publik Noka (`/`) pada route group terisolasi `(pub
   - `src/components/landing/LandingHeader.tsx`: Menambahkan `onClick={close}` pada logo `<Link href="/">` agar selaras dengan `AppShell.tsx` dan menutup drawer saat logo diklik di `/`.
   - `src/components/landing/LandingContent.tsx`: Mengubah `key={feature.title}` ke `key={index}` agar 5 kartu keunggulan tidak remount saat toggle `ID`/`EN`.
   - `tests/unit/shell-layout.test.tsx`: Menambahkan 2 suite uji unit (`TS-001-07`, `CHANGE-REQUEST-001`) untuk drawer mobile `AppShell` dan `LandingHeader` (guest/authenticated, switch `EN`, klik tautan/logo, klik di luar header `pointerdown`, dan `Escape` focus restoration) sehingga total unit+integration suite menjadi `53` test pada `12` file.
+- **Perbaikan Audit Round 4 (`REVIEW-RFC-003.md` — Opsi A disetujui user):**
+  - `src/app/icon.svg`: Menambahkan ikon tab SVG vektor ringan (`#0f172a` + `#f8fafc` + aksen `#4ade80`) agar Next.js otomatis memancarkan `<link rel="icon">` tanpa permintaan fallback `/favicon.ico` `404` pada load dingin (tetap terpisah dari cakupan ikon PWA `RFC-009` `public/icons/icon-{192,512}.png`).
+  - `src/components/landing/LandingFooter.tsx`: Mengganti `key={point}` ke `key={index}` pada daftar 3 `privacyPoints` agar node `<li>` tidak remount saat toggle `ID`/`EN`.
+  - `tests/e2e/landing-seo.spec.ts`: Menambahkan assertion `<link rel="icon"` di SSR HTML serta respons `200 image/svg+xml` untuk `/icon.svg`.
 - **Typed `LandingDictionary`:** Namespace `landing` di `src/lib/i18n/types.ts` didefinisikan dengan kontrak tipe ketat (`LandingDictionary`, `LandingQuickCapturePreset`, `LandingChecklistItem`, `LandingFeatureItem`) dan diwajibkan pada `Dictionary`.
-- **Verifikasi Produksi (`next start` di `127.0.0.1:3103` pasca-perbaikan Round 3):**
+- **Verifikasi Produksi (`next start` di `127.0.0.1:3103` pasca-perbaikan Round 4):**
   - `npm test` (`vitest run`): 12 file test / **53 passed** (`0` skipped).
   - Playwright E2E (`tests/e2e/landing-seo.spec.ts`): 4/4 test (`TS-003-01` & `TS-003-02` pada `desktop` & `mobile`) lulus.
-  - Chrome Lighthouse (mobile preset produksi): Performance **100**, Accessibility **100**, Best Practices **96**, SEO **100**, LCP **762 ms** (`0.8 s`), FCP **762 ms** (`0.8 s`), CLS **0**.
+  - Chrome Lighthouse (mobile preset produksi): Performance **100**, Accessibility **100**, Best Practices **100**, SEO **100**, LCP **762 ms** (`0.8 s`), FCP **762 ms** (`0.8 s`), CLS **0**.
