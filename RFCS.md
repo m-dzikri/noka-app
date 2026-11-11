@@ -31,7 +31,7 @@ Mengacu pada `## Product Type` di `PRD.md` dan `RULES.md`:
 |---|---|---|---|---|---|---|
 | [RFC-001](RFCs/RFC-001-Foundation-Schema-And-Shell.md) | Project Foundation, Database Schema, Design Tokens & Bilingual Shell | F2, F3 | none | Medium | Passed | Reviewed |
 | [RFC-002](RFCs/RFC-002-Authentication-And-Password-Reset.md) | Authentication, Session Security & Password Reset | F4, F5 | RFC-001 | Medium | Passed | Reviewed |
-| [RFC-003](RFCs/RFC-003-Public-Landing-Page-And-SEO.md) | Public SEO Landing Page | F1 | RFC-001, RFC-002 | Medium | Passed | Implemented |
+| [RFC-003](RFCs/RFC-003-Public-Landing-Page-And-SEO.md) | Public SEO Landing Page | F1 | RFC-001, RFC-002 | Medium | Passed | Reviewed |
 | [RFC-004](RFCs/RFC-004-Notes-Workspace-And-Search.md) | Notes Workspace — Markdown, GFM Checklists, Folders, Tags & Instant Search | F7, F8 | RFC-001, RFC-002 | Medium | Passed | Not started |
 | [RFC-005](RFCs/RFC-005-Note-Image-Attachments.md) | Secure Note Image Attachments (Online-Only v1.0) | F9 | RFC-001, RFC-002, RFC-004 | Medium | Passed | Not started |
 | [RFC-006](RFCs/RFC-006-Finance-Core-Ledger.md) | Finance Core — Multi-Wallets, Categories, Ledger Transactions & Atomic Transfers | F10, F11, F12 | RFC-001, RFC-002 | High | Passed | Not started |

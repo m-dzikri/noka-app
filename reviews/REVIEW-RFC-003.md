@@ -231,3 +231,101 @@ Implementasi UI, SEO dinamis build-safe, aksesibilitas kontras WCAG AA, header m
 1. Tambahkan `onClick={close}` pada tautan logo `<Link href="/">` di [LandingHeader.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingHeader.tsx#L84-L86) agar selaras dengan [AppShell.tsx](file:///d:/Projects/noka-app/src/components/layout/AppShell.tsx#L111-L114) dan menutup drawer mobile saat pengguna mengklik logo di `/`.
 2. Gunakan `key` stabil (mis. `index`) alih-alih `key={feature.title}` pada loop kartu fitur di [LandingContent.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingContent.tsx#L127-L133) agar node kartu tidak remount saat toggle bahasa `ID`/`EN`.
 3. Perluas pemeriksaan target sentuh `>= 40×40 px` pada [tests/e2e/landing-seo.spec.ts](file:///d:/Projects/noka-app/tests/e2e/landing-seo.spec.ts#L444-L486) agar turut memvalidasi kontrol di dalam `landing-mobile-menu` saat terbuka di `360px` (dan pertahankan verifikasi ini pada regression test mendatang).
+
+---
+
+## Round 4 -- 2026-11-12
+
+- **RFC:** [RFC-003](file:///d:/Projects/noka-app/RFCs/RFC-003-Public-Landing-Page-And-SEO.md) *(serta perubahan lintas-RFC [RFC-001](file:///d:/Projects/noka-app/RFCs/RFC-001-Foundation-Schema-And-Shell.md) via [CHANGE-REQUEST-001](file:///d:/Projects/noka-app/changes/CHANGE-REQUEST-001.md))*
+- **Branch / Commit Reviewed:** `feat/rfc-003-public-landing-seo` (`HEAD` at `741a53f`; commit perbaikan pasca-Round 3: `6ad6b21`, `b7cdb58`, `404c506`, `741a53f`)
+- **Review Basis:** Fresh-eyes audit terhadap [PRD.md](file:///d:/Projects/noka-app/PRD.md), [FEATURES.md](file:///d:/Projects/noka-app/FEATURES.md), [RULES.md](file:///d:/Projects/noka-app/RULES.md), [PRD-REVIEW.md](file:///d:/Projects/noka-app/PRD-REVIEW.md), [RFCS.md](file:///d:/Projects/noka-app/RFCS.md), [RFC-003](file:///d:/Projects/noka-app/RFCs/RFC-003-Public-Landing-Page-And-SEO.md), [RFC-001](file:///d:/Projects/noka-app/RFCs/RFC-001-Foundation-Schema-And-Shell.md), [TEST-STRATEGY.md](file:///d:/Projects/noka-app/TEST-STRATEGY.md), [CHANGE-REQUEST-001](file:///d:/Projects/noka-app/changes/CHANGE-REQUEST-001.md), seluruh berkas sumber & uji terbaru, serta eksekusi langsung lint, typecheck, Vitest, Playwright, SSR no-env, dan Chrome Lighthouse.
+- **Product Type Scope ([PRD.md](file:///d:/Projects/noka-app/PRD.md#L20-L40)):** **Web App** *(Multi-user Responsive Web Application + PWA + Public SEO Pages)*.
+  - *Cek Diterapkan:* Auth & Sessions (bypass DB di `getSessionContext()` saat cookie absen; auth-aware CTA), Public SSR/SEO (`generateMetadata()`, `<title>`, `<meta name="description">`, canonical, Open Graph / Twitter, `robots.txt`, `sitemap.xml`, `opengraph-image`), Accessibility (`WCAG 2.1 AA`, keyboard navigation, ARIA disclosure, `Escape` focus restore, `prefers-reduced-motion`), Responsive Layout (`360px`, `375×812`, `768px`, `1280×800`), Page-Load Budget (`PERF-1` Lighthouse mobile), Bilingual `ID/EN` + `Light/Dark` state preservation (`I18N-1`, `I18N-2`), dan build-safe env (`ARCH-6`).
+  - *Cek Dilewati (Visible Skip):* *Binary Size* (distribusi browser Web App/PWA, dikontrol lewat web bundle budget), *Public Third-Party API SLA & Versioning* (API *first-party internal*), dan *Offline Sync / Storage* (cakupan `RFC-009` / `RFC-004`–`RFC-008` sesuai [RFCS.md](file:///d:/Projects/noka-app/RFCS.md)).
+- **Overall Risk Level:** Low
+- **Verdict:** **PASS (`Reviewed`)** -- Isu blocking Round 3 (kekurangan unit test drawer mobile `AppShell` & `LandingHeader` di [tests/unit/shell-layout.test.tsx](file:///d:/Projects/noka-app/tests/unit/shell-layout.test.tsx)) serta ketiga saran perbaikan non-blocking telah diselesaikan, ter-commit bersih pada `HEAD` (`741a53f`), dan seluruh verifikasi build, unit/integration, E2E, runtime SSR, dan Lighthouse mobile lulus memenuhi standar `RULES.md`.
+
+---
+
+### Step 0: Verification Output (Observed Directly on `741a53f`)
+
+1. **`npm run lint` (`eslint .`) & `npm run typecheck` (`tsc --noEmit`):**
+   - `LINT_EXIT=0`, `TSC_EXIT=0`
+2. **`npm test` (`vitest run` v5.1.0):**
+   - `Test Files  12 passed (12)`, **`Tests  53 passed (53)`** (`0` skipped), `Duration  4.97s`, `TEST_EXIT=0`.
+   - [tests/unit/shell-layout.test.tsx](file:///d:/Projects/noka-app/tests/unit/shell-layout.test.tsx) sekarang menjalankan **7 test**, mencakup `AppShell` mobile drawer ([L268-L324](file:///d:/Projects/noka-app/tests/unit/shell-layout.test.tsx#L268-L324)) serta `LandingHeader` guest/authenticated drawer, switch `EN`, link navigation dismissal, outside `pointerdown`, logo `/` close, dan `Escape` focus restoration ([L326-L427](file:///d:/Projects/noka-app/tests/unit/shell-layout.test.tsx#L326-L427)).
+3. **`npm run build` (`next build` Turbopack dengan `DATABASE_URL=""`, `SESSION_SECRET=""`, `APP_URL="http://127.0.0.1:3112"`):**
+   - `BUILD_NOENV_EXIT=0`; seluruh route (`/`, `/app`, `/login`, `/register`, `/forgot-password`, `/reset-password`, `/robots.txt`, `/sitemap.xml`, `/opengraph-image`, `/api/**`) ter-build sebagai `ƒ (Dynamic)` tanpa error env DB/secret.
+4. **`npm run test:e2e` (`PORT=3112`, `APP_URL=http://127.0.0.1:3112`):**
+   - **`4 passed (24.8s)`**, `E2E_EXIT=0` (`[desktop]` & `[mobile]` untuk `TS-003-01` & `TS-003-02`, termasuk cek klik logo menutup drawer di [L169-L170](file:///d:/Projects/noka-app/tests/e2e/landing-seo.spec.ts#L169-L170) dan target sentuh kontrol `>= 40×40 px` saat `landing-mobile-menu` terbuka di [L494-L548](file:///d:/Projects/noka-app/tests/e2e/landing-seo.spec.ts#L494-L548)).
+5. **Verifikasi SSR Tanpa DB/Secret & Runtime Lintas Route (`next start`):**
+   - **SSR (`APP_URL="https://noka.example/"`, `DATABASE_URL=""`, `SESSION_SECRET=""`, port `3109`):** `GET /` mengembalikan `200` dengan tepat 1 `<title>`, 1 `<meta name="description">`, `<link rel="canonical" href="https://noka.example"/>`, `<meta property="og:image" content="https://noka.example/opengraph-image"/>`; cookie `noka_locale=en` memancarkan title EN & `og:locale="en_US"`; `/robots.txt` (`Disallow: /app/`, `Disallow: /api/`, `Sitemap: https://noka.example/sitemap.xml`); `/sitemap.xml` (`/`, `/login`, `/register` dengan `changefreq`/`priority`); `/opengraph-image` (`200 image/png`, `1200×630`).
+   - **Playwright `360×800` & `1280×800` (port `3110`):**
+     - `/`: header tertutup `61 px`, `overflow: false`; kontrol drawer (`ID` `40×40`, `EN` `40×40`, `ThemeToggle` `40×40` teks `""`, `Masuk` `160×40`, `Daftar` `160×40`); **`landing drawer count after logo click: 0`**.
+     - `/login`: header `71 px`, `overflow: false` (`Noka` `39×40`, `ID` `40×40`, `EN` `40×40`, `ThemeToggle` `40×40`).
+     - `/app` (akun probe dibersihkan via `DELETE`): header tertutup `57 px`, `overflow: false`; kontrol `app-shell-mobile-menu` (`ID` `40×40`, `EN` `40×40`, `ThemeToggle` `40×40`, `Keluar` `90×36`); pada `1280×800` header `67 px`, `overflow: false`, `burgerDisplay: "none"`.
+6. **Audit Chrome Lighthouse (Mobile preset pada server produksi `next start`):**
+   - Sesi headless Chrome terhubung port debugging (`127.0.0.1:3111/`): Performance **100**, Accessibility **100**, Best Practices **100**, SEO **100**, LCP **764 ms**, FCP **764 ms**, CLS **0**, TTI **2509 ms**.
+   - Sesi Chrome terisolasi dingin (`127.0.0.1:3113/`): Performance **93**, Accessibility **100**, Best Practices **96** *(karena `/favicon.ico` `404` pada fase sebelum ikon PWA `RFC-009`)*, SEO **100**, LCP **761 ms**, FCP **761 ms**, CLS **0**. Seluruhnya memenuhi target `PERF-1` (`Perf >= 90`, `A11y >= 95`, `BP >= 95`, `SEO >= 90`, `LCP <= 2,5s`).
+7. **Scan `src/`, Kontras WCAG 2.1 AA ([tokens.css](file:///d:/Projects/noka-app/src/styles/tokens.css)) & Traceability:**
+   - Scan `src/` bebas `TODO`/`FIXME`/`eslint-disable`/`rehype-raw`/`any`, akses `process.env` hanya di [env.ts](file:///d:/Projects/noka-app/src/lib/env.ts).
+   - Kontras Light (`tp/canvas` `17.85`, `ts/surface` `9.9`, `ts/subtle` `9.45`, `inc/subtle` `4.58`, `exp/subtle` `5.91`, `accFg` `17.74`, `bd/subtle` `3.17`) & Dark (`tp/canvas` `19.02`, `ts/surface` `12.7`, `ts/subtle` `11.43`, `inc/subtle` `9.74`, `exp/subtle` `6.14`, `accFg` `19.02`, `bd/subtle` `3.51`) memenuhi WCAG 2.1 Level AA.
+   - `python .agents/skills/workflow-status/scripts/trace-check.py .`: `33 requirements, 31 features, 61 rules, 10 RFCs`, **`0 failure(s), 5 warning(s)`** (`F20`–`F24`).
+
+---
+
+### Review Dimensions
+
+#### 1. RFC Adherence
+- **Verdict:** **PASS**
+- **Findings:**
+  - Seluruh kriteria penerimaan [AC-3.1 s.d. AC-3.5](file:///d:/Projects/noka-app/RFCs/RFC-003-Public-Landing-Page-And-SEO.md#L61-L65) dan keselarasan lintas-RFC dengan [RFC-001](file:///d:/Projects/noka-app/RFCs/RFC-001-Foundation-Schema-And-Shell.md#L131) & [CHANGE-REQUEST-001](file:///d:/Projects/noka-app/changes/CHANGE-REQUEST-001.md) terpenuhi.
+  - Kekurangan Round 3 pada [LandingHeader.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingHeader.tsx#L84-L86) (`onClick={close}` pada logo `<Link href="/">`) dan [tests/unit/shell-layout.test.tsx](file:///d:/Projects/noka-app/tests/unit/shell-layout.test.tsx#L268-L428) telah selesai; tidak ada fitur `F20`–`F31` di luar ruang lingkup.
+  - Seluruh `## Implementation Notes` di [RFC-003](file:///d:/Projects/noka-app/RFCs/RFC-003-Public-Landing-Page-And-SEO.md#L71-L84) konsisten dengan kode dan hasil uji (`53 passed`, `4/4` E2E, dan skor Lighthouse memenuhi `PERF-1`).
+- **Suggestions:** Tidak ada isu blocking.
+
+#### 2. Rules Compliance
+- **Verdict:** **PASS**
+- **Findings:**
+  - Kepatuhan `ARCH-1`, `ARCH-4`, `ARCH-6`, `UI-1`–`UI-5`, `I18N-1`–`I18N-2`, `PERF-1`, `PERF-3`, `PERF-4`, `QUAL-1`–`QUAL-3`, `TEST-1`, dan `TEST-5` terverifikasi penuh tanpa `TODO`, stub, `eslint-disable`, maupun regresi yang tak terlindungi unit/E2E test.
+  - Rencana uji `TS-001-06`, `TS-001-07`, `TS-003-01`, dan `TS-003-02` di [TEST-STRATEGY.md](file:///d:/Projects/noka-app/TEST-STRATEGY.md#L140-L173) seluruhnya memiliki implementasi uji otomatis yang akan gagal jika terjadi regresi.
+- **Suggestions:** Tidak ada isu blocking.
+
+#### 3. Security
+- **Verdict:** **PASS**
+- **Findings:**
+  - [getSessionContext](file:///d:/Projects/noka-app/src/features/auth/session.ts#L63-L70) melewati query DB bila cookie `noka_session` absen/tidak valid format, dan [PublicLandingPage](file:///d:/Projects/noka-app/src/app/(public)/page.tsx#L49-L52) hanya meneruskan boolean `Boolean(user)`.
+  - [robots.ts](file:///d:/Projects/noka-app/src/app/robots.ts#L12-L21) & [sitemap.ts](file:///d:/Projects/noka-app/src/app/sitemap.ts#L9-L33) melindungi `/app/`, `/api/`, `/forgot-password`, dan `/reset-password`.
+  - [FeaturePreviewCard.tsx](file:///d:/Projects/noka-app/src/components/landing/FeaturePreviewCard.tsx) memproses demo lokal tanpa `/api/` call maupun menyentuh `localStorage` `noka_privacy_blur`.
+- **Suggestions:** Tidak ada.
+
+#### 4. Performance
+- **Verdict:** **PASS**
+- **Findings:**
+  - SSR & build lulus tanpa `DATABASE_URL`/`SESSION_SECRET` aktif; `/opengraph-image` dirender tanpa permintaan font jaringan eksternal; `next/font` memakai `display: "swap"`.
+  - Lighthouse mobile terverifikasi di atas ambang `PERF-1` (`Perf 93–100`, `A11y 100`, `BP 96–100`, `SEO 100`, `LCP 761–764 ms`, `CLS 0`).
+- **Suggestions:** Lihat saran opsional minor ikon root/favicon pada bagian Improvement Suggestions.
+
+#### 5. Maintainability
+- **Verdict:** **PASS**
+- **Findings:**
+  - [LandingContent.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingContent.tsx#L127-L133) kini memakai `key={index}` yang stabil saat toggle `ID`/`EN`.
+  - Logika drawer mobile terkonsolidasi rapi di [`useMobileMenu`](file:///d:/Projects/noka-app/src/components/ui/MobileMenuButton.tsx#L11-L55) / [`MobileMenuButton`](file:///d:/Projects/noka-app/src/components/ui/MobileMenuButton.tsx#L67-L95) tanpa duplikasi, dan seluruh perilaku UI penting dilindungi unit test (`shell-layout.test.tsx`) dan E2E (`landing-seo.spec.ts`).
+- **Suggestions:** Lihat catatan minor `key={point}` di [LandingFooter.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingFooter.tsx#L30-L33).
+
+---
+
+### Overall Risk Level
+**Low**
+
+### Summary
+Seluruh temuan **Round 3** telah diselesaikan secara bersih dan terverifikasi pada commit `741a53f`: unit test drawer mobile `AppShell` dan `LandingHeader` (termasuk `Escape` focus restore, outside `pointerdown`, switch `EN`, link navigation dismissal, dan klik logo) kini berjalan aktif di [tests/unit/shell-layout.test.tsx](file:///d:/Projects/noka-app/tests/unit/shell-layout.test.tsx), `onClick={close}` pada logo `/` dan key stabil kartu fitur sudah diterapkan, serta suite E2E memverifikasi target sentuh kontrol di dalam drawer mobile pada `360px`–`375px`. Dengan seluruh gerbang build, lint, typecheck, `53` unit/integration tests, `4/4` E2E tests, dan Lighthouse mobile lulus, **RFC-003** dinyatakan **`Reviewed`** dan siap digabungkan ke `main`.
+
+### Blocking Issues
+
+0 blocking issues.
+
+### Improvement Suggestions (Non-Blocking)
+
+1. *(Opsional / akan tercakup pada `RFC-009` PWA icons)* Menambahkan `src/app/icon.svg` atau `favicon.ico` ringan di masa depan akan menghilangkan respons `404` untuk `/favicon.ico` pada browser load dingin (menaikkan konsistensi Best Practices Lighthouse dari `96` ke `100`).
+2. *(Kosmetik minor)* Pada [LandingFooter.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingFooter.tsx#L30-L33), daftar 3 `privacyPoints` masih memakai `key={point}`; menggunakan `key={index}` menghindari remount node `<li>` statis ketika pengguna berganti bahasa `ID`/`EN`.
