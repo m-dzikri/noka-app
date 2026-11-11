@@ -29,7 +29,7 @@ Mengacu pada `## Product Type` di `PRD.md` dan `RULES.md`:
 
 | RFC | Title | Features | Predecessors | Complexity | Cold Read | Status |
 |---|---|---|---|---|---|---|
-| [RFC-001](RFCs/RFC-001-Foundation-Schema-And-Shell.md) | Project Foundation, Database Schema, Design Tokens & Bilingual Shell | F2, F3 | none | Medium | Passed | Implemented |
+| [RFC-001](RFCs/RFC-001-Foundation-Schema-And-Shell.md) | Project Foundation, Database Schema, Design Tokens & Bilingual Shell | F2, F3 | none | Medium | Passed | Reviewed |
 | [RFC-002](RFCs/RFC-002-Authentication-And-Password-Reset.md) | Authentication, Session Security & Password Reset | F4, F5 | RFC-001 | Medium | Passed | Not started |
 | [RFC-003](RFCs/RFC-003-Public-Landing-Page-And-SEO.md) | Public SEO Landing Page | F1 | RFC-001, RFC-002 | Medium | Passed | Not started |
 | [RFC-004](RFCs/RFC-004-Notes-Workspace-And-Search.md) | Notes Workspace — Markdown, GFM Checklists, Folders, Tags & Instant Search | F7, F8 | RFC-001, RFC-002 | Medium | Passed | Not started |
