@@ -20,7 +20,7 @@ Pada tanggal `11 November 2026`, repositori `d:\Projects\noka-app` berada pada *
   Runtime terverifikasi: Node.js v24.20.0 | npm 11.19.0 | Python 3.13.17
   Database runtime: PostgreSQL 16+ (eksternal/belum diverifikasi di mesin ini hingga RFC-001)
   ```
-- **Kebijakan Status Plan Ini:** Seluruh **30 file suite uji** (`16` unit, `11` integration, `3` E2E) + `tests/setup.ts` pada dokumen ini memiliki status per RFC (`Passing` pada RFC yang sudah terimplementasi, `Proposed` pada RFC berikutnya). Kolom status hanya boleh diubah ke `Passing` oleh `/implement-rfc <id>` dan `/review-rfc <id>` setelah kode & test dijalankan nyata tanpa skenario yang di-skip (`TEST-1`, `QUAL-3`).
+- **Kebijakan Status Plan Ini:** Seluruh **31 file suite uji** (`17` unit, `11` integration, `3` E2E) + `tests/setup.ts` pada dokumen ini memiliki status per RFC (`Passing` pada RFC yang sudah terimplementasi, `Proposed` pada RFC berikutnya). Kolom status hanya boleh diubah ke `Passing` oleh `/implement-rfc <id>` dan `/review-rfc <id>` setelah kode & test dijalankan nyata tanpa skenario yang di-skip (`TEST-1`, `QUAL-3`).
 
 ### Resolusi Konflik Antar-Artefak (`QUAL-1`)
 - **`F6` (*Should Have* di `FEATURES.md`) vs. `FR-2` (*Must Have* di `PRD.md`):** `PRD.md` mewajibkan `cycleStartDay` pada *Safe-to-Spend* (`FR-2`, `FR-13` *Must Have*), sedangkan `FEATURES.md` menggabungkan profil, siklus, dan hapus akun ke `F6` (*Should Have*). Mengikuti `PRD.md > FEATURES.md` dan `RFCS.md`, kolom `cycleStartDay` diuji sejak `RFC-001`, `RFC-002`, dan `RFC-007` (prioritas `Must`), sementara keseluruhan fitur `F6` (`/app/settings` + hapus akun) tetap memakai rating asli **`Should`** dari `FEATURES.md` pada `RFC-010` tanpa menimpa peringkat MoSCoW.
@@ -90,7 +90,7 @@ Aplikasi **Noka** diklasifikasikan sebagai **Web App** (*Multi-user Responsive W
 | RFC | Nama Singkat | Fitur & Prioritas (`FEATURES.md`) | Unit (`Proposed`) | Integration (`Proposed`) | E2E (`Proposed`) | Total Suite |
 |---|---|---|---:|---:|---:|---:|
 | **RFC-001** | Foundation, Schema & Shell | `F2`, `F3` (*Must*) | 6 (+`setup.ts`) | 2 | 0 | **8** |
-| **RFC-002** | Auth, Session & Password Reset | `F4`, `F5` (*Must*) | 1 | 2 | 0 | **3** |
+| **RFC-002** | Auth, Session & Password Reset | `F4`, `F5` (*Must*) | 2 | 2 | 0 | **4** |
 | **RFC-003** | Public SEO Landing Page | `F1` (*Must*) | 0 | 0 | 1 | **1** |
 | **RFC-004** | Notes, Markdown, GFM & Search | `F7`, `F8` (*Must*) | 2 | 1 | 0 | **3** |
 | **RFC-005** | Secure Note Image Attachments | `F9` (*Must*) | 1 | 1 | 0 | **2** |
@@ -99,7 +99,7 @@ Aplikasi **Noka** diklasifikasikan sebagai **Web App** (*Multi-user Responsive W
 | **RFC-008** | Quick Capture & Linked Notes | `F14`, `F15` (*Must*) | 2 | 1 | 0 | **3** |
 | **RFC-009** | PWA, IndexedDB & Offline Sync | `F18`, `F19` (*Must*) | 1 | 0 | 1 | **2** |
 | **RFC-010** | Settings, Cycle & Account Delete | `F6` (*Should*) + Gate v1.0 | 0 | 1 | 1 | **2** |
-| **Total** | — | **18 Must + 1 Should (v1.0)** | **16** | **11** | **3** | **30** |
+| **Total** | — | **18 Must + 1 Should (v1.0)** | **17** | **11** | **3** | **31** |
 
 > *(Cakupan tertunda/terkecuali `FEATURES.md`: `F20`–`F24` (*Could Have* v1.1) dan `F25`–`F31` (*Won't Have*) diverifikasi tidak diimplementasikan pada kode maupun rute API v1.0).*
 
@@ -148,13 +148,14 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 - **Fitur & Prioritas:** `F4`, `F5` — **Must Have**
 - **Prasyarat (*Depends on*):** `RFC-001`
 - **Aturan Terkait:** `STACK-4`, `ARCH-2`, `ARCH-6`, `DATA-4`, `API-1`, `API-2`, `API-4`, `SEC-1`–`SEC-5`, `OFFLINE-5`, `UI-1`–`UI-3`, `UI-5`, `I18N-1`, `I18N-2`, `OBS-2`, `OBS-3`, `TEST-1`, `TEST-3`, `QUAL-2`, `QUAL-3`
-- **File Suite (`Proposed`):** `tests/unit/auth-password-token.test.ts`, `tests/integration/auth-flow.test.ts`, `tests/integration/auth-reset.test.ts`
+- **File Suite (`Passing`):** `tests/unit/auth-password-token.test.ts`, `tests/unit/auth-forms.test.tsx`, `tests/integration/auth-flow.test.ts`, `tests/integration/auth-reset.test.ts`
 
 | Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
 |---|---|---|---|---|---|---|
-| **TS-002-01** | Proposed | `tests/unit/auth-password-token.test.ts` (Unit) | Must | Uji `hashPassword`/`verifyPassword` (`bcryptjs` cost >= 12), `generateTokenPair` (raw 32-byte `base64url` vs `SHA-256` hex), `checkRateLimit` sliding window + `Retry-After` pruning, `verifyCsrfOrigin` (`Origin`, `Referer`, missing/mismatch), dan `apiFetch` pada `401 UNAUTHORIZED` vs `401 INVALID_CREDENTIALS`. | `clearRateLimitsForTest()` | Cost hash `>= 12`; CSRF mismatch/absen -> `403 CSRF_ORIGIN_MISMATCH`; `apiFetch` **hanya** menjalankan `runClientLogoutCleanup()` (sambil menyisakan `noka_theme`/`noka_locale`/`noka_privacy_blur`) ketika `error.code === "UNAUTHORIZED"`. |
-| **TS-002-02** | Proposed | `tests/integration/auth-flow.test.ts` (Integration) | Must | Jalankan `POST /api/auth/register` (termasuk normalisasi email, duplikat `409`, seeding **12 kategori sistem** ID/EN, cookie `HttpOnly` + `SameSite=Lax` + `Secure` sesuai `APP_URL`), `POST /api/auth/login` (`401 INVALID_CREDENTIALS`), `GET /api/auth/me` (memuat `cycleStartDay`, tanpa `passwordHash`), `getSessionUser()` tanpa cookie (0 query DB), rate limit `> 10 / 15m` -> `429`, dan `POST /api/auth/logout` idempoten. | PostgreSQL uji | 12 `systemKey` terbentuk dalam transaksi registrasi; akses `/api/auth/me` pasca-logout atau sesi kedaluwarsa -> `401 UNAUTHORIZED`; log bebas password/cookie (`OBS-2`). |
-| **TS-002-03** | Proposed | `tests/integration/auth-reset.test.ts` (Integration) | Must | Uji `POST /api/auth/forgot-password` pada email terdaftar vs tidak terdaftar (`API-4`), cek token `SHA-256` TTL 30m di DB & `GET /api/dev/outbox` (`404` di `production`), simulasikan `MailerAdapter` error di `production` (`503 MAIL_DELIVERY_UNAVAILABLE`), rate limit `> 5 / 15m` -> `429`, dan `POST /api/auth/reset-password` (token valid, expired/used `400`, paralel `FOR UPDATE` race, pencabutan seluruh `sessions` user + login password baru). | PostgreSQL uji + `clearOutbox()` | Respons forgot-password `200` identik (anti-enumerasi); reset memutus 100% sesi aktif lama (`HIGH-4`); token ke-2 pada token sama atau race paralel ditolak `400 INVALID_OR_EXPIRED_TOKEN`. |
+| **TS-002-01** | Passing | `tests/unit/auth-password-token.test.ts` (Unit) | Must | Uji `hashPassword`/`verifyPassword` (`bcryptjs` cost >= 12), `generateTokenPair` (raw 32-byte `base64url` vs `SHA-256` hex), `checkRateLimit` sliding window + `Retry-After` & retensi timestamp staggered saat sweep `>500` bucket, `verifyCsrfOrigin` (`Origin`, `Referer`, missing/mismatch), `ResendMailer` (mock SDK sukses/`{ error }`/exception -> `503` bebas PII), dan `apiFetch` pada `401 UNAUTHORIZED` vs `401 INVALID_CREDENTIALS`. | `clearRateLimitsForTest()` | Cost hash `>= 12`; sweep tidak menghapus bucket bertimestamp aktif; `ResendMailer` aman bebas PII/token di log; CSRF mismatch/absen -> `403 CSRF_ORIGIN_MISMATCH`; `apiFetch` **hanya** menjalankan `runClientLogoutCleanup()` (sambil menyisakan `noka_theme`/`noka_locale`/`noka_privacy_blur`) ketika `error.code === "UNAUTHORIZED"`. |
+| **TS-002-02** | Passing | `tests/integration/auth-flow.test.ts` (Integration) | Must | Jalankan `POST /api/auth/register` (termasuk normalisasi email, duplikat `409`, seeding **12 kategori sistem** ID/EN, cookie `HttpOnly` + `SameSite=Lax` + `Secure` sesuai `APP_URL`), `POST /api/auth/login` (`401 INVALID_CREDENTIALS`), `GET /api/auth/me` (memuat `cycleStartDay`, tanpa `passwordHash`), `getSessionUser()` tanpa cookie (0 query DB), rate limit `> 10 / 15m` -> `429`, dan `POST /api/auth/logout` idempoten. | PostgreSQL uji | 12 `systemKey` terbentuk dalam transaksi registrasi; akses `/api/auth/me` pasca-logout atau sesi kedaluwarsa -> `401 UNAUTHORIZED`; log bebas password/cookie (`OBS-2`). |
+| **TS-002-03** | Passing | `tests/integration/auth-reset.test.ts` (Integration) | Must | Uji `POST /api/auth/forgot-password` pada email terdaftar vs tidak terdaftar (`API-4`), cek token `SHA-256` TTL 30m di DB & `GET /api/dev/outbox` (`404` di `production`), simulasikan `MailerAdapter` error di `production` (`503 MAIL_DELIVERY_UNAVAILABLE`), rate limit `> 5 / 15m` -> `429`, dan `POST /api/auth/reset-password` (token valid, expired/used `400`, paralel `FOR UPDATE` race, pencabutan seluruh `sessions` user + login password baru). | PostgreSQL uji + `clearOutbox()` | Respons forgot-password `200` identik (anti-enumerasi); reset memutus 100% sesi aktif lama (`HIGH-4`); token ke-2 pada token sama atau race paralel ditolak `400 INVALID_OR_EXPIRED_TOKEN`. |
+| **TS-002-04** | Passing | `tests/unit/auth-forms.test.tsx` (Unit) | Must | Uji komponen `LoginForm`, `RegisterForm`, `ForgotPasswordForm`, `ResetPasswordForm` (token absen maupun token aktif: validasi `<8` karakter/konfirmasi, `400 INVALID_OR_EXPIRED_TOKEN`, submit `200` + tautan `/login`), `LogoutButton`, serta guard server `AppWorkspaceLayout` (`/app` -> `/login`), `LoginPage`, & `RegisterPage` (`/app` bila sudah login). | jsdom + Testing Library | Seluruh teks form & error terlokalisasi ID/EN, state input bertahan saat switch locale/tema, guard server mengarahkan sesuai status sesi, dan `LogoutButton` menghapus cache privat sambil mempertahankan preferensi UI. |
 
 ---
 
@@ -286,7 +287,7 @@ Area berikut tidak dapat sepenuhnya dijamin hanya oleh environment otomatis loka
 
 ## 6. Self-Check & Keterlacakan
 
-- **Rekonfirmasi Jumlah Tabel:** Ringkasan pada Bagian 2 (`15` unit + `11` integration + `3` E2E = `29` file suite + `tests/setup.ts`) cocok 1:1 dengan seluruh sub-bagian `## RFC-001`–`## RFC-010` di Bagian 4 dan daftar berkas pada masing-masing berkas `RFCs/RFC-*.md`.
+- **Rekonfirmasi Jumlah Tabel:** Ringkasan pada Bagian 2 (`17` unit + `11` integration + `3` E2E = `31` file suite + `tests/setup.ts`) cocok 1:1 dengan seluruh sub-bagian `## RFC-001`–`## RFC-010` di Bagian 4 dan daftar berkas pada masing-masing berkas `RFCs/RFC-*.md`.
 - **Audit Otoritas & Prioritas:** Tidak ada penetapan ulang prioritas MoSCoW (`F1`–`F5`, `F7`–`F19` = `Must`; `F6` = `Should`; `F20`–`F24` & `F25`–`F31` di luar kode v1.0).
 - **Cakupan `PRD-REVIEW.md`:** `HIGH-1` (`TS-006-*`, `TS-009-*`), `HIGH-2` (`TS-007-*`, `TS-010-*`), `HIGH-3` (`TS-004-*`, `TS-006-*`, `TS-008-*`), `HIGH-4` (`TS-002-*`, `TS-009-*`, `TS-010-*`), `MED-1` (`TS-008-01`), `MED-2` (`TS-004-01`, `TS-008-03`), `MED-3` (Bagian 2 & 3).
 

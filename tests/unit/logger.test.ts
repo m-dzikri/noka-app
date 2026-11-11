@@ -64,6 +64,8 @@ describe("structured JSON logger (TS-001-02)", () => {
       password: "super-secret-password",
       nested: {
         resetToken: "raw-token-value",
+        resetUrl: "https://noka.app/reset-password?token=raw-secret-1",
+        reset_url: "https://noka.app/reset-password?token=raw-secret-2",
         sessionSecret: "top-secret",
         cookie: "noka_session=abc",
         "Set-Cookie": "noka_session=xyz",

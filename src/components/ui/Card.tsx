@@ -64,3 +64,10 @@ export function CardContent({
   return <div className={cn("text-sm text-[var(--text-primary)]", className)} {...props} />;
 }
 
+export function CardFooter({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("mt-4 flex flex-wrap items-center gap-1.5", className)} {...props} />;
+}
+
