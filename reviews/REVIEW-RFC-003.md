@@ -329,3 +329,79 @@ Seluruh temuan **Round 3** telah diselesaikan secara bersih dan terverifikasi pa
 
 1. *(Opsional / akan tercakup pada `RFC-009` PWA icons)* Menambahkan `src/app/icon.svg` atau `favicon.ico` ringan di masa depan akan menghilangkan respons `404` untuk `/favicon.ico` pada browser load dingin (menaikkan konsistensi Best Practices Lighthouse dari `96` ke `100`).
 2. *(Kosmetik minor)* Pada [LandingFooter.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingFooter.tsx#L30-L33), daftar 3 `privacyPoints` masih memakai `key={point}`; menggunakan `key={index}` menghindari remount node `<li>` statis ketika pengguna berganti bahasa `ID`/`EN`.
+
+---
+
+## Round 5 -- 2026-11-12
+
+- **RFC:** [RFC-003](file:///d:/Projects/noka-app/RFCs/RFC-003-Public-Landing-Page-And-SEO.md) *(serta perubahan lintas-RFC [RFC-001](file:///d:/Projects/noka-app/RFCs/RFC-001-Foundation-Schema-And-Shell.md) via [CHANGE-REQUEST-001](file:///d:/Projects/noka-app/changes/CHANGE-REQUEST-001.md))*
+- **Branch / Commit Reviewed:** `feat/rfc-003-public-landing-seo` (`HEAD` at `d20c73c`; commit pasca-Round 4: `264f253`, `47fae6d`, `d20c73c`)
+- **Review Basis:** Audit ulang perubahan sejak Round 4 (`ebd68b0..d20c73c`) terhadap [PRD.md](file:///d:/Projects/noka-app/PRD.md), [FEATURES.md](file:///d:/Projects/noka-app/FEATURES.md), [RULES.md](file:///d:/Projects/noka-app/RULES.md), [RFCS.md](file:///d:/Projects/noka-app/RFCS.md), [RFC-003](file:///d:/Projects/noka-app/RFCs/RFC-003-Public-Landing-Page-And-SEO.md), [TEST-STRATEGY.md](file:///d:/Projects/noka-app/TEST-STRATEGY.md), serta eksekusi langsung lint, typecheck, Vitest, build no-env, Playwright E2E, dan Chrome Lighthouse.
+- **Product Type Scope ([PRD.md](file:///d:/Projects/noka-app/PRD.md#L20-L40)):** **Web App** *(Multi-user Responsive Web Application + PWA + Public SEO Pages)*.
+  - *Cek Diterapkan & Dilewati:* Sama seperti Round 4 (`Auth & Sessions`, `Public SSR/SEO`, `a11y`, `Responsive Layout`, `Page-Load Budget`, `Bilingual ID/EN`, `ARCH-6` diterapkan; `Binary Size`, `Public Third-Party API SLA & Versioning`, dan `Offline Sync / Storage` untuk `RFC-004`–`RFC-009` dilewati secara eksplisit).
+- **Overall Risk Level:** Low
+- **Verdict:** **PASS (`Reviewed`)** -- Kedua saran non-blocking Round 4 ([icon.svg](file:///d:/Projects/noka-app/src/app/icon.svg) untuk menghilangkan `/favicon.ico` `404` & `key={index}` pada [LandingFooter.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingFooter.tsx#L30-L33)) telah diimplementasikan, diuji di E2E ([landing-seo.spec.ts](file:///d:/Projects/noka-app/tests/e2e/landing-seo.spec.ts#L81-L135)), dan menghasilkan **Best Practices `100`** (`0` console errors) pada audit Lighthouse Chrome dingin.
+
+---
+
+### Step 0: Verification Output (Observed Directly on `d20c73c`)
+
+1. **`npm run lint` (`eslint .`) & `npm run typecheck` (`tsc --noEmit`):**
+   - `LINT_EXIT=0`, `TSC_EXIT=0`
+2. **`npm test` (`vitest run` v5.1.0):**
+   - `Test Files  12 passed (12)`, **`Tests  53 passed (53)`** (`0` skipped), `Duration  6.88s`, `TEST_EXIT=0`.
+3. **`npm run build` (`next build` dengan `DATABASE_URL=""`, `SESSION_SECRET=""`, `APP_URL="http://127.0.0.1:3114"`):**
+   - `BUILD_NOENV_EXIT=0`; `/icon.svg` ter-build sebagai `○ (Static)` dan seluruh route halaman/API/SEO lainnya sebagai `ƒ (Dynamic)` tanpa error env DB/secret.
+4. **`npm run test:e2e` (`PORT=3114`, `APP_URL=http://127.0.0.1:3114`):**
+   - **`4 passed (15.2s)`**, `E2E_EXIT=0` (`[desktop]` & `[mobile]` untuk `TS-003-01` & `TS-003-02`, mencakup verifikasi SSR `<link rel="icon"` & `/icon.svg` `200 image/svg+xml`).
+5. **Verifikasi SSR `/icon.svg` & Chrome Lighthouse Terisolasi (`next start` di `127.0.0.1:3115`, `DATABASE_URL=""`, `SESSION_SECRET=""`):**
+   - SSR HTML `/` menyertakan `<link rel="icon" href="/icon.svg?..." sizes="any" type="image/svg+xml"/>`; `GET /icon.svg` mengembalikan `200 image/svg+xml`.
+   - Chrome Lighthouse (sesi headless dingin terisolasi): Performance **90**, Accessibility **100**, **Best Practices 100** (`consoleErrors: 0`), SEO **100**, LCP **788 ms**, FCP **788 ms**, CLS **0**, SI **1603 ms**, TBT **416 ms** (seluruh target `PERF-1` terpenuhi).
+6. **Scan `src/` & Traceability:**
+   - Scan `src/` bebas `TODO`/`FIXME`/`eslint-disable`/`rehype-raw`/`any`, dan `process.env` hanya berada di [env.ts](file:///d:/Projects/noka-app/src/lib/env.ts).
+   - `python .agents/skills/workflow-status/scripts/trace-check.py .`: `33 requirements, 31 features, 61 rules, 10 RFCs`, **`0 failure(s), 5 warning(s)`** (`F20`–`F24`).
+
+---
+
+### Review Dimensions
+
+#### 1. RFC Adherence
+- **Verdict:** **PASS**
+- **Findings:** Perubahan pada [src/app/icon.svg](file:///d:/Projects/noka-app/src/app/icon.svg), [LandingFooter.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingFooter.tsx#L30-L33), [landing-seo.spec.ts](file:///d:/Projects/noka-app/tests/e2e/landing-seo.spec.ts#L81-L135), serta dokumentasi [RFC-003](file:///d:/Projects/noka-app/RFCs/RFC-003-Public-Landing-Page-And-SEO.md#L50-L88) selaras penuh dengan `AC-3.1`–`AC-3.5` tanpa menyentuh cakupan ikon PWA `RFC-009` maupun fitur v1.1/Out-of-Scope (`F20`–`F31`).
+- **Suggestions:** Tidak ada.
+
+#### 2. Rules Compliance
+- **Verdict:** **PASS**
+- **Findings:** Mematuhi `ARCH-6`, `UI-1`–`UI-5`, `I18N-1`–`I18N-2`, `PERF-1`, `PERF-3`, `PERF-4`, `TEST-1`, `TEST-5`, dan `QUAL-1`–`QUAL-3`. Tidak ada `TODO`/stub/`any`/`eslint-disable`.
+- **Suggestions:** Tidak ada.
+
+#### 3. Security
+- **Verdict:** **PASS**
+- **Findings:** [src/app/icon.svg](file:///d:/Projects/noka-app/src/app/icon.svg#L1-L9) adalah berkas SVG statis murni (`308` bytes) bebas skrip atau referensi eksternal; perilaku sesi/privasi lainnya tetap utuh.
+- **Suggestions:** Tidak ada.
+
+#### 4. Performance
+- **Verdict:** **PASS**
+- **Findings:** Ikon `/icon.svg` diprerender sebagai static asset `308` bytes dan menghilangkan request gagal `/favicon.ico` `404` pada load dingin; seluruh skor Lighthouse (`90 / 100 / 100 / 100`, LCP `788 ms`, CLS `0`) melewati ambang `PERF-1`.
+- **Suggestions:** Tidak ada.
+
+#### 5. Maintainability
+- **Verdict:** **PASS**
+- **Findings:** Kedua saran maintainabilitas dari Round 4 selesai: daftar `privacyPoints` di [LandingFooter.tsx](file:///d:/Projects/noka-app/src/components/landing/LandingFooter.tsx#L30-L33) memakai `key={index}` agar tidak remount saat toggle `ID`/`EN`, dan assertion ikon SVG tercatat di E2E spec.
+- **Suggestions:** Tidak ada.
+
+---
+
+### Overall Risk Level
+**Low**
+
+### Summary
+Seluruh implementasi **RFC-003** beserta perubahan [CHANGE-REQUEST-001](file:///d:/Projects/noka-app/changes/CHANGE-REQUEST-001.md) dan penyempurnaan pasca-Round 4 (`src/app/icon.svg`, `LandingFooter.tsx` `key={index}`, dan assertion ikon E2E) terverifikasi lulus pada commit `d20c73c` dengan **0** kegagalan build/lint/typecheck/unit/E2E serta Lighthouse mobile `0` error konsol (`Best Practices 100`). Status **RFC-003** ditetapkan **`Reviewed`**.
+
+### Blocking Issues
+
+0 blocking issues.
+
+### Improvement Suggestions (Non-Blocking)
+
+Tidak ada temuan tambahan.
