@@ -136,17 +136,51 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     ).toHaveCount(3);
 
     const header = page.locator("header");
-    await expect(header.getByRole("link", { name: "Masuk" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
-    await expect(header.getByRole("link", { name: "Daftar" })).toHaveAttribute(
-      "href",
-      "/register",
-    );
-    await expect(
-      header.getByRole("link", { name: "Buka Workspace" }),
-    ).toHaveCount(0);
+    const isMobileViewport = (page.viewportSize()?.width ?? 1280) < 640;
+
+    if (isMobileViewport) {
+      const closedHeaderBox = await header.boundingBox();
+      expect(closedHeaderBox).not.toBeNull();
+      expect(closedHeaderBox!.height).toBeLessThanOrEqual(72);
+
+      const menuToggle = header.locator("button[aria-controls]");
+      await expect(menuToggle).toHaveAttribute("aria-expanded", "false");
+      await menuToggle.click();
+      await expect(menuToggle).toHaveAttribute("aria-expanded", "true");
+
+      const mobileMenu = page.getByTestId("landing-mobile-menu");
+      await expect(mobileMenu.getByRole("link", { name: "Masuk" })).toHaveAttribute(
+        "href",
+        "/login",
+      );
+      await expect(mobileMenu.getByRole("link", { name: "Daftar" })).toHaveAttribute(
+        "href",
+        "/register",
+      );
+      await expect(
+        mobileMenu.getByRole("link", { name: "Buka Workspace" }),
+      ).toHaveCount(0);
+      await menuToggle.click();
+      await expect(mobileMenu).toHaveCount(0);
+
+      // Re-open and verify clicking brand logo also closes mobile menu cleanly.
+      await menuToggle.click();
+      await expect(mobileMenu).toBeVisible();
+      await header.getByRole("link", { name: "Noka" }).click();
+      await expect(mobileMenu).toHaveCount(0);
+    } else {
+      await expect(header.getByRole("link", { name: "Masuk" })).toHaveAttribute(
+        "href",
+        "/login",
+      );
+      await expect(header.getByRole("link", { name: "Daftar" })).toHaveAttribute(
+        "href",
+        "/register",
+      );
+      await expect(
+        header.getByRole("link", { name: "Buka Workspace" }),
+      ).toHaveCount(0);
+    }
 
     const mainHero = page.locator("main section").first();
     await expect(
@@ -172,11 +206,33 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
       expect(regRes.status()).toBe(201);
 
       await page.goto("/");
-      await expect(
-        header.getByRole("link", { name: "Buka Workspace" }),
-      ).toHaveAttribute("href", "/app");
-      await expect(header.getByRole("link", { name: "Masuk" })).toHaveCount(0);
-      await expect(header.getByRole("link", { name: "Daftar" })).toHaveCount(0);
+      if (isMobileViewport) {
+        const closedAuthHeaderBox = await header.boundingBox();
+        expect(closedAuthHeaderBox).not.toBeNull();
+        expect(closedAuthHeaderBox!.height).toBeLessThanOrEqual(72);
+
+        const menuToggle = header.locator("button[aria-controls]");
+        await menuToggle.click();
+        const mobileMenu = page.getByTestId("landing-mobile-menu");
+        await expect(
+          mobileMenu.getByRole("link", { name: "Buka Workspace" }),
+        ).toHaveAttribute("href", "/app");
+        await expect(
+          mobileMenu.getByRole("link", { name: "Masuk" }),
+        ).toHaveCount(0);
+        await expect(
+          mobileMenu.getByRole("link", { name: "Daftar" }),
+        ).toHaveCount(0);
+        await menuToggle.click();
+      } else {
+        await expect(
+          header.getByRole("link", { name: "Buka Workspace" }),
+        ).toHaveAttribute("href", "/app");
+        await expect(header.getByRole("link", { name: "Masuk" })).toHaveCount(0);
+        await expect(header.getByRole("link", { name: "Daftar" })).toHaveCount(
+          0,
+        );
+      }
 
       await expect(
         mainHero.getByRole("link", { name: "Buka Workspace" }),
@@ -304,11 +360,32 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
       .toBeNull();
 
     // Switch EN + Dark mode simultaneously via UI toggles without page reload.
-    await page.getByRole("button", { name: "EN", exact: true }).click();
-    await page
-      .locator("header")
-      .getByRole("button", { name: /dark mode|mode gelap/i })
-      .click();
+    const isMobileViewport = (page.viewportSize()?.width ?? 1280) < 640;
+    const controlsContainer = isMobileViewport
+      ? page.getByTestId("landing-mobile-menu")
+      : page.locator("header");
+    const menuToggle = page.locator("header button[aria-controls]");
+
+    if (isMobileViewport) {
+      await menuToggle.click();
+      await expect(controlsContainer).toBeVisible();
+    }
+
+    await controlsContainer.getByRole("button", { name: "EN", exact: true }).click();
+    const toDarkToggle = controlsContainer.getByRole("button", {
+      name: /dark mode|mode gelap/i,
+    });
+    expect((await toDarkToggle.textContent())?.trim() ?? "").toBe("");
+    await toDarkToggle.click();
+    const toLightToggle = controlsContainer.getByRole("button", {
+      name: /light mode|mode terang/i,
+    });
+    expect((await toLightToggle.textContent())?.trim() ?? "").toBe("");
+
+    if (isMobileViewport) {
+      await menuToggle.click();
+      await expect(controlsContainer).toHaveCount(0);
+    }
 
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
@@ -368,20 +445,43 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
       const metrics = await page.evaluate(() => {
         const overflow =
           document.documentElement.scrollWidth > window.innerWidth;
-        const headerInteractive = Array.from(
+        const headerEl = document.querySelector("header");
+        const headerHeight = headerEl?.getBoundingClientRect().height ?? 0;
+        const visibleHeaderInteractive = Array.from(
           document.querySelectorAll("header a, header button"),
-        );
+        ).filter((el) => {
+          const rect = el.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
         const minHeight = Math.min(
-          ...headerInteractive.map((el) => el.getBoundingClientRect().height),
+          ...visibleHeaderInteractive.map(
+            (el) => el.getBoundingClientRect().height,
+          ),
         );
         const minWidth = Math.min(
-          ...headerInteractive.map((el) => el.getBoundingClientRect().width),
+          ...visibleHeaderInteractive.map(
+            (el) => el.getBoundingClientRect().width,
+          ),
         );
-        return { overflow, minHeight, minWidth };
+        return {
+          overflow,
+          headerHeight,
+          visibleCount: visibleHeaderInteractive.length,
+          minHeight,
+          minWidth,
+        };
       });
       expect(metrics.overflow, `Horizontal overflow at ${vp.width}px`).toBe(
         false,
       );
+      expect(
+        metrics.headerHeight,
+        `Header height exceeded single-row 72px bound at ${vp.width}px`,
+      ).toBeLessThanOrEqual(72);
+      expect(
+        metrics.visibleCount,
+        `Expected visible header controls at ${vp.width}px`,
+      ).toBeGreaterThanOrEqual(2);
       expect(
         metrics.minHeight,
         `Header control height < 40px at ${vp.width}px`,
@@ -390,6 +490,62 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
         metrics.minWidth,
         `Header control width < 40px at ${vp.width}px`,
       ).toBeGreaterThanOrEqual(40);
+
+      if (vp.width < 640) {
+        const vpMenuToggle = page.locator("header button[aria-controls]");
+        await vpMenuToggle.click();
+        const openDrawer = page.getByTestId("landing-mobile-menu");
+        await expect(openDrawer).toBeVisible();
+
+        const drawerMetrics = await page.evaluate(() => {
+          const overflow =
+            document.documentElement.scrollWidth > window.innerWidth;
+          const visibleDrawerControls = Array.from(
+            document.querySelectorAll(
+              '[data-testid="landing-mobile-menu"] a, [data-testid="landing-mobile-menu"] button',
+            ),
+          ).filter((el) => {
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          });
+          const minHeight = Math.min(
+            ...visibleDrawerControls.map(
+              (el) => el.getBoundingClientRect().height,
+            ),
+          );
+          const minWidth = Math.min(
+            ...visibleDrawerControls.map(
+              (el) => el.getBoundingClientRect().width,
+            ),
+          );
+          return {
+            overflow,
+            controlCount: visibleDrawerControls.length,
+            minHeight,
+            minWidth,
+          };
+        });
+
+        expect(
+          drawerMetrics.overflow,
+          `Horizontal overflow with open drawer at ${vp.width}px`,
+        ).toBe(false);
+        expect(
+          drawerMetrics.controlCount,
+          `Expected visible controls inside mobile drawer at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(5);
+        expect(
+          drawerMetrics.minHeight,
+          `Mobile drawer control height < 40px at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(40);
+        expect(
+          drawerMetrics.minWidth,
+          `Mobile drawer control width < 40px at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(40);
+
+        await vpMenuToggle.click();
+        await expect(openDrawer).toHaveCount(0);
+      }
     }
 
     expect(consoleErrors).toEqual([]);

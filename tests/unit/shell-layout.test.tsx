@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+import { LandingHeader } from "@/components/landing/LandingHeader";
 import { AppOverview } from "@/components/layout/AppOverview";
 import { AppShell } from "@/components/layout/AppShell";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
@@ -262,6 +263,167 @@ describe("UI primitives, AppShell & accessible Modal (TS-001-07)", () => {
     for (const link of notesLinks) {
       expect(link).not.toHaveAttribute("aria-current", "page");
     }
+  });
+
+  it("handles AppShell mobile hamburger drawer, icon-only ThemeToggle, outside click, logo click, and Escape focus restore", () => {
+    render(
+      <div onClick={(event) => event.preventDefault()}>
+        <PreferencesProvider
+          initialLocale="id"
+          initialTheme="light"
+          hasCookieLocale={true}
+          hasCookieTheme={true}
+        >
+          <AppShell
+            user={{ id: "u1", name: "Dzikri", email: "dzikri@example.test" }}
+            logoutSlot={<button type="button">Keluar</button>}
+          >
+            <div data-testid="app-outside-content">Isi workspace</div>
+          </AppShell>
+        </PreferencesProvider>
+      </div>,
+    );
+
+    const hamburger = screen.getByRole("button", {
+      name: "Buka menu navigasi",
+    });
+    expect(hamburger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("app-shell-mobile-menu")).toBeNull();
+
+    // Open mobile drawer and inspect rendered controls inside the drawer only.
+    fireEvent.click(hamburger);
+    expect(hamburger).toHaveAttribute("aria-expanded", "true");
+    const mobileMenu = screen.getByTestId("app-shell-mobile-menu");
+    const drawer = within(mobileMenu);
+
+    expect(drawer.getByRole("button", { name: "ID" })).toBeInTheDocument();
+    expect(drawer.getByRole("button", { name: "EN" })).toBeInTheDocument();
+    const drawerThemeBtn = drawer.getByRole("button", { name: /mode gelap/i });
+    expect(drawerThemeBtn).toHaveAttribute("aria-pressed", "false");
+    expect(drawerThemeBtn.textContent?.trim()).toBe("");
+    expect(drawer.getByText("Dzikri")).toBeInTheDocument();
+    expect(drawer.getByRole("button", { name: "Keluar" })).toBeInTheDocument();
+
+    // Escape closes mobile drawer and restores focus to hamburger trigger.
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("app-shell-mobile-menu")).toBeNull();
+    expect(hamburger).toHaveAttribute("aria-expanded", "false");
+    expect(document.activeElement).toBe(hamburger);
+
+    // Clicking outside the header closes an open drawer.
+    fireEvent.click(hamburger);
+    expect(screen.getByTestId("app-shell-mobile-menu")).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByTestId("app-outside-content"));
+    expect(screen.queryByTestId("app-shell-mobile-menu")).toBeNull();
+
+    // Clicking brand logo /app closes an open drawer.
+    fireEvent.click(hamburger);
+    expect(screen.getByTestId("app-shell-mobile-menu")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Noka" }));
+    expect(screen.queryByTestId("app-shell-mobile-menu")).toBeNull();
+  });
+
+  it("handles LandingHeader guest and authenticated mobile drawer navigation, locale switching, outside click, logo click, and Escape focus restore", () => {
+    const { rerender } = render(
+      <div onClick={(event) => event.preventDefault()}>
+        <PreferencesProvider
+          initialLocale="id"
+          initialTheme="light"
+          hasCookieLocale={true}
+          hasCookieTheme={true}
+        >
+          <div>
+            <LandingHeader isAuthenticated={false} />
+            <div data-testid="landing-outside-content">Bagian konten publik</div>
+          </div>
+        </PreferencesProvider>
+      </div>,
+    );
+
+    const openTrigger = screen.getByRole("button", {
+      name: "Buka menu navigasi",
+    });
+    expect(openTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("landing-mobile-menu")).toBeNull();
+
+    // Guest mode drawer checks + instant EN toggle inside drawer.
+    fireEvent.click(openTrigger);
+    expect(openTrigger).toHaveAttribute("aria-expanded", "true");
+    const guestMenu = screen.getByTestId("landing-mobile-menu");
+    const guestDrawer = within(guestMenu);
+
+    expect(guestDrawer.getByRole("link", { name: "Masuk" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(guestDrawer.getByRole("link", { name: "Daftar" })).toHaveAttribute(
+      "href",
+      "/register",
+    );
+    expect(
+      guestDrawer.queryByRole("link", { name: "Buka Workspace" }),
+    ).toBeNull();
+    const guestThemeBtn = guestDrawer.getByRole("button", {
+      name: /mode gelap/i,
+    });
+    expect(guestThemeBtn.textContent?.trim()).toBe("");
+
+    fireEvent.click(guestDrawer.getByRole("button", { name: "EN" }));
+    expect(guestDrawer.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(guestDrawer.getByRole("link", { name: "Sign up" })).toHaveAttribute(
+      "href",
+      "/register",
+    );
+
+    // Clicking an action link inside the mobile drawer closes it via onNavigate.
+    fireEvent.click(guestDrawer.getByRole("link", { name: "Sign in" }));
+    expect(screen.queryByTestId("landing-mobile-menu")).toBeNull();
+
+    // Re-open and press Escape -> restores focus to hamburger trigger.
+    const enTrigger = screen.getByRole("button", {
+      name: "Open navigation menu",
+    });
+    fireEvent.click(enTrigger);
+    expect(screen.getByTestId("landing-mobile-menu")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByTestId("landing-mobile-menu")).toBeNull();
+    expect(document.activeElement).toBe(enTrigger);
+
+    // Switch to authenticated state and test /app CTA, outside pointerdown dismissal, and logo close.
+    rerender(
+      <div onClick={(event) => event.preventDefault()}>
+        <PreferencesProvider
+          initialLocale="id"
+          initialTheme="light"
+          hasCookieLocale={true}
+          hasCookieTheme={true}
+        >
+          <div>
+            <LandingHeader isAuthenticated={true} />
+            <div data-testid="landing-outside-content">Bagian konten publik</div>
+          </div>
+        </PreferencesProvider>
+      </div>,
+    );
+
+    fireEvent.click(enTrigger);
+    const authDrawer = within(screen.getByTestId("landing-mobile-menu"));
+    expect(
+      authDrawer.getByRole("link", { name: "Open Workspace" }),
+    ).toHaveAttribute("href", "/app");
+    expect(authDrawer.queryByRole("link", { name: "Sign in" })).toBeNull();
+    expect(authDrawer.queryByRole("link", { name: "Sign up" })).toBeNull();
+
+    fireEvent.pointerDown(screen.getByTestId("landing-outside-content"));
+    expect(screen.queryByTestId("landing-mobile-menu")).toBeNull();
+
+    fireEvent.click(enTrigger);
+    expect(screen.getByTestId("landing-mobile-menu")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "Noka" }));
+    expect(screen.queryByTestId("landing-mobile-menu")).toBeNull();
   });
 });
 
