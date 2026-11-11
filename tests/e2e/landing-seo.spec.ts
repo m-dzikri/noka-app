@@ -78,6 +78,8 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     expect(ssrIdHtml).toContain("/opengraph-image");
     expect(ssrIdHtml).toContain('name="twitter:card" content="summary_large_image"');
     expect(ssrIdHtml).toContain('<link rel="canonical"');
+    expect(ssrIdHtml).toContain('<link rel="icon"');
+    expect(ssrIdHtml).toContain("/icon.svg");
     expect(ssrIdHtml).toContain("<h1");
     expect(ssrIdHtml).toContain("<h2");
     expect(ssrIdHtml).toContain("<h3");
@@ -125,6 +127,11 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     expect(ogBuffer.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
     expect(ogBuffer.readUInt32BE(16)).toBe(1200);
     expect(ogBuffer.readUInt32BE(20)).toBe(630);
+
+    // 3b. Verify lightweight SVG tab icon renders without 404 fallback.
+    const iconRes = await request.get("/icon.svg");
+    expect(iconRes.status()).toBe(200);
+    expect(iconRes.headers()["content-type"]).toContain("image/svg+xml");
 
     // 4. Verify rendered anonymous hierarchy, 3 footer privacy points, and guest CTAs.
     await page.goto("/");
