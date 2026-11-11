@@ -94,7 +94,7 @@ export function RegisterForm() {
         return;
       }
 
-      router.push("/app");
+      router.push("/app/notes");
       router.refresh();
     } catch {
       setFormError(t.errors.generic);

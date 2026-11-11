@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function RegisterPage() {
   const user = await getSessionUser();
   if (user) {
-    redirect("/app");
+    redirect("/app/notes");
   }
 
   return <RegisterForm />;

@@ -104,6 +104,87 @@ export interface LandingDictionary {
   };
 }
 
+export interface NotesDictionary {
+  workspaceTitle: string;
+  workspaceSubtitle: string;
+  newNoteButton: string;
+  creatingNote: string;
+  searchLabel: string;
+  searchPlaceholder: string;
+  clearSearch: string;
+  filterPinnedOnly: string;
+  filterAllNotes: string;
+  filterUnfiled: string;
+  filterAllTags: string;
+  filterByTagLabel: string;
+  loadMoreButton: string;
+  loadingMore: string;
+  emptyListTitle: string;
+  emptyListDescription: string;
+  emptyFilterDescription: string;
+  selectNotePromptTitle: string;
+  selectNotePromptDescription: string;
+  untitledNote: string;
+  backToNotes: string;
+  noteNotFoundTitle: string;
+  noteNotFoundDescription: string;
+  titleLabel: string;
+  titlePlaceholder: string;
+  contentLabel: string;
+  contentPlaceholder: string;
+  folderLabel: string;
+  noFolderOption: string;
+  pinButtonLabel: string;
+  pinnedLabel: string;
+  unpinnedLabel: string;
+  modeEdit: string;
+  modePreview: string;
+  modeSplit: string;
+  modeGroupAriaLabel: string;
+  toolbarAriaLabel: string;
+  toolHeading: string;
+  toolBold: string;
+  toolItalic: string;
+  toolList: string;
+  toolChecklist: string;
+  toolCode: string;
+  toolLink: string;
+  tagsLabel: string;
+  tagPlaceholder: string;
+  addTagButton: string;
+  removeTagAriaPrefix: string;
+  statusSaved: string;
+  statusSaving: string;
+  statusPendingSync: string;
+  statusError: string;
+  conflictServerWinsNotice: string;
+  checklistCountLabel: string;
+  checklistToggleAria: string;
+  previewEmpty: string;
+  deleteNoteButton: string;
+  deleteConfirmTitle: string;
+  deleteConfirmDescription: string;
+  deleteConfirmButton: string;
+  deletingNote: string;
+  noteCountSummary: string;
+}
+
+export interface FoldersDictionary {
+  manageButton: string;
+  modalTitle: string;
+  modalDescription: string;
+  newFolderLabel: string;
+  newFolderPlaceholder: string;
+  createButton: string;
+  creatingButton: string;
+  renameButton: string;
+  saveRenameButton: string;
+  deleteButton: string;
+  emptyTitle: string;
+  folderNameRequired: string;
+  deleteNotice: string;
+}
+
 export interface Dictionary {
   common: {
     appName: string;
@@ -152,6 +233,10 @@ export interface Dictionary {
     MAIL_DELIVERY_UNAVAILABLE: string;
     INVALID_OR_EXPIRED_TOKEN: string;
     NOT_FOUND: string;
+    INVALID_CURSOR: string;
+    FOLDER_NAME_EXISTS: string;
+    NOTE_ALREADY_EXISTS: string;
+    FOLDER_ALREADY_EXISTS: string;
     generic: string;
   };
   preferences: {
@@ -236,9 +321,10 @@ export interface Dictionary {
   };
   // Strongly typed landing page & SEO dictionary populated in RFC-003.
   landing: LandingDictionary;
-  // Optional namespaces populated incrementally by RFC-004 through RFC-010 without stubs.
-  notes?: Record<string, unknown>;
-  folders?: Record<string, unknown>;
+  // Strongly typed Notes & Folders namespaces populated in RFC-004.
+  notes: NotesDictionary;
+  folders: FoldersDictionary;
+  // Optional namespaces populated incrementally by RFC-005 through RFC-010 without stubs.
   finance?: Record<string, unknown>;
   privacy?: Record<string, unknown>;
   quickCapture?: Record<string, unknown>;
