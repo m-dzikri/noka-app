@@ -29,7 +29,7 @@ export function LocaleToggle({ className }: LocaleToggleProps) {
         title={t.preferences.switchToId}
         onClick={() => updatePreferences({ locale: "id" })}
         className={cn(
-          "min-h-8.5 rounded-[calc(var(--radius-md)-2px)] px-2.5 text-xs font-semibold transition-colors cursor-pointer",
+          "min-h-10 rounded-[calc(var(--radius-md)-2px)] px-3 text-xs font-semibold transition-colors cursor-pointer",
           locale === "id"
             ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)]"
             : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
@@ -43,7 +43,7 @@ export function LocaleToggle({ className }: LocaleToggleProps) {
         title={t.preferences.switchToEn}
         onClick={() => updatePreferences({ locale: "en" })}
         className={cn(
-          "min-h-8.5 rounded-[calc(var(--radius-md)-2px)] px-2.5 text-xs font-semibold transition-colors cursor-pointer",
+          "min-h-10 rounded-[calc(var(--radius-md)-2px)] px-3 text-xs font-semibold transition-colors cursor-pointer",
           locale === "en"
             ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)]"
             : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]",

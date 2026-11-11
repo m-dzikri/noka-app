@@ -140,5 +140,126 @@ export const idDictionary: Dictionary = {
     refund: "Refund",
     other_income: "Lainnya",
   },
+  landing: {
+    seoTitle: "Noka — Seringan Notepad, Serapi Buku Kas",
+    seoDescription:
+      "Catatan Markdown, checklist GFM interaktif, Quick Capture offline, Safe-to-Spend harian, dan Privacy Blur dalam satu workspace ringan.",
+    header: {
+      primaryNavAriaLabel: "Navigasi utama landing",
+      openWorkspace: "Buka Workspace",
+      signIn: "Masuk",
+      signUp: "Daftar",
+    },
+    hero: {
+      eyebrow: "Catatan Markdown & Kas Multi-Dompet IDR",
+      title: "Seringan Notepad, Serapi Buku Kas.",
+      subtitle:
+        "Tulis ide, centang checklist GFM, dan catat pengeluaran dalam hitungan detik—tetap jalan saat offline dan terlindung Privacy Blur sekali klik.",
+      primaryGuestCta: "Mulai Gratis",
+      secondaryGuestCta: "Masuk",
+      primaryAuthCta: "Buka Workspace",
+      secondaryAuthCta: "Lihat Pratinjau",
+      trustLine:
+        "Tanpa verifikasi email bertele-tele • Parsing lokal di perangkat • Data 100% privat per akun",
+    },
+    preview: {
+      sectionTitle: "Pratinjau Interaktif",
+      sectionSubtitle:
+        "Coba simulasi Quick Capture, checklist GFM, Safe-to-Spend, Linked Notes, dan Privacy Blur langsung di sini—tanpa mengirim data ke server.",
+      quickCaptureLabel: "Pilih contoh input Quick Capture",
+      quickCaptureHint:
+        "Ketik alami: angka non-nominal seperti nomor bab atau jam rapat tetap dikenali sebagai catatan.",
+      detectedHeading: "Hasil Deteksi Lokal",
+      checklistHeading: "Checklist GFM Interaktif",
+      safeToSpendTitle: "Safe-to-Spend Harian",
+      safeToSpendVisibleAmount: "Rp85.000",
+      safeToSpendSuffix: " / hari • 12 hari tersisa",
+      safeToSpendSubtext: "Tunai & E-Wallet aktif • Tabungan Bank dikecualikan",
+      linkedNotesTitle: "Linked Notes ↔ Transaksi",
+      linkedNotesDetailPrefix: "Skripsi & Riset • 2 transaksi • Net ",
+      linkedNotesVisibleAmount: "-Rp125.000",
+      privacyBlurButtonShow: "Aktifkan Demo Privacy Blur",
+      privacyBlurButtonHide: "Matikan Demo Privacy Blur",
+      privacyBlurHint:
+        "Hanya mode demo pratinjau; tidak mengubah preferensi akun Anda.",
+      presets: [
+        {
+          id: "expense",
+          chip: "kopi kenangan 24rb gopay",
+          kindLabel: "Pengeluaran",
+          categoryLabel: "Makan & Minum",
+          walletLabel: "GoPay",
+          amountSign: "neutral",
+          amountText: "Rp24.000",
+          hintText: "Terdeteksi otomatis: nominal IDR 24rb + dompet GoPay",
+        },
+        {
+          id: "income",
+          chip: "+gaji 5jt bca",
+          kindLabel: "Pemasukan",
+          categoryLabel: "Gaji",
+          walletLabel: "BCA",
+          amountSign: "positive",
+          amountText: "+Rp5.000.000",
+          hintText: "Prefiks + menandai pemasukan ke dompet BCA",
+        },
+        {
+          id: "note",
+          chip: "bab 3 skripsi",
+          kindLabel: "Catatan",
+          categoryLabel: "Tanpa Transaksi",
+          noteTitle: "bab 3 skripsi",
+          hintText:
+            "Aturan konservatif: angka \"bab 3\" tidak disalahartikan sebagai nominal uang",
+        },
+      ],
+      checklistItems: [
+        { id: "chk-1", label: "Review draft bab 3 sebelum bimbingan" },
+        { id: "chk-2", label: "Catat pengeluaran kopi & transportasi hari ini" },
+        { id: "chk-3", label: "Cek sisa kuota Safe-to-Spend minggu ini" },
+      ],
+    },
+    features: {
+      sectionTitle: "Dirancang untuk Kecepatan dan Ketertiban Harian",
+      sectionSubtitle:
+        "Lima fondasi inti yang menjaga catatan pribadi dan kas IDR tetap sinkron tanpa terasa berat.",
+      items: [
+        {
+          title: "Catatan Markdown & Checklist GFM",
+          description:
+            "Editor bersih dengan pratinjau aman serta kotak centang GFM yang bisa diklik langsung tanpa menyentuh sintaks mentah.",
+        },
+        {
+          title: "Smart Quick Capture Offline",
+          description:
+            "Satu kotak input cepat membedakan transaksi IDR dan catatan berangka secara konservatif 100% lokal di perangkat.",
+        },
+        {
+          title: "Linked Notes ↔ Transaksi",
+          description:
+            "Tautkan pemasukan atau pengeluaran ke catatan proyek tertentu dan pantau ringkasan masuk, keluar, serta saldo bersih.",
+        },
+        {
+          title: "Safe-to-Spend Harian",
+          description:
+            "Hitung batas aman belanja harian secara deterministik berdasarkan saldo dompet harian dibagi sisa hari siklus aktif.",
+        },
+        {
+          title: "Privacy Blur Sekali Klik",
+          description:
+            "Samarkan seluruh angka saldo dan nominal transaksi di layar seketika menjadi Rp ••••• saat bekerja di tempat umum.",
+        },
+      ],
+    },
+    footer: {
+      privacyHeading: "Privasi & Kontrol Data di Tangan Anda",
+      privacyPoints: [
+        "Isolasi data ketat per akun: catatan, dompet, dan lampiran gambar bersifat 100% privat.",
+        "Parsing Quick Capture berjalan 100% lokal di perangkat tanpa mengirim teks Anda ke AI eksternal.",
+        "Kendali penuh: hapus akun mandiri kapan saja beserta pembersihan cache offline perangkat.",
+      ],
+      copyright: "Noka • Note + Kas",
+    },
+  },
 };
 

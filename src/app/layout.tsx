@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
+import { getAppUrl } from "@/lib/env";
 import { getServerPreferences } from "@/lib/i18n/server";
 import "./globals.css";
 
@@ -17,11 +18,14 @@ const jetBrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Noka — Seringan Notepad, Serapi Buku Kas",
-  description:
-    "Catatan Markdown, daftar periksa GFM, dan pelacakan kas multi-dompet IDR yang cepat dan offline-first.",
-};
+export function generateMetadata(): Metadata {
+  return {
+    metadataBase: new URL(getAppUrl()),
+    title: "Noka — Seringan Notepad, Serapi Buku Kas",
+    description:
+      "Catatan Markdown, daftar periksa GFM, dan pelacakan kas multi-dompet IDR yang cepat dan offline-first.",
+  };
+}
 
 export default async function RootLayout({
   children,
