@@ -54,12 +54,25 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
       /\/+$/,
       "",
     );
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") {
+        consoleErrors.push(msg.text());
+      }
+    });
+    page.on("pageerror", (err) => {
+      pageErrors.push(err.message);
+    });
 
     // 1. Verify SSR HTML without client JS dependency (ID default & EN cookie).
     const ssrIdRes = await request.get("/");
     expect(ssrIdRes.status()).toBe(200);
     const ssrIdHtml = await ssrIdRes.text();
     expect(ssrIdHtml).toContain("<title>Noka — Seringan Notepad, Serapi Buku Kas</title>");
+    expect(ssrIdHtml).toContain(
+      '<meta name="description" content="Catatan Markdown, checklist GFM interaktif, Quick Capture offline, Safe-to-Spend harian, dan Privacy Blur dalam satu workspace ringan."',
+    );
     expect(ssrIdHtml).toContain('property="og:locale" content="id_ID"');
     expect(ssrIdHtml).toContain('property="og:image"');
     expect(ssrIdHtml).toContain("/opengraph-image");
@@ -76,6 +89,9 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     const ssrEnHtml = await ssrEnRes.text();
     expect(ssrEnHtml).toContain(
       "<title>Noka — Light as a Notepad, Tidy as a Ledger</title>",
+    );
+    expect(ssrEnHtml).toContain(
+      '<meta name="description" content="Markdown notes, interactive GFM checklists, offline Smart Quick Capture, daily Safe-to-Spend, and one-click Privacy Blur in one lightweight workspace."',
     );
     expect(ssrEnHtml).toContain('property="og:locale" content="en_US"');
 
@@ -94,6 +110,10 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     expect(sitemapBody).toContain(`${resolvedBaseUrl}/</loc>`);
     expect(sitemapBody).toContain(`${resolvedBaseUrl}/login</loc>`);
     expect(sitemapBody).toContain(`${resolvedBaseUrl}/register</loc>`);
+    expect(sitemapBody).toContain("<changefreq>weekly</changefreq>");
+    expect(sitemapBody).toContain("<changefreq>monthly</changefreq>");
+    expect(sitemapBody).toMatch(/<priority>1(\.0)?<\/priority>/);
+    expect(sitemapBody).toContain("<priority>0.6</priority>");
     expect(sitemapBody).not.toContain("/forgot-password");
     expect(sitemapBody).not.toContain("/reset-password");
 
@@ -161,9 +181,30 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
       await expect(
         mainHero.getByRole("link", { name: "Buka Workspace" }),
       ).toHaveAttribute("href", "/app");
-      await expect(
-        mainHero.getByRole("link", { name: "Lihat Pratinjau" }),
-      ).toHaveAttribute("href", "#preview");
+      const previewCta = mainHero.getByRole("link", {
+        name: "Lihat Pratinjau",
+      });
+      await expect(previewCta).toHaveAttribute("href", "#preview");
+      await previewCta.click();
+      await expect(page).toHaveURL(/#preview$/);
+
+      const anchorMetrics = await page.evaluate(() => {
+        const headerEl = document.querySelector("header");
+        const headingEl = document.getElementById("landing-preview-heading");
+        if (!headerEl || !headingEl) {
+          return null;
+        }
+        return {
+          headerBottom: headerEl.getBoundingClientRect().bottom,
+          headingTop: headingEl.getBoundingClientRect().top,
+        };
+      });
+      expect(anchorMetrics).not.toBeNull();
+      expect(anchorMetrics!.headingTop).toBeGreaterThanOrEqual(
+        anchorMetrics!.headerBottom - 1,
+      );
+      expect(consoleErrors).toEqual([]);
+      expect(pageErrors).toEqual([]);
     } finally {
       await page.request
         .post("/api/auth/logout", { headers: { origin: resolvedBaseUrl } })
@@ -176,10 +217,20 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     page,
   }) => {
     const apiRequests: string[] = [];
+    const consoleErrors: string[] = [];
+    const pageErrors: string[] = [];
     page.on("request", (req) => {
       if (new URL(req.url()).pathname.startsWith("/api/")) {
         apiRequests.push(req.url());
       }
+    });
+    page.on("console", (msg) => {
+      if (msg.type() === "error") {
+        consoleErrors.push(msg.text());
+      }
+    });
+    page.on("pageerror", (err) => {
+      pageErrors.push(err.message);
     });
 
     await page.goto("/");
@@ -246,6 +297,11 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
     await expect(page.getByTestId("linked-notes-amount")).toHaveText(
       "-Rp •••••",
     );
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.localStorage.getItem("noka_privacy_blur")),
+      )
+      .toBeNull();
 
     // Switch EN + Dark mode simultaneously via UI toggles without page reload.
     await page.getByRole("button", { name: "EN", exact: true }).click();
@@ -318,7 +374,10 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
         const minHeight = Math.min(
           ...headerInteractive.map((el) => el.getBoundingClientRect().height),
         );
-        return { overflow, minHeight };
+        const minWidth = Math.min(
+          ...headerInteractive.map((el) => el.getBoundingClientRect().width),
+        );
+        return { overflow, minHeight, minWidth };
       });
       expect(metrics.overflow, `Horizontal overflow at ${vp.width}px`).toBe(
         false,
@@ -327,7 +386,14 @@ test.describe("RFC-003: Public SEO Landing Page (TS-003-01 & TS-003-02)", () => 
         metrics.minHeight,
         `Header control height < 40px at ${vp.width}px`,
       ).toBeGreaterThanOrEqual(40);
+      expect(
+        metrics.minWidth,
+        `Header control width < 40px at ${vp.width}px`,
+      ).toBeGreaterThanOrEqual(40);
     }
+
+    expect(consoleErrors).toEqual([]);
+    expect(pageErrors).toEqual([]);
   });
 });
 
