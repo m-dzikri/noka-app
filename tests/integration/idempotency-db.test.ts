@@ -312,5 +312,131 @@ describe("withIdempotency and 13-table schema constraints (TS-001-04)", () => {
     expect(reloadedTx).toBeDefined();
     expect(reloadedTx.noteId).toBeNull();
   });
+
+  it("executes handler directly without writing idempotency_keys when idempotencyKey is undefined", async () => {
+    const db = getDb();
+    const beforeCount = (
+      await db
+        .select()
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.userId, testUserId))
+    ).length;
+
+    const firstRes = await withIdempotency({
+      userId: testUserId,
+      method: "POST",
+      path: "/api/wallets",
+      payload: { name: "No Key 1" },
+      handler: async (tx) => {
+        const [created] = await tx
+          .insert(wallets)
+          .values({
+            userId: testUserId,
+            name: "No Key 1",
+            type: "cash",
+            initialBalance: 1_000,
+          })
+          .returning();
+        return { status: 201, body: { id: created.id } };
+      },
+    });
+
+    const secondRes = await withIdempotency({
+      userId: testUserId,
+      method: "POST",
+      path: "/api/wallets",
+      payload: { name: "No Key 1" },
+      handler: async (tx) => {
+        const [created] = await tx
+          .insert(wallets)
+          .values({
+            userId: testUserId,
+            name: "No Key 2",
+            type: "cash",
+            initialBalance: 2_000,
+          })
+          .returning();
+        return { status: 201, body: { id: created.id } };
+      },
+    });
+
+    expect(firstRes.status).toBe(201);
+    expect(secondRes.status).toBe(201);
+
+    const afterCount = (
+      await db
+        .select()
+        .from(idempotencyKeys)
+        .where(eq(idempotencyKeys.userId, testUserId))
+    ).length;
+    expect(afterCount).toBe(beforeCount);
+
+    const userWallets = await db
+      .select()
+      .from(wallets)
+      .where(eq(wallets.userId, testUserId));
+    expect(userWallets).toHaveLength(2);
+  });
+
+  it("accepts 1-character and 128-character idempotency keys and rejects method or path conflicts with 409", async () => {
+    const minKey = "k";
+    const maxKey = "m".repeat(128);
+
+    const minRes = await withIdempotency({
+      userId: testUserId,
+      idempotencyKey: minKey,
+      method: "POST",
+      path: "/api/wallets",
+      payload: { name: "Boundary Min" },
+      handler: async () => ({ status: 201, body: { min: true } }),
+    });
+    expect(minRes.status).toBe(201);
+    expect(await minRes.json()).toEqual({ ok: true, data: { min: true } });
+
+    const maxRes = await withIdempotency({
+      userId: testUserId,
+      idempotencyKey: maxKey,
+      method: "POST",
+      path: "/api/wallets",
+      payload: { name: "Boundary Max" },
+      handler: async () => ({ status: 201, body: { max: true } }),
+    });
+    expect(maxRes.status).toBe(201);
+    expect(await maxRes.json()).toEqual({ ok: true, data: { max: true } });
+
+    // Same key & payload, different HTTP method -> 409 IDEMPOTENCY_KEY_CONFLICT.
+    await expect(
+      withIdempotency({
+        userId: testUserId,
+        idempotencyKey: maxKey,
+        method: "PATCH",
+        path: "/api/wallets",
+        payload: { name: "Boundary Max" },
+        handler: async () => {
+          throw new Error("Should not execute handler on method mismatch");
+        },
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "IDEMPOTENCY_KEY_CONFLICT",
+    });
+
+    // Same key & payload & method, different path -> 409 IDEMPOTENCY_KEY_CONFLICT.
+    await expect(
+      withIdempotency({
+        userId: testUserId,
+        idempotencyKey: maxKey,
+        method: "POST",
+        path: "/api/transactions",
+        payload: { name: "Boundary Max" },
+        handler: async () => {
+          throw new Error("Should not execute handler on path mismatch");
+        },
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: "IDEMPOTENCY_KEY_CONFLICT",
+    });
+  });
 });
 

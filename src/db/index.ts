@@ -12,6 +12,7 @@ const globalForDb = globalThis as unknown as {
   __nokaPool?: Pool;
   __nokaPoolUrl?: string;
   __nokaDb?: AppDatabase;
+  __nokaDbUrl?: string;
 };
 
 function shouldEnableSsl(databaseUrl: string): boolean {
@@ -21,7 +22,7 @@ function shouldEnableSsl(databaseUrl: string): boolean {
     if (sslMode === "disable") {
       return false;
     }
-    const hostname = parsed.hostname.toLowerCase();
+    const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
     return (
       hostname !== "localhost" &&
       hostname !== "127.0.0.1" &&
@@ -36,12 +37,13 @@ function shouldEnableSsl(databaseUrl: string): boolean {
  * Lazily initializes and caches the PostgreSQL connection pool on first server access.
  */
 export function getPool(): Pool {
-  const { DATABASE_URL, NODE_ENV } = getEnv();
+  const { DATABASE_URL } = getEnv();
 
   if (globalForDb.__nokaPool && globalForDb.__nokaPoolUrl === DATABASE_URL) {
     return globalForDb.__nokaPool;
   }
 
+  const previousPool = globalForDb.__nokaPool;
   const pool = new Pool({
     connectionString: DATABASE_URL,
     ssl: shouldEnableSsl(DATABASE_URL)
@@ -49,9 +51,13 @@ export function getPool(): Pool {
       : undefined,
   });
 
-  if (NODE_ENV !== "production") {
-    globalForDb.__nokaPool = pool;
-    globalForDb.__nokaPoolUrl = DATABASE_URL;
+  globalForDb.__nokaPool = pool;
+  globalForDb.__nokaPoolUrl = DATABASE_URL;
+  globalForDb.__nokaDb = undefined;
+  globalForDb.__nokaDbUrl = undefined;
+
+  if (previousPool && previousPool !== pool) {
+    void previousPool.end().catch(() => undefined);
   }
 
   return pool;
@@ -61,17 +67,15 @@ export function getPool(): Pool {
  * Returns the lazily created Drizzle ORM database instance bound to the shared schema.
  */
 export function getDb(): AppDatabase {
-  const { DATABASE_URL, NODE_ENV } = getEnv();
+  const { DATABASE_URL } = getEnv();
 
-  if (globalForDb.__nokaDb && globalForDb.__nokaPoolUrl === DATABASE_URL) {
+  if (globalForDb.__nokaDb && globalForDb.__nokaDbUrl === DATABASE_URL) {
     return globalForDb.__nokaDb;
   }
 
   const instance = drizzle(getPool(), { schema });
-  if (NODE_ENV !== "production") {
-    globalForDb.__nokaDb = instance;
-    globalForDb.__nokaPoolUrl = DATABASE_URL;
-  }
+  globalForDb.__nokaDb = instance;
+  globalForDb.__nokaDbUrl = DATABASE_URL;
 
   return instance;
 }

@@ -191,5 +191,77 @@ describe("UI primitives, AppShell & accessible Modal (TS-001-07)", () => {
     fireEvent.click(screen.getByTestId("modal-backdrop"));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("keeps focus on a controlled input in Modal across parent re-renders with inline onClose", () => {
+    function ControlledModalHarness() {
+      const [open, setOpen] = useState(true);
+      const [walletName, setWalletName] = useState("");
+
+      return (
+        <Modal
+          open={open}
+          onClose={() => setOpen(false)}
+          title="Tambah Dompet"
+        >
+          <Input
+            label="Nama Dompet Controlled"
+            value={walletName}
+            onChange={(event) => setWalletName(event.target.value)}
+          />
+          <Button onClick={() => setOpen(false)}>Tutup</Button>
+        </Modal>
+      );
+    }
+
+    render(<ControlledModalHarness />);
+
+    const closeTopButton = screen.getByRole("button", { name: "Close" });
+    expect(document.activeElement).toBe(closeTopButton);
+
+    const controlledInput = screen.getByLabelText(
+      "Nama Dompet Controlled",
+    ) as HTMLInputElement;
+    controlledInput.focus();
+    expect(document.activeElement).toBe(controlledInput);
+
+    // Triggering controlled state updates creates a new inline onClose reference on every keystroke.
+    fireEvent.change(controlledInput, { target: { value: "B" } });
+    expect(document.activeElement).toBe(controlledInput);
+
+    fireEvent.change(controlledInput, { target: { value: "BCA Utama" } });
+    expect(controlledInput.value).toBe("BCA Utama");
+    expect(document.activeElement).toBe(controlledInput);
+  });
+
+  it("renders accessible danger button tokens, AppOverview h1 heading, and boundary-safe mobile nav", () => {
+    render(
+      <PreferencesProvider
+        initialLocale="id"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        <AppShell currentPath="/app/notes-archive">
+          <AppOverview />
+          <Button variant="danger">Hapus Dompet</Button>
+        </AppShell>
+      </PreferencesProvider>,
+    );
+
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent("Selamat datang di Noka");
+
+    const dangerBtn = screen.getByRole("button", { name: "Hapus Dompet" });
+    expect(dangerBtn.className).toContain("bg-[var(--danger-bg)]");
+    expect(dangerBtn.className).toContain("text-[var(--danger-fg)]");
+    expect(dangerBtn.className).not.toContain("bg-[var(--status-expense)]");
+
+    // Prefix lookalike /app/notes-archive must not mark /app/notes active on desktop or mobile nav.
+    const notesLinks = screen.getAllByRole("link", { name: /^Catatan$/i });
+    expect(notesLinks).toHaveLength(2);
+    for (const link of notesLinks) {
+      expect(link).not.toHaveAttribute("aria-current", "page");
+    }
+  });
 });
 

@@ -13,6 +13,8 @@
   --accent-foreground: #ffffff;
   --status-income: #15803d;
   --status-expense: #b91c1c;
+  --danger-bg: #b91c1c;
+  --danger-fg: #ffffff;
   --status-warning: #92400e;
   --focus-ring: #1d4ed8;
   --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.08);
@@ -33,6 +35,8 @@
   --accent-foreground: #09090b;
   --status-income: #4ade80;
   --status-expense: #f87171;
+  --danger-bg: #dc2626;
+  --danger-fg: #ffffff;
   --status-warning: #fbbf24;
   --focus-ring: #60a5fa;
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.45);

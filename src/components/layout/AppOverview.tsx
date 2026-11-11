@@ -21,7 +21,9 @@ export function AppOverview() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">{t.common.overviewHeading}</CardTitle>
+          <CardTitle as="h1" className="text-2xl">
+            {t.common.overviewHeading}
+          </CardTitle>
           <CardDescription>{t.common.tagline}</CardDescription>
         </CardHeader>
         <CardContent>

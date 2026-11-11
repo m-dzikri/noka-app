@@ -6,7 +6,10 @@ import { FileText, Plus, Settings, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import { LocaleToggle } from "@/components/ui/LocaleToggle";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { WorkspaceNav } from "@/components/layout/WorkspaceNav";
+import {
+  isWorkspaceRouteActive,
+  WorkspaceNav,
+} from "@/components/layout/WorkspaceNav";
 import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/cn";
 
@@ -124,10 +127,14 @@ export function AppShell({
         <div className="mx-auto grid max-w-md grid-cols-4 items-center gap-1">
           <Link
             href="/app/notes"
-            aria-current={resolvedPath.startsWith("/app/notes") ? "page" : undefined}
+            aria-current={
+              isWorkspaceRouteActive(resolvedPath, "/app/notes")
+                ? "page"
+                : undefined
+            }
             className={cn(
               "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 text-xs font-medium",
-              resolvedPath.startsWith("/app/notes")
+              isWorkspaceRouteActive(resolvedPath, "/app/notes")
                 ? "text-[var(--text-primary)] underline underline-offset-4"
                 : "text-[var(--text-secondary)]",
             )}
@@ -149,11 +156,13 @@ export function AppShell({
           <Link
             href="/app/finance"
             aria-current={
-              resolvedPath.startsWith("/app/finance") ? "page" : undefined
+              isWorkspaceRouteActive(resolvedPath, "/app/finance")
+                ? "page"
+                : undefined
             }
             className={cn(
               "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 text-xs font-medium",
-              resolvedPath.startsWith("/app/finance")
+              isWorkspaceRouteActive(resolvedPath, "/app/finance")
                 ? "text-[var(--text-primary)] underline underline-offset-4"
                 : "text-[var(--text-secondary)]",
             )}
@@ -165,11 +174,13 @@ export function AppShell({
           <Link
             href="/app/settings"
             aria-current={
-              resolvedPath.startsWith("/app/settings") ? "page" : undefined
+              isWorkspaceRouteActive(resolvedPath, "/app/settings")
+                ? "page"
+                : undefined
             }
             className={cn(
               "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] px-1 text-xs font-medium",
-              resolvedPath.startsWith("/app/settings")
+              isWorkspaceRouteActive(resolvedPath, "/app/settings")
                 ? "text-[var(--text-primary)] underline underline-offset-4"
                 : "text-[var(--text-secondary)]",
             )}

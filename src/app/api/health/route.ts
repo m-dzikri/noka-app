@@ -30,8 +30,21 @@ async function checkDatabaseWithTimeout(): Promise<void> {
   }
 }
 
+const MAX_REQUEST_ID_LENGTH = 128;
+
+function normalizeRequestId(rawHeader: string | null): string {
+  if (!rawHeader) {
+    return crypto.randomUUID();
+  }
+  const sanitized = rawHeader
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim()
+    .slice(0, MAX_REQUEST_ID_LENGTH);
+  return sanitized || crypto.randomUUID();
+}
+
 export async function GET(request: NextRequest) {
-  const requestId = request.headers.get("x-request-id") ?? crypto.randomUUID();
+  const requestId = normalizeRequestId(request.headers.get("x-request-id"));
   const log = createLogger(requestId);
 
   try {

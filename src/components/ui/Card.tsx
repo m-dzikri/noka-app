@@ -26,12 +26,19 @@ export function CardHeader({
   return <div className={cn("mb-3 flex flex-col gap-1", className)} {...props} />;
 }
 
+type CardTitleHeading = "h1" | "h2" | "h3";
+
+interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> {
+  as?: CardTitleHeading;
+}
+
 export function CardTitle({
+  as: Heading = "h2",
   className,
   ...props
-}: HTMLAttributes<HTMLHeadingElement>) {
+}: CardTitleProps) {
   return (
-    <h2
+    <Heading
       className={cn("text-lg font-semibold text-[var(--text-primary)]", className)}
       {...props}
     />

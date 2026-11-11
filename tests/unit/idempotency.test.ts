@@ -2,7 +2,11 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, apiError, apiOk, handleApiError } from "@/lib/api-response";
-import { canonicalJson, resolveLwwTimestamp } from "@/lib/idempotency";
+import {
+  canonicalJson,
+  resolveLwwTimestamp,
+  withIdempotency,
+} from "@/lib/idempotency";
 import type { Logger } from "@/lib/logger";
 
 describe("idempotency helpers, LWW & API envelope (TS-001-03)", () => {
@@ -129,6 +133,26 @@ describe("idempotency helpers, LWW & API envelope (TS-001-03)", () => {
       expect(error).toBeInstanceOf(ApiError);
       expect((error as ApiError).status).toBe(422);
       expect((error as ApiError).code).toBe("INVALID_TIMESTAMP");
+    }
+  });
+
+  it("rejects empty, whitespace-only, and over-128-character idempotency keys with 422 VALIDATION_ERROR", async () => {
+    for (const badKey of ["", "   ", "k".repeat(129)]) {
+      await expect(
+        withIdempotency({
+          userId: "user-1",
+          idempotencyKey: badKey,
+          method: "POST",
+          path: "/api/wallets",
+          payload: { name: "Test" },
+          handler: async () => {
+            throw new Error("Handler must not execute on invalid idempotencyKey");
+          },
+        }),
+      ).rejects.toMatchObject({
+        status: 422,
+        code: "VALIDATION_ERROR",
+      });
     }
   });
 });

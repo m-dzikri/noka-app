@@ -73,5 +73,39 @@ describe("GET /api/health integration (TS-001-05)", () => {
       },
     });
   });
+
+  it("truncates oversized x-request-id headers and falls back to UUID when blank", async () => {
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+    vi.spyOn(dbModule, "getPool").mockReturnValue({
+      query: vi.fn().mockRejectedValue(new Error("ECONNREFUSED")),
+    } as unknown as Pool);
+
+    const oversizedReq = new NextRequest("http://localhost:3000/api/health", {
+      headers: { "x-request-id": `\n${"x".repeat(300)}\r` },
+    });
+    const res1 = await GET(oversizedReq);
+    expect(res1.status).toBe(503);
+
+    const blankReq = new NextRequest("http://localhost:3000/api/health", {
+      headers: { "x-request-id": "   \t\n  " },
+    });
+    const res2 = await GET(blankReq);
+    expect(res2.status).toBe(503);
+
+    expect(stderrSpy).toHaveBeenCalledTimes(2);
+    const firstLog = JSON.parse(String(stderrSpy.mock.calls[0]?.[0])) as {
+      requestId: string;
+    };
+    const secondLog = JSON.parse(String(stderrSpy.mock.calls[1]?.[0])) as {
+      requestId: string;
+    };
+
+    expect(firstLog.requestId).toBe("x".repeat(128));
+    expect(secondLog.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
 });
 

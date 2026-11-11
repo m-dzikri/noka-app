@@ -25,7 +25,7 @@ function PreferencesHarness({
   onPersist?: (patch: { locale?: string; theme?: string }) => void;
 }) {
   const { t, locale } = useI18n();
-  const { registerPersistHandler } = usePreferences();
+  const { updatePreferences, registerPersistHandler } = usePreferences();
 
   useEffect(() => {
     if (!onPersist) {
@@ -40,6 +40,12 @@ function PreferencesHarness({
       <p data-testid="active-locale">{locale}</p>
       <ThemeToggle />
       <LocaleToggle />
+      <button
+        type="button"
+        onClick={() => updatePreferences({ theme: "dark" })}
+      >
+        Force Dark
+      </button>
       <input aria-label="Draft editor input" defaultValue="" />
     </div>
   );
@@ -146,6 +152,12 @@ describe("PreferencesProvider and instant ID/EN + Light/Dark switching (TS-001-0
     expect(window.localStorage.getItem("noka_locale")).toBe("en");
     expect(document.cookie).toContain("noka_locale=en");
     expect(persistSpy).toHaveBeenCalledWith({ locale: "en" });
+
+    // Re-selecting already-active preferences is a no-op and does not fire onPersist again.
+    const callsBeforeNoop = persistSpy.mock.calls.length;
+    fireEvent.click(enButton);
+    fireEvent.click(screen.getByRole("button", { name: "Force Dark" }));
+    expect(persistSpy).toHaveBeenCalledTimes(callsBeforeNoop);
 
     expect(input.value).toBe("kopi pagi Rp 25000");
   });

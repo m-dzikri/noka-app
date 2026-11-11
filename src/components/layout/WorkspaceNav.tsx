@@ -13,6 +13,13 @@ export interface WorkspaceNavProps {
 /**
  * Separated top-level workspace navigation for Notes, Finance, and Settings (ARCH-5).
  */
+export function isWorkspaceRouteActive(
+  currentPath: string,
+  href: string,
+): boolean {
+  return currentPath === href || currentPath.startsWith(`${href}/`);
+}
+
 export function WorkspaceNav({ currentPath, className }: WorkspaceNavProps) {
   const { t } = useI18n();
 
@@ -29,8 +36,7 @@ export function WorkspaceNav({ currentPath, className }: WorkspaceNavProps) {
     >
       {items.map((item) => {
         const Icon = item.icon;
-        const isActive =
-          currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+        const isActive = isWorkspaceRouteActive(currentPath, item.href);
 
         return (
           <Link

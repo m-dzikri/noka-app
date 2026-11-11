@@ -84,11 +84,24 @@ describe("env validation (TS-001-01)", () => {
     expect(parsed.EMAIL_FROM).toBeUndefined();
   });
 
-  it("rejects SESSION_SECRET shorter than 32 characters", () => {
+  it("rejects SESSION_SECRET shorter than 32 characters and missing or empty DATABASE_URL", () => {
     Object.assign(process.env, VALID_BASE_ENV, {
       SESSION_SECRET: "too-short-secret",
     });
 
+    expect(() => getEnv()).toThrow();
+
+    Object.assign(process.env, VALID_BASE_ENV, {
+      DATABASE_URL: "",
+    });
+    expect(() => getEnv()).toThrow();
+
+    Object.assign(process.env, VALID_BASE_ENV, {
+      DATABASE_URL: "   ",
+    });
+    expect(() => getEnv()).toThrow();
+
+    delete (process.env as Record<string, string | undefined>).DATABASE_URL;
     expect(() => getEnv()).toThrow();
   });
 

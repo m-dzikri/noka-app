@@ -20,7 +20,7 @@ Pada tanggal `11 November 2026`, repositori `d:\Projects\noka-app` berada pada *
   Runtime terverifikasi: Node.js v24.20.0 | npm 11.19.0 | Python 3.13.17
   Database runtime: PostgreSQL 16+ (eksternal/belum diverifikasi di mesin ini hingga RFC-001)
   ```
-- **Kebijakan Status Plan Ini:** Seluruh **29 file suite uji** (`15` unit, `11` integration, `3` E2E) + `tests/setup.ts` pada dokumen ini berstatus **`Proposed`**. Kolom status hanya boleh diubah ke `Passing` oleh `/implement-rfc <id>` dan `/review-rfc <id>` setelah kode & test dijalankan nyata tanpa skenario yang di-skip (`TEST-1`, `QUAL-3`).
+- **Kebijakan Status Plan Ini:** Seluruh **30 file suite uji** (`16` unit, `11` integration, `3` E2E) + `tests/setup.ts` pada dokumen ini memiliki status per RFC (`Passing` pada RFC yang sudah terimplementasi, `Proposed` pada RFC berikutnya). Kolom status hanya boleh diubah ke `Passing` oleh `/implement-rfc <id>` dan `/review-rfc <id>` setelah kode & test dijalankan nyata tanpa skenario yang di-skip (`TEST-1`, `QUAL-3`).
 
 ### Resolusi Konflik Antar-Artefak (`QUAL-1`)
 - **`F6` (*Should Have* di `FEATURES.md`) vs. `FR-2` (*Must Have* di `PRD.md`):** `PRD.md` mewajibkan `cycleStartDay` pada *Safe-to-Spend* (`FR-2`, `FR-13` *Must Have*), sedangkan `FEATURES.md` menggabungkan profil, siklus, dan hapus akun ke `F6` (*Should Have*). Mengikuti `PRD.md > FEATURES.md` dan `RFCS.md`, kolom `cycleStartDay` diuji sejak `RFC-001`, `RFC-002`, dan `RFC-007` (prioritas `Must`), sementara keseluruhan fitur `F6` (`/app/settings` + hapus akun) tetap memakai rating asli **`Should`** dari `FEATURES.md` pada `RFC-010` tanpa menimpa peringkat MoSCoW.
@@ -89,7 +89,7 @@ Aplikasi **Noka** diklasifikasikan sebagai **Web App** (*Multi-user Responsive W
 
 | RFC | Nama Singkat | Fitur & Prioritas (`FEATURES.md`) | Unit (`Proposed`) | Integration (`Proposed`) | E2E (`Proposed`) | Total Suite |
 |---|---|---|---:|---:|---:|---:|
-| **RFC-001** | Foundation, Schema & Shell | `F2`, `F3` (*Must*) | 5 (+`setup.ts`) | 2 | 0 | **7** |
+| **RFC-001** | Foundation, Schema & Shell | `F2`, `F3` (*Must*) | 6 (+`setup.ts`) | 2 | 0 | **8** |
 | **RFC-002** | Auth, Session & Password Reset | `F4`, `F5` (*Must*) | 1 | 2 | 0 | **3** |
 | **RFC-003** | Public SEO Landing Page | `F1` (*Must*) | 0 | 0 | 1 | **1** |
 | **RFC-004** | Notes, Markdown, GFM & Search | `F7`, `F8` (*Must*) | 2 | 1 | 0 | **3** |
@@ -99,7 +99,7 @@ Aplikasi **Noka** diklasifikasikan sebagai **Web App** (*Multi-user Responsive W
 | **RFC-008** | Quick Capture & Linked Notes | `F14`, `F15` (*Must*) | 2 | 1 | 0 | **3** |
 | **RFC-009** | PWA, IndexedDB & Offline Sync | `F18`, `F19` (*Must*) | 1 | 0 | 1 | **2** |
 | **RFC-010** | Settings, Cycle & Account Delete | `F6` (*Should*) + Gate v1.0 | 0 | 1 | 1 | **2** |
-| **Total** | — | **18 Must + 1 Should (v1.0)** | **15** | **11** | **3** | **29** |
+| **Total** | — | **18 Must + 1 Should (v1.0)** | **16** | **11** | **3** | **30** |
 
 > *(Cakupan tertunda/terkecuali `FEATURES.md`: `F20`–`F24` (*Could Have* v1.1) dan `F25`–`F31` (*Won't Have*) diverifikasi tidak diimplementasikan pada kode maupun rute API v1.0).*
 
@@ -128,7 +128,7 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 - **Fitur & Prioritas:** `F2`, `F3` — **Must Have**
 - **Prasyarat (*Depends on*):** `none`
 - **Aturan Terkait:** `STACK-1`–`STACK-4`, `ARCH-1`, `ARCH-2`, `ARCH-4`–`ARCH-6`, `DATA-1`, `DATA-4`, `DATA-6`, `API-1`–`API-3`, `UI-1`–`UI-3`, `UI-5`, `I18N-1`, `I18N-2`, `PERF-4`, `OBS-1`, `OBS-2`, `TEST-1`, `QUAL-1`–`QUAL-3`
-- **File Suite (`Passing`):** `tests/setup.ts`, `tests/setup.integration.ts`, `tests/unit/logger.test.ts`, `tests/unit/env.test.ts`, `tests/unit/idempotency.test.ts`, `tests/unit/preferences-i18n.test.tsx`, `tests/unit/shell-layout.test.tsx`, `tests/integration/health.test.ts`, `tests/integration/idempotency-db.test.ts`
+- **File Suite (`Passing`):** `tests/setup.ts`, `tests/setup.integration.ts`, `tests/unit/logger.test.ts`, `tests/unit/env.test.ts`, `tests/unit/db.test.ts`, `tests/unit/idempotency.test.ts`, `tests/unit/preferences-i18n.test.tsx`, `tests/unit/shell-layout.test.tsx`, `tests/integration/health.test.ts`, `tests/integration/idempotency-db.test.ts`
 
 | Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
 |---|---|---|---|---|---|---|
@@ -138,7 +138,8 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 | **TS-001-04** | Passing | `tests/integration/idempotency-db.test.ts` (Integration) | Must | Jalankan migrasi `0000_init.sql`, uji `withIdempotency`: replay sukses (`2xx`), konflik beda payload (`409 IDEMPOTENCY_KEY_CONFLICT`), rollback domain + persist `409` `ApiError`, non-caching `5xx`, dan **2 request paralel identik** (`Promise.all`) dengan key sama; verifikasi pula `bigint` & `CHECK`/`FK` dasar 13 tabel. | PostgreSQL uji + Drizzle | Request paralel mengeksekusi handler **tepat 1 kali** (`0` duplikat, `2` respons `2xx` identik); error `5xx` tidak tersimpan di `idempotency_keys`. |
 | **TS-001-05** | Passing | `tests/integration/health.test.ts` (Integration) | Must | Panggil `GET /api/health` pada koneksi DB sehat dan simulasikan timeout/error DB (`2000 ms`); uji pula `npm run build` tanpa `DATABASE_URL` aktif. | PostgreSQL uji + build check | DB sehat -> `200 { ok: true, data: { status: "ok", db: "connected" } }`; DB mati/timeout -> `503 DB_UNAVAILABLE`; `npm run build` tidak gagal mengimpor modul DB/env (`ARCH-6`). |
 | **TS-001-06** | Passing | `tests/unit/preferences-i18n.test.tsx` (Unit) | Must | Render `PreferencesProvider` + `<ThemeToggle>` + `<LocaleToggle>` + `<input>` berteks; cek `getServerPreferences` fallback `'id'`/`'light'`, fallback `localStorage` hanya bila cookie absen, `aria-pressed`, `persist handler`, serta ketikan di `<input>` saat ganti tema & bahasa. | `jsdom` + `tests/setup.ts` | DOM `data-theme`/`lang`, `localStorage`, cookie non-HttpOnly, & `registerPersistHandler` terbarui seketika tanpa reload; isi `<input>` tidak hilang/ter-reset (`I18N-2`). |
-| **TS-001-07** | Passing | `tests/unit/shell-layout.test.tsx` (Unit) | Must | Render `AppShell`, `WorkspaceNav`, `Button`, `Input`, `Card`, `Modal` (focus trap, `Escape`, backdrop click, `role="dialog"`), uji fallback `onMobileQuickAction` (`#noka-quick-capture-input` -> `/app/notes`), dan `/app/page.tsx`. | `jsdom` + `tests/setup.ts` | 3 tautan rute (`/app/notes`, `/app/finance`, `/app/settings`) terpisah; navigasi keyboard/ARIA valid; bebas `TODO`/stub (`QUAL-2`). |
+| **TS-001-07** | Passing | `tests/unit/shell-layout.test.tsx` (Unit) | Must | Render `AppShell`, `WorkspaceNav`, `Button`, `Input`, `Card`, `Modal` (focus trap, `Escape`, backdrop click, `role="dialog"`, controlled input + inline `onClose` stability), token `danger`, `<h1>` pada `AppOverview`, uji fallback `onMobileQuickAction` (`#noka-quick-capture-input` -> `/app/notes`), boundary rute mobile nav, & `/app/page.tsx`. | `jsdom` + `tests/setup.ts` | 3 tautan rute (`/app/notes`, `/app/finance`, `/app/settings`) terpisah & bebas false prefix match; controlled input tetap fokus saat re-render; tombol `danger` memakai `--danger-bg`/`--danger-fg`; navigasi keyboard/ARIA valid; bebas `TODO`/stub (`QUAL-2`). |
+| **TS-001-08** | Passing | `tests/unit/db.test.ts` (Unit) | Must | Uji `getPool()` & `getDb()` pada `NODE_ENV="production"` (reuse singleton `Pool` & `AppDatabase`), reset singleton saat `DATABASE_URL` berubah, serta pengecekan SSL non-localhost vs IPv6 `[::1]` / `127.0.0.1` / `localhost` / `sslmode=disable`. | Mock `pg.Pool` + Node env | Hanya 1 instance `Pool` dibuat di `production` untuk URL yang sama; host `[::1]` tidak mengaktifkan SSL; perubahan URL menutup `Pool` lama dan menyegarkan instance Drizzle. |
 
 ---
 

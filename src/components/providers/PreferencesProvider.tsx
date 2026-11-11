@@ -80,6 +80,13 @@ export function PreferencesProvider({
       const nextLocale = patch.locale ?? prefsRef.current.locale;
       const nextTheme = patch.theme ?? prefsRef.current.theme;
 
+      if (
+        nextLocale === prefsRef.current.locale &&
+        nextTheme === prefsRef.current.theme
+      ) {
+        return;
+      }
+
       prefsRef.current = { locale: nextLocale, theme: nextTheme };
       setLocaleState(nextLocale);
       setThemeState(nextTheme);
