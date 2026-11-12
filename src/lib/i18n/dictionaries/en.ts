@@ -450,16 +450,21 @@ export const enDictionary: Dictionary = {
       allTypes: "All Types",
       income: "Income",
       expense: "Expense",
+      transfer: "Transfer",
       allCategories: "All Categories",
       fromDate: "From",
       toDate: "To",
       reset: "Reset Filters",
+      cycleDefaultHint: "Blank = active cycle default ({start} to {end})",
     },
     ledger: {
       sectionTitle: "Ledger History",
+      allTab: "All",
       transactionsTab: "Transactions",
       transfersTab: "Wallet Transfers",
       linkedBadge: "Linked Note",
+      transferBadge: "Transfer",
+      emptyCombined: "No transactions or transfers match the current filters.",
       emptyTransactions: "No transactions match the current filters.",
       emptyTransfers: "No wallet transfers match the current filters.",
       loadMore: "Load More",
@@ -472,6 +477,29 @@ export const enDictionary: Dictionary = {
       confirmDeleteTransfer:
         "Delete this transfer? Both wallet balances will be reversed atomically.",
       transferArrowAria: "to",
+    },
+    summary: {
+      sectionTitle: "Cashflow Summary",
+      totalIncome: "Income",
+      totalExpense: "Expense",
+      netCashflow: "Net Cashflow",
+      categoryBreakdownTitle: "Category Breakdown",
+      emptyBreakdown: "No transactions in this filtered range yet.",
+      excludedTransferNote: "Inter-wallet transfers are excluded from cashflow totals.",
+      shareLabel: "share",
+    },
+    safeToSpend: {
+      title: "Daily Safe-to-Spend",
+      perDaySuffix: "/ day",
+      cycleRangeLabel: "Active cycle",
+      remainingDaysLabel: "{days} days remaining",
+      includedBalanceLabel: "Included wallet balance",
+      includedWalletsCount: "{count} wallets included",
+      noWalletsHint:
+        "Enable Safe-to-Spend on at least one active wallet (Cash & E-Wallet default on, Bank defaults off) to calculate your daily allowance.",
+      nonPositiveHint:
+        "Total Safe-to-Spend wallet balance is currently Rp0 or negative, so your daily safe allowance is Rp0.",
+      activeHint: "Safe daily allowance through the end of your active cycle (inclusive of today).",
     },
     walletModal: {
       title: "Manage Wallets",
@@ -559,6 +587,14 @@ export const enDictionary: Dictionary = {
       sameWalletError: "Source and destination wallets must be different.",
       invalidAmountError: "Transfer amount must be a positive integer greater than 0.",
     },
+  },
+  privacy: {
+    hideLabel: "Hide Amounts (Privacy Blur)",
+    showLabel: "Show Amounts (Disable Privacy Blur)",
+    shortLabel: "Privacy",
+    activeBadge: "Hidden",
+    hiddenAriaLabel: "Financial amount hidden",
+    maskedValue: "Rp •••••",
   },
 };
 

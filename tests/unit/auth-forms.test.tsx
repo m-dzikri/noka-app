@@ -29,6 +29,12 @@ vi.mock("@/features/auth/session", () => ({
   getSessionUser: getSessionUserMock,
 }));
 
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({
+    get: vi.fn(() => undefined),
+  })),
+}));
+
 import AppWorkspaceLayout from "@/app/(app)/app/layout";
 import AppEntryPage from "@/app/(app)/app/page";
 import LoginPage from "@/app/(auth)/login/page";
