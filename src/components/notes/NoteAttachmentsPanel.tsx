@@ -17,9 +17,11 @@ import {
   WifiOff,
   ZoomIn,
 } from "lucide-react";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import type { NoteAttachmentDto } from "@/features/notes/attachments-service";
+import { replaceNoteAttachmentsInMirror } from "@/features/sync/db";
 import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 import type { Dictionary } from "@/lib/i18n/types";
@@ -179,13 +181,15 @@ export function NoteAttachmentsPanel({
   onNoteUpdatedAt,
 }: NoteAttachmentsPanelProps) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
 
   const browserOnline = useSyncExternalStore(
     subscribeOnlineStatus,
     getClientOnlineSnapshot,
     getServerOnlineSnapshot,
   );
-  const effectiveIsOnline = isOnlineProp ?? browserOnline;
+  const effectiveIsOnline =
+    isOnlineProp ?? (sync ? sync.isOnline : browserOnline);
 
   const [state, setState] = useState<AttachmentPanelState>(() =>
     createInitialState(noteId, initialAttachments, initialAttachmentsNoteId),
@@ -207,10 +211,15 @@ export function NoteAttachmentsPanel({
   const prevOnlineRef = useRef<boolean>(effectiveIsOnline);
   const loadFailedRef = useRef<boolean>(activeState.loadFailed);
   const tRef = useRef(t);
+  const syncRef = useRef(sync);
 
   useEffect(() => {
     tRef.current = t;
   }, [t]);
+
+  useEffect(() => {
+    syncRef.current = sync;
+  }, [sync]);
 
   useEffect(() => {
     loadFailedRef.current = activeState.loadFailed;
@@ -218,6 +227,38 @@ export function NoteAttachmentsPanel({
 
   const fetchAttachments = useCallback(
     async (targetNoteId: string, signal?: AbortSignal) => {
+      const currentSync = syncRef.current;
+      const hydrateFromMirror = (): boolean => {
+        if (!currentSync?.storageAvailable || !currentSync.mirror) {
+          return false;
+        }
+        const mirrored = currentSync.mirror.noteAttachments
+          .filter((item) => item.noteId === targetNoteId)
+          .map((item) => ({
+            id: item.id,
+            noteId: item.noteId,
+            mimeType: item.mimeType,
+            sizeBytes: item.sizeBytes,
+            createdAt: item.createdAt,
+            url: item.url || `/api/attachments/${item.id}`,
+          }));
+        setState((prev) => ({
+          ...(prev.noteId === targetNoteId
+            ? prev
+            : createInitialState(targetNoteId)),
+          noteId: targetNoteId,
+          attachments: mirrored,
+          loading: false,
+          loadFailed: false,
+          errorMessage: null,
+        }));
+        return true;
+      };
+
+      if (currentSync && !currentSync.isOnline && hydrateFromMirror()) {
+        return;
+      }
+
       try {
         const response = await apiFetch(
           `/api/notes/${targetNoteId}/attachments`,
@@ -242,6 +283,9 @@ export function NoteAttachmentsPanel({
           payload.ok !== true ||
           !Array.isArray(payload.data?.attachments)
         ) {
+          if (hydrateFromMirror()) {
+            return;
+          }
           setState((prev) => ({
             ...(prev.noteId === targetNoteId
               ? prev
@@ -258,6 +302,13 @@ export function NoteAttachmentsPanel({
         }
 
         const fetched = payload.data.attachments;
+        if (currentSync?.storageAvailable) {
+          void replaceNoteAttachmentsInMirror(
+            currentSync.userId,
+            targetNoteId,
+            fetched,
+          ).catch(() => undefined);
+        }
         setState((prev) => ({
           ...(prev.noteId === targetNoteId
             ? prev
@@ -270,6 +321,9 @@ export function NoteAttachmentsPanel({
         }));
       } catch {
         if (signal?.aborted || activeNoteIdRef.current !== targetNoteId) {
+          return;
+        }
+        if (hydrateFromMirror()) {
           return;
         }
         setState((prev) => ({
@@ -488,6 +542,14 @@ export function NoteAttachmentsPanel({
           ? base.attachments
           : [...base.attachments, createdAttachment];
 
+        if (syncRef.current?.storageAvailable) {
+          void replaceNoteAttachmentsInMirror(
+            syncRef.current.userId,
+            targetNoteId,
+            nextAttachments,
+          ).catch(() => undefined);
+        }
+
         const nextFailed = new Set(base.failedImageIds);
         nextFailed.delete(createdAttachment.id);
 
@@ -573,11 +635,19 @@ export function NoteAttachmentsPanel({
       setState((prev) => {
         const base =
           prev.noteId === targetNoteId ? prev : createInitialState(targetNoteId);
+        const nextAttachments = base.attachments.filter(
+          (item) => item.id !== targetAttachment.id,
+        );
+        if (syncRef.current?.storageAvailable) {
+          void replaceNoteAttachmentsInMirror(
+            syncRef.current.userId,
+            targetNoteId,
+            nextAttachments,
+          ).catch(() => undefined);
+        }
         return {
           ...base,
-          attachments: base.attachments.filter(
-            (item) => item.id !== targetAttachment.id,
-          ),
+          attachments: nextAttachments,
           lightboxAttachment:
             base.lightboxAttachment?.id === targetAttachment.id
               ? null
@@ -769,7 +839,7 @@ export function NoteAttachmentsPanel({
                         key={`${item.id}-${activeState.retrySeed}`}
                         src={item.url}
                         alt={t.notes.attachments.imageAlt}
-                        loading="lazy"
+                        loading="eager"
                         onError={() => markImageFailed(item.id)}
                         className="h-full w-full object-cover transition-transform duration-150 group-hover:scale-[1.03]"
                       />

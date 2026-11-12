@@ -679,5 +679,35 @@ export const enDictionary: Dictionary = {
     ledgerOpenNotePrefix: "Note:",
     invalidAmountError: "Amount must be a positive integer greater than 0.",
   },
+  sync: {
+    statusSynced: "Synced",
+    statusOffline: "Offline",
+    statusSyncing: "Syncing...",
+    statusSyncError: "Sync Error",
+    statusAriaLabel: "Offline synchronization status",
+    syncNowButton: "Sync Now",
+    syncingButton: "Syncing...",
+    openDetailsAriaLabel: "Open synchronization status details",
+    panelTitle: "Sync Status",
+    panelCloseButton: "Close",
+    pendingCountPrefix: "Pending queue:",
+    failedCountPrefix: "Failed items:",
+    lastSyncedPrefix: "Last synced:",
+    neverSyncedLabel: "Never",
+    failedItemsHeading: "Mutations failed to sync",
+    discardMutationButton: "Discard",
+    onlineOnlyWalletsNotice:
+      "Wallet management (create, edit, archive, delete) requires an online connection.",
+    onlineOnlyCategoriesNotice:
+      "Custom category management requires an online connection.",
+    onlineOnlyAttachmentsNotice:
+      "Uploading or deleting image attachments is disabled offline (cached images remain viewable).",
+    privateModeBannerTitle: "Limited Offline Storage",
+    privateModeBannerBody:
+      "Your browser restricts IndexedDB or Service Worker (Private Mode). Noka continues working normally online without local offline mirroring.",
+    dismissBannerButton: "Dismiss notice",
+    offlineNoteFallbackHint:
+      "Loaded from local offline device mirror.",
+  },
 };
 

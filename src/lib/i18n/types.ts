@@ -633,8 +633,35 @@ export interface Dictionary {
   // Strongly typed Quick Capture & Linked Notes namespaces populated in RFC-008.
   quickCapture: QuickCaptureDictionary;
   linkedNotes: LinkedNotesDictionary;
-  // Optional namespaces populated incrementally by RFC-009 through RFC-010 without stubs.
-  sync?: Record<string, unknown>;
+  // Strongly typed Offline Sync & PWA namespace populated in RFC-009.
+  sync: SyncDictionary;
+  // Optional namespaces populated incrementally by RFC-010 without stubs.
   settings?: Record<string, unknown>;
+}
+
+export interface SyncDictionary {
+  statusSynced: string;
+  statusOffline: string;
+  statusSyncing: string;
+  statusSyncError: string;
+  statusAriaLabel: string;
+  syncNowButton: string;
+  syncingButton: string;
+  openDetailsAriaLabel: string;
+  panelTitle: string;
+  panelCloseButton: string;
+  pendingCountPrefix: string;
+  failedCountPrefix: string;
+  lastSyncedPrefix: string;
+  neverSyncedLabel: string;
+  failedItemsHeading: string;
+  discardMutationButton: string;
+  onlineOnlyWalletsNotice: string;
+  onlineOnlyCategoriesNotice: string;
+  onlineOnlyAttachmentsNotice: string;
+  privateModeBannerTitle: string;
+  privateModeBannerBody: string;
+  dismissBannerButton: string;
+  offlineNoteFallbackHint: string;
 }
 

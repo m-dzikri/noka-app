@@ -204,7 +204,7 @@ test.describe("RFC-005: Note Image Attachments E2E", () => {
 
       // Simulate an uncached image failing while offline -> offlinePlaceholder renders, then online recovers.
       let failUncachedOfflineImage = true;
-      await page.route("**/api/attachments/**", async (route) => {
+      await context.route("**/api/attachments/**", async (route) => {
         if (failUncachedOfflineImage && route.request().method() === "GET") {
           await route.abort("failed");
           return;
@@ -243,7 +243,7 @@ test.describe("RFC-005: Note Image Attachments E2E", () => {
 
       // Reconnect -> uncached image auto-retries -> clean up both attachments via modal
       failUncachedOfflineImage = false;
-      await page.unroute("**/api/attachments/**");
+      await context.unroute("**/api/attachments/**");
       await context.setOffline(false);
       await page.evaluate(() => {
         window.dispatchEvent(new Event("online"));
@@ -279,7 +279,9 @@ test.describe("RFC-005: Note Image Attachments E2E", () => {
         const isDeferredWorkspacePrefetch =
           entry.status === 404 &&
           (pathname === "/app/finance" || pathname === "/app/settings");
-        return !isDeferredWorkspacePrefetch;
+        const isIntentionalOfflineAttachment503 =
+          entry.status === 503 && pathname.startsWith("/api/attachments/");
+        return !isDeferredWorkspacePrefetch && !isIntentionalOfflineAttachment503;
       });
       expect(unexpectedFailures).toEqual([]);
 
@@ -288,6 +290,8 @@ test.describe("RFC-005: Note Image Attachments E2E", () => {
           !(
             (msg ===
               "Failed to load resource: the server responded with a status of 404 (Not Found)" ||
+              msg ===
+                "Failed to load resource: the server responded with a status of 503 (Service Unavailable)" ||
               msg === "Failed to load resource: net::ERR_FAILED") &&
             unexpectedFailures.length === 0
           ),

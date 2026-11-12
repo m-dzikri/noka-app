@@ -8,14 +8,17 @@ import { FolderManagerModal } from "@/components/notes/FolderManagerModal";
 import { NoteAttachmentsPanel } from "@/components/notes/NoteAttachmentsPanel";
 import { NoteEditor } from "@/components/notes/NoteEditor";
 import { NoteLinkedTransactionsPanel } from "@/components/notes/NoteLinkedTransactionsPanel";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import type { NoteAttachmentDto } from "@/features/notes/attachments-service";
 import type { LinkedTransactionsListResult } from "@/features/notes/linked-transactions-service";
 import type { FolderDto, NoteDto } from "@/features/notes/service";
+import { computeLocalLinkedTransactions } from "@/features/sync/local-queries";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface NoteDetailViewProps {
+  routeNoteId?: string;
   initialNote: NoteDto | null;
   initialFolders: FolderDto[];
   enableAttachments?: boolean;
@@ -32,6 +35,7 @@ export interface NoteDetailViewProps {
  * Client detail wrapper for `/app/notes/[id]` supporting mobile editing, folder management, and not-found state.
  */
 export function NoteDetailView({
+  routeNoteId,
   initialNote,
   initialFolders,
   enableAttachments = false,
@@ -45,9 +49,21 @@ export function NoteDetailView({
 }: NoteDetailViewProps) {
   const router = useRouter();
   const { t } = useI18n();
-  const [note, setNote] = useState<NoteDto | null>(initialNote);
-  const [folders, setFolders] = useState<FolderDto[]>(initialFolders);
+  const sync = useOptionalSync();
+  const [noteState, setNoteState] = useState<NoteDto | null>(initialNote);
+  const [foldersState, setFoldersState] = useState<FolderDto[]>(initialFolders);
   const [folderModalOpen, setFolderModalOpen] = useState(false);
+
+  const note =
+    noteState ??
+    (routeNoteId && sync?.mirror
+      ? (sync.mirror.notes.find((item) => item.id === routeNoteId) ?? null)
+      : null);
+
+  const folders =
+    foldersState.length > 0
+      ? foldersState
+      : (sync?.mirror?.folders ?? foldersState);
 
   if (!note) {
     return (
@@ -73,6 +89,22 @@ export function NoteDetailView({
     );
   }
 
+  const effectiveInitialAttachments =
+    initialAttachments !== undefined
+      ? initialAttachments
+      : sync?.mirror
+        ? sync.mirror.noteAttachments
+            .filter((att) => att.noteId === note.id)
+            .map((att) => ({
+              id: att.id,
+              noteId: att.noteId,
+              mimeType: att.mimeType,
+              sizeBytes: att.sizeBytes,
+              createdAt: att.createdAt,
+              url: att.url || `/api/attachments/${att.id}`,
+            }))
+        : undefined;
+
   const effectiveRenderAttachmentsSlot =
     renderAttachmentsSlot ??
     (enableAttachments
@@ -80,14 +112,18 @@ export function NoteDetailView({
           <NoteAttachmentsPanel
             key={currentNote.id}
             noteId={currentNote.id}
-            initialAttachments={initialAttachments}
-            initialAttachmentsNoteId={initialNote?.id}
+            initialAttachments={effectiveInitialAttachments}
+            initialAttachmentsNoteId={
+              initialAttachments !== undefined
+                ? (initialNote?.id ?? currentNote.id)
+                : currentNote.id
+            }
             onNoteUpdatedAt={(targetNoteId, updatedAt) => {
               const nextTime = Date.parse(updatedAt);
               if (Number.isNaN(nextTime)) {
                 return;
               }
-              setNote((prev) =>
+              setNoteState((prev) =>
                 prev &&
                 prev.id === targetNoteId &&
                 nextTime > Date.parse(prev.updatedAt)
@@ -99,6 +135,21 @@ export function NoteDetailView({
         )
       : undefined);
 
+  const effectiveInitialLinked =
+    initialLinkedTransactions ??
+    (sync?.mirror
+      ? computeLocalLinkedTransactions(sync.mirror, note.id)
+      : undefined);
+
+  const effectiveWallets =
+    initialWallets && initialWallets.length > 0
+      ? initialWallets
+      : sync?.mirror?.wallets;
+  const effectiveCategories =
+    initialCategories && initialCategories.length > 0
+      ? initialCategories
+      : sync?.mirror?.categories;
+
   const effectiveRenderLinkedTransactionsSlot =
     renderLinkedTransactionsSlot ??
     (enableLinkedTransactions
@@ -106,20 +157,33 @@ export function NoteDetailView({
           <NoteLinkedTransactionsPanel
             key={currentNote.id}
             noteId={currentNote.id}
-            wallets={initialWallets}
-            categories={initialCategories}
-            initialData={initialLinkedTransactions}
-            initialNoteId={initialNote?.id}
+            wallets={effectiveWallets}
+            categories={effectiveCategories}
+            initialData={effectiveInitialLinked}
+            initialNoteId={
+              initialLinkedTransactions !== undefined
+                ? (initialNote?.id ?? currentNote.id)
+                : currentNote.id
+            }
           />
         )
       : undefined);
 
   return (
     <div className="flex flex-col gap-4">
+      {!initialNote && sync?.mirror ? (
+        <div
+          role="status"
+          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-3.5 py-2 text-xs text-[var(--text-secondary)]"
+        >
+          {t.sync.offlineNoteFallbackHint}
+        </div>
+      ) : null}
+
       <NoteEditor
         note={note}
         folders={folders}
-        onSaved={(updated) => setNote(updated)}
+        onSaved={(updated) => setNoteState(updated)}
         onDeleted={() => {
           router.push("/app/notes");
           router.refresh();
@@ -138,17 +202,19 @@ export function NoteDetailView({
         onClose={() => setFolderModalOpen(false)}
         folders={folders}
         onFoldersChanged={(nextFolders, deletedFolderId) => {
-          setFolders(nextFolders);
+          setFoldersState(nextFolders);
           if (deletedFolderId && note.folderId === deletedFolderId) {
-            setNote((prev) =>
-              prev ? { ...prev, folderId: null, folderName: null } : prev,
-            );
+            setNoteState((prev) => {
+              const target = prev ?? note;
+              return { ...target, folderId: null, folderName: null };
+            });
           } else if (note.folderId) {
             const matched = nextFolders.find((f) => f.id === note.folderId);
             if (matched) {
-              setNote((prev) =>
-                prev ? { ...prev, folderName: matched.name } : prev,
-              );
+              setNoteState((prev) => {
+                const target = prev ?? note;
+                return { ...target, folderName: matched.name };
+              });
             }
           }
         }}

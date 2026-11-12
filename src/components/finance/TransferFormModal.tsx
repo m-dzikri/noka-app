@@ -4,18 +4,20 @@ import { useMemo, useState, type FormEvent } from "react";
 import {
   dispatchFinanceUpdated,
   fromDateTimeLocalValue,
-  readJsonSafe,
   resolveFinanceErrorMessage,
   toDateTimeLocalValue,
-  type ApiErrorPayload,
 } from "@/components/finance/finance-client-helpers";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { parseIdrDigits } from "@/features/finance/format";
 import type { TransferDto } from "@/features/finance/transfers-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
-import { apiFetch } from "@/lib/http-client";
+import {
+  buildOptimisticTransferDto,
+  executeOfflineCapableMutation,
+} from "@/features/sync/client-api";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface TransferFormModalProps {
@@ -33,6 +35,7 @@ function TransferFormBody({
   onMutated,
 }: Omit<TransferFormModalProps, "open">) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
   const activeWallets = useMemo(
     () => wallets.filter((w) => w.archivedAt === null),
     [wallets],
@@ -94,30 +97,65 @@ function TransferFormBody({
 
     try {
       const trimmedNote = note.trim();
+      const transferId = editingTransfer?.id ?? crypto.randomUUID();
       const url = editingTransfer
         ? `/api/transfers/${editingTransfer.id}`
         : "/api/transfers";
       const method = editingTransfer ? "PATCH" : "POST";
+      const idempotencyKey = crypto.randomUUID();
+      const nowIso = new Date().toISOString();
+      const fromWallet = wallets.find((w) => w.id === fromWalletId);
+      const toWallet = wallets.find((w) => w.id === toWalletId);
 
-      const response = await apiFetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-        body: JSON.stringify({
-          fromWalletId,
-          toWalletId,
-          amount: parsedAmount,
-          note: trimmedNote.length > 0 ? trimmedNote : null,
-          occurredAt: isoOccurredAt,
-          ...(editingTransfer ? { updatedAt: editingTransfer.updatedAt } : {}),
-        }),
+      const optimisticTransfer = buildOptimisticTransferDto({
+        id: transferId,
+        fromWalletId,
+        fromWalletName:
+          fromWallet?.name ?? editingTransfer?.fromWalletName ?? "",
+        toWalletId,
+        toWalletName: toWallet?.name ?? editingTransfer?.toWalletName ?? "",
+        amount: parsedAmount,
+        note: trimmedNote.length > 0 ? trimmedNote : null,
+        occurredAt: isoOccurredAt,
+        createdAt: editingTransfer?.createdAt ?? nowIso,
+        updatedAt: nowIso,
       });
 
-      if (!response.ok) {
-        const errPayload = await readJsonSafe<ApiErrorPayload>(response);
-        setErrorMsg(resolveFinanceErrorMessage(t, errPayload));
+      const outcome = await executeOfflineCapableMutation(
+        sync
+          ? {
+              userId: sync.userId,
+              isOnline: sync.isOnline,
+              storageAvailable: sync.storageAvailable,
+              onMirrorChanged: () => void sync.reloadMirror(),
+            }
+          : null,
+        {
+          entity: "transfer",
+          entityId: transferId,
+          op: "upsert",
+          method,
+          path: url,
+          idempotencyKey,
+          updatedAt: nowIso,
+          body: {
+            ...(editingTransfer ? {} : { id: transferId }),
+            fromWalletId,
+            toWalletId,
+            amount: parsedAmount,
+            note: trimmedNote.length > 0 ? trimmedNote : null,
+            occurredAt: isoOccurredAt,
+            ...(editingTransfer ? { updatedAt: editingTransfer.updatedAt } : {}),
+          },
+          optimisticSnapshot: {
+            kind: "transfer_upsert",
+            transfer: optimisticTransfer,
+          },
+        },
+      );
+
+      if (outcome.mode === "online" && outcome.errorPayload) {
+        setErrorMsg(resolveFinanceErrorMessage(t, outcome.errorPayload));
         return;
       }
 

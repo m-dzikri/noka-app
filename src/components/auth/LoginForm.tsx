@@ -51,13 +51,16 @@ export function LoginForm() {
     setEmailError(undefined);
     setPasswordError(undefined);
 
-    const trimmedEmail = email.trim();
+    const formData = new FormData(event.currentTarget);
+    const rawEmail = (formData.get("email") as string) || email;
+    const rawPassword = (formData.get("password") as string) || password;
+    const trimmedEmail = (rawEmail || "").trim();
     let hasClientError = false;
     if (!trimmedEmail || !trimmedEmail.includes("@")) {
       setEmailError(t.auth.emailInvalidError);
       hasClientError = true;
     }
-    if (!password) {
+    if (!rawPassword) {
       setPasswordError(t.errors.VALIDATION_ERROR);
       hasClientError = true;
     }
@@ -73,7 +76,7 @@ export function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: trimmedEmail,
-          password,
+          password: rawPassword,
         }),
       });
 

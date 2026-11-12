@@ -8,6 +8,7 @@ import {
   resolveFinanceErrorMessage,
   type ApiErrorPayload,
 } from "@/components/finance/finance-client-helpers";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -30,6 +31,10 @@ function WalletManagerBody({
   onMutated,
 }: Pick<WalletManagerModalProps, "wallets" | "onMutated">) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
+  const isOnline =
+    sync?.isOnline ??
+    (typeof navigator === "undefined" || navigator.onLine !== false);
   const [editingWallet, setEditingWallet] = useState<WalletWithBalanceDto | null>(
     null,
   );
@@ -208,6 +213,16 @@ function WalletManagerBody({
 
   return (
     <div className="flex flex-col gap-5">
+      {!isOnline ? (
+        <p
+          role="status"
+          data-testid="wallet-modal-offline-notice"
+          className="rounded-xl border border-[var(--status-warning)]/40 bg-[var(--status-warning)]/12 px-3.5 py-2.5 text-sm text-[var(--text-primary)]"
+        >
+          {t.sync.onlineOnlyWalletsNotice}
+        </p>
+      ) : null}
+
       {errorMsg ? (
         <div
           role="alert"
@@ -313,7 +328,7 @@ function WalletManagerBody({
         </div>
 
         <div className="flex justify-end">
-          <Button type="submit" loading={submitting}>
+          <Button type="submit" loading={submitting} disabled={!isOnline}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             <span>
               {editingWallet
@@ -365,7 +380,7 @@ function WalletManagerBody({
                 <Button
                   size="sm"
                   variant="secondary"
-                  disabled={busyId === wallet.id}
+                  disabled={!isOnline || busyId === wallet.id}
                   onClick={() => startEditWallet(wallet)}
                   aria-label={`${t.finance.walletModal.editButton} ${wallet.name}`}
                 >
@@ -376,6 +391,7 @@ function WalletManagerBody({
                 <Button
                   size="sm"
                   variant="secondary"
+                  disabled={!isOnline}
                   loading={busyId === wallet.id}
                   onClick={() => void handleToggleArchive(wallet, !isArchived)}
                   aria-label={`${isArchived ? t.finance.walletModal.unarchiveButton : t.finance.walletModal.archiveButton} ${wallet.name}`}
@@ -395,6 +411,7 @@ function WalletManagerBody({
                 <Button
                   size="sm"
                   variant="danger"
+                  disabled={!isOnline}
                   loading={busyId === wallet.id}
                   onClick={() => void handleDeleteWallet(wallet)}
                   aria-label={`${t.finance.walletModal.deleteButton} ${wallet.name}`}

@@ -27,6 +27,7 @@ import { FolderManagerModal } from "@/components/notes/FolderManagerModal";
 import { NoteAttachmentsPanel } from "@/components/notes/NoteAttachmentsPanel";
 import { NoteEditor } from "@/components/notes/NoteEditor";
 import { NoteLinkedTransactionsPanel } from "@/components/notes/NoteLinkedTransactionsPanel";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
@@ -38,6 +39,11 @@ import type {
   NoteListResult,
   TagDto,
 } from "@/features/notes/service";
+import {
+  buildOptimisticNoteDto,
+  executeOfflineCapableMutation,
+} from "@/features/sync/client-api";
+import { queryLocalNotes } from "@/features/sync/local-queries";
 import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/cn";
@@ -140,6 +146,7 @@ export function NotesWorkspace({
 }: NotesWorkspaceProps) {
   const router = useRouter();
   const { t } = useI18n();
+  const sync = useOptionalSync();
 
   const [notesList, setNotesList] = useState<NoteDto[]>(initialNotes);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
@@ -149,6 +156,9 @@ export function NotesWorkspace({
   const initialPrimaryNoteId = initialNotes[0]?.id ?? null;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
     initialPrimaryNoteId,
+  );
+  const [mobileOfflineNoteId, setMobileOfflineNoteId] = useState<string | null>(
+    null,
   );
   const [ssrAttachmentsAvailable, setSsrAttachmentsAvailable] =
     useState<boolean>(() =>
@@ -238,6 +248,16 @@ export function NotesWorkspace({
   }, []);
 
   const refreshTagsAndFolders = useCallback(async () => {
+    if (sync && !sync.isOnline && sync.mirror) {
+      const mirrorSnapshot = sync.mirror;
+      setTagsList(mirrorSnapshot.tags);
+      setTagFilter((prev) =>
+        prev && !mirrorSnapshot.tags.some((item) => item.id === prev) ? "" : prev,
+      );
+      setFoldersList(mirrorSnapshot.folders);
+      return;
+    }
+
     try {
       const [tagsRes, foldersRes] = await Promise.all([
         apiFetch("/api/tags"),
@@ -268,9 +288,87 @@ export function NotesWorkspace({
         }
       }
     } catch {
-      // Keep current cached folders/tags silently during transient offline state.
+      if (sync?.mirror) {
+        setTagsList(sync.mirror.tags);
+        setFoldersList(sync.mirror.folders);
+      }
     }
-  }, []);
+  }, [sync]);
+
+  const syncMirror = sync?.mirror ?? null;
+  const applyLocalNotesFallback = useCallback(
+    (selectDefaultIfMissing: boolean): boolean => {
+      if (!syncMirror) {
+        return false;
+      }
+      const localResult = queryLocalNotes(syncMirror, {
+        search: debouncedQuery.trim() || undefined,
+        folderId: folderFilter !== "all" ? folderFilter : undefined,
+        tagId: tagFilter || undefined,
+        pinned: pinnedOnly || undefined,
+        limit: 50,
+      });
+      setErrorBanner(null);
+      setNotesList(localResult.items);
+      setNextCursor(localResult.nextCursor);
+      setTagsList(syncMirror.tags);
+      setFoldersList(syncMirror.folders);
+      if (selectDefaultIfMissing) {
+        const prevSelected = selectedNoteIdRef.current;
+        const nextSelected =
+          prevSelected &&
+          localResult.items.some((item) => item.id === prevSelected)
+            ? prevSelected
+            : (localResult.items[0]?.id ?? null);
+        selectNote(nextSelected);
+      }
+      return true;
+    },
+    [debouncedQuery, folderFilter, pinnedOnly, selectNote, syncMirror, tagFilter],
+  );
+
+  const prevMirrorVersionRef = useRef<number>(sync?.mirrorVersion ?? 0);
+  const prevPendingCountRef = useRef<number>(sync?.pendingCount ?? 0);
+  useEffect(() => {
+    const version = sync?.mirrorVersion ?? 0;
+    const prevPending = prevPendingCountRef.current;
+    const currentPending = sync?.pendingCount ?? 0;
+    prevPendingCountRef.current = currentPending;
+
+    if (version === prevMirrorVersionRef.current) {
+      return;
+    }
+    prevMirrorVersionRef.current = version;
+    if (!sync?.mirror) {
+      return;
+    }
+    const justFlushedOutbox = prevPending > 0 && currentPending === 0;
+    const mirrorSnapshot = sync.mirror;
+    if (!sync.isOnline || justFlushedOutbox) {
+      queueMicrotask(() => {
+        const localResult = queryLocalNotes(mirrorSnapshot, {
+          search: debouncedQuery.trim() || undefined,
+          folderId: folderFilter !== "all" ? folderFilter : undefined,
+          tagId: tagFilter || undefined,
+          pinned: pinnedOnly || undefined,
+          limit: 50,
+        });
+        setNotesList(localResult.items);
+        setNextCursor(localResult.nextCursor);
+        setTagsList(mirrorSnapshot.tags);
+        setFoldersList(mirrorSnapshot.folders);
+      });
+    }
+  }, [
+    debouncedQuery,
+    folderFilter,
+    pinnedOnly,
+    sync?.isOnline,
+    sync?.mirror,
+    sync?.mirrorVersion,
+    sync?.pendingCount,
+    tagFilter,
+  ]);
 
   const handleSearchChange = (value: string) => {
     hasFilterInteractionRef.current = true;
@@ -293,6 +391,12 @@ export function NotesWorkspace({
     const currentFetchId = ++fetchIdRef.current;
 
     const runFetch = async () => {
+      if (sync && !sync.isOnline) {
+        if (applyLocalNotesFallback(true)) {
+          return;
+        }
+      }
+
       try {
         const response = await apiFetch(
           `/api/notes?${buildNotesQueryString(null)}`,
@@ -307,6 +411,9 @@ export function NotesWorkspace({
         }
 
         if (!response.ok || payload?.ok !== true || !payload.data) {
+          if (applyLocalNotesFallback(true)) {
+            return;
+          }
           setErrorBanner(t.errors.generic);
           return;
         }
@@ -324,13 +431,16 @@ export function NotesWorkspace({
         selectNote(nextSelected);
       } catch {
         if (currentFetchId === fetchIdRef.current) {
+          if (applyLocalNotesFallback(true)) {
+            return;
+          }
           setErrorBanner(t.errors.generic);
         }
       }
     };
 
     void runFetch();
-  }, [buildNotesQueryString, selectNote, t.errors.generic]);
+  }, [applyLocalNotesFallback, buildNotesQueryString, selectNote, sync, t.errors.generic]);
 
   useEffect(() => {
     const onWorkspaceUpdated = (event: Event) => {
@@ -344,6 +454,11 @@ export function NotesWorkspace({
 
       const currentFetchId = ++fetchIdRef.current;
       const runExternalRefresh = async () => {
+        if (sync && !sync.isOnline) {
+          applyLocalNotesFallback(false);
+          return;
+        }
+
         try {
           const response = await apiFetch(
             `/api/notes?${buildNotesQueryString(null)}`,
@@ -383,7 +498,7 @@ export function NotesWorkspace({
 
           void refreshTagsAndFolders();
         } catch {
-          // Retain cached notes list silently when offline
+          applyLocalNotesFallback(false);
         }
       };
 
@@ -394,7 +509,13 @@ export function NotesWorkspace({
     return () => {
       window.removeEventListener(WORKSPACE_UPDATED_EVENT, onWorkspaceUpdated);
     };
-  }, [buildNotesQueryString, refreshTagsAndFolders, selectNote]);
+  }, [
+    applyLocalNotesFallback,
+    buildNotesQueryString,
+    refreshTagsAndFolders,
+    selectNote,
+    sync,
+  ]);
 
   const handleCreateNote = async () => {
     setCreatingNote(true);
@@ -405,30 +526,57 @@ export function NotesWorkspace({
         folderFilter !== "all" && folderFilter !== "none"
           ? folderFilter
           : null;
+      const noteId = crypto.randomUUID();
+      const nowIso = new Date().toISOString();
+      const targetFolderName =
+        targetFolderId !== null
+          ? (foldersList.find((f) => f.id === targetFolderId)?.name ?? null)
+          : null;
+      const optimisticNote = buildOptimisticNoteDto({
+        id: noteId,
+        title: "",
+        content: "",
+        folderId: targetFolderId,
+        folderName: targetFolderName,
+        isPinned: false,
+        tagNames: [],
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
 
-      const response = await apiFetch("/api/notes", {
+      const idempotencyKey = crypto.randomUUID();
+      const outcome = await executeOfflineCapableMutation<{
+        note?: NoteDto;
+      }>(sync, {
+        entity: "note",
+        entityId: noteId,
+        op: "upsert",
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        path: "/api/notes",
+        idempotencyKey,
+        body: {
+          id: noteId,
           title: "",
           content: "",
           folderId: targetFolderId,
           tags: [],
-          idempotencyKey: crypto.randomUUID(),
-        }),
+          updatedAt: nowIso,
+          idempotencyKey,
+        },
+        updatedAt: nowIso,
+        optimisticSnapshot: {
+          kind: "note_upsert",
+          note: optimisticNote,
+        },
       });
 
-      const payload = (await response.json().catch(() => null)) as {
-        ok?: boolean;
-        data?: { note?: NoteDto };
-      } | null;
-
-      if (!response.ok || payload?.ok !== true || !payload.data?.note) {
+      if (outcome.mode === "online" && (outcome.errorStatus !== undefined || !outcome.data?.note)) {
         setErrorBanner(t.errors.generic);
         return;
       }
 
-      const created = payload.data.note;
+      const created =
+        outcome.mode === "queued" ? optimisticNote : outcome.data!.note!;
       setRetainedSelectedNote(null);
       setNotesList((prev) => sortNotesPinnedFirst([created, ...prev]));
       selectNote(created.id);
@@ -440,7 +588,11 @@ export function NotesWorkspace({
         window.matchMedia("(max-width: 1023px)").matches;
 
       if (isMobileViewport) {
-        router.push(`/app/notes/${created.id}`);
+        if (outcome.mode === "queued" || (sync && !sync.isOnline)) {
+          setMobileOfflineNoteId(created.id);
+        } else {
+          router.push(`/app/notes/${created.id}`);
+        }
       }
     } catch {
       setErrorBanner(t.errors.generic);
@@ -452,6 +604,26 @@ export function NotesWorkspace({
   const handleLoadMore = async () => {
     if (!nextCursor || loadingMore) {
       return;
+    }
+
+    if ((sync && !sync.isOnline) || nextCursor.startsWith("local-offset:")) {
+      if (sync?.mirror) {
+        const localMore = queryLocalNotes(sync.mirror, {
+          search: debouncedQuery.trim() || undefined,
+          folderId: folderFilter !== "all" ? folderFilter : undefined,
+          tagId: tagFilter || undefined,
+          pinned: pinnedOnly || undefined,
+          limit: 50,
+          cursor: nextCursor,
+        });
+        setNotesList((prev) => {
+          const seen = new Set(prev.map((item) => item.id));
+          const appended = localMore.items.filter((item) => !seen.has(item.id));
+          return [...prev, ...appended];
+        });
+        setNextCursor(localMore.nextCursor);
+        return;
+      }
     }
 
     setLoadingMore(true);
@@ -673,6 +845,14 @@ export function NotesWorkspace({
     notesList.find((item) => item.id === selectedNoteId) ??
     (retainedSelectedNote?.id === selectedNoteId ? retainedSelectedNote : null);
 
+  const mobileOfflineNote =
+    mobileOfflineNoteId !== null
+      ? (notesList.find((item) => item.id === mobileOfflineNoteId) ??
+        (retainedSelectedNote?.id === mobileOfflineNoteId
+          ? retainedSelectedNote
+          : null))
+      : null;
+
   const hasActiveFilters =
     Boolean(debouncedQuery.trim()) ||
     folderFilter !== "all" ||
@@ -681,7 +861,25 @@ export function NotesWorkspace({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3.5 shadow-[var(--shadow-sm)] sm:px-5">
+      {mobileOfflineNote ? (
+        <div className="lg:hidden">
+          <NoteEditor
+            note={mobileOfflineNote}
+            folders={foldersList}
+            onSaved={handleNoteSaved}
+            onDeleted={(deletedId) => {
+              setMobileOfflineNoteId(null);
+              handleNoteDeleted(deletedId);
+            }}
+            onBack={() => setMobileOfflineNoteId(null)}
+            onOpenFolderManager={() => setFolderModalOpen(true)}
+            renderAttachmentsSlot={effectiveRenderAttachmentsSlot}
+            renderLinkedTransactionsSlot={effectiveRenderLinkedTransactionsSlot}
+          />
+        </div>
+      ) : null}
+
+      <div className={cn("flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3.5 shadow-[var(--shadow-sm)] sm:px-5", mobileOfflineNote ? "hidden lg:flex" : "flex")}>
         <div>
           <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] sm:text-2xl">
             {t.notes.workspaceTitle}
@@ -725,7 +923,7 @@ export function NotesWorkspace({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+      <div className={cn("grid grid-cols-1 gap-5 lg:grid-cols-12", mobileOfflineNote ? "hidden lg:grid" : "grid")}>
         <aside className="flex flex-col gap-3 lg:col-span-5 xl:col-span-4">
           <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-sm)]">
             <div className="relative">
@@ -898,6 +1096,11 @@ export function NotesWorkspace({
                           event.preventDefault();
                           setRetainedSelectedNote(null);
                           selectNote(note.id);
+                        } else if (sync && !sync.isOnline) {
+                          event.preventDefault();
+                          setRetainedSelectedNote(null);
+                          selectNote(note.id);
+                          setMobileOfflineNoteId(note.id);
                         }
                       }}
                       aria-current={isSelected ? "true" : undefined}
@@ -969,7 +1172,7 @@ export function NotesWorkspace({
         </aside>
 
         <div className="hidden lg:block lg:col-span-7 xl:col-span-8">
-          {selectedNote ? (
+          {selectedNote && !mobileOfflineNote ? (
             <NoteEditor
               note={selectedNote}
               folders={foldersList}

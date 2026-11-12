@@ -8,6 +8,7 @@ import {
   resolveFinanceErrorMessage,
   type ApiErrorPayload,
 } from "@/components/finance/finance-client-helpers";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -28,6 +29,10 @@ function CategoryManagerBody({
   onMutated,
 }: Pick<CategoryManagerModalProps, "categories" | "onMutated">) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
+  const isOnline =
+    sync?.isOnline ??
+    (typeof navigator === "undefined" || navigator.onLine !== false);
   const [name, setName] = useState("");
   const [type, setType] = useState<FinanceEntryType>("expense");
   const [creating, setCreating] = useState(false);
@@ -174,6 +179,16 @@ function CategoryManagerBody({
         </Button>
       </div>
 
+      {!isOnline ? (
+        <p
+          role="status"
+          data-testid="category-modal-offline-notice"
+          className="rounded-xl border border-[var(--status-warning)]/40 bg-[var(--status-warning)]/12 px-3.5 py-2.5 text-sm text-[var(--text-primary)]"
+        >
+          {t.sync.onlineOnlyCategoriesNotice}
+        </p>
+      ) : null}
+
       {errorMsg ? (
         <p
           role="alert"
@@ -196,7 +211,7 @@ function CategoryManagerBody({
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-        <Button type="submit" loading={creating}>
+        <Button type="submit" loading={creating} disabled={!isOnline}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           <span>
             {creating
@@ -230,6 +245,7 @@ function CategoryManagerBody({
                   <Button
                     size="sm"
                     loading={busyId === category.id}
+                    disabled={!isOnline}
                     onClick={() => void handleSaveRename(category.id)}
                   >
                     {t.finance.categoryModal.saveRenameButton}
@@ -264,7 +280,7 @@ function CategoryManagerBody({
                       <Button
                         size="sm"
                         variant="secondary"
-                        disabled={busyId === category.id}
+                        disabled={!isOnline || busyId === category.id}
                         onClick={() => {
                           setEditingId(category.id);
                           setEditingName(category.name);
@@ -278,6 +294,7 @@ function CategoryManagerBody({
                       <Button
                         size="sm"
                         variant="danger"
+                        disabled={!isOnline}
                         loading={busyId === category.id}
                         onClick={() => void handleDeleteCategory(category)}
                       >

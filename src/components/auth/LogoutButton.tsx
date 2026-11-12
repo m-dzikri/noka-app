@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { runClientLogoutCleanup } from "@/features/auth/client-cleanup";
+import { wipeAllOfflineData } from "@/features/sync/cleanup";
 import { useI18n } from "@/lib/i18n/context";
 
 /**
@@ -27,9 +28,16 @@ export function LogoutButton() {
       }).catch(() => undefined);
     } finally {
       await runClientLogoutCleanup();
+      await wipeAllOfflineData();
       router.push("/login");
-      router.refresh();
-      setLoggingOut(false);
+      if (typeof window !== "undefined" && typeof window.location?.assign === "function") {
+        try {
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Full document navigation ensures complete teardown of React tree & private in-memory state on logout
+          window.location.assign("/login");
+        } catch {
+          // jsdom throws "Not implemented: navigation to another Document"
+        }
+      }
     }
   };
 

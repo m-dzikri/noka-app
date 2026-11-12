@@ -8,6 +8,7 @@ import {
   type WorkspaceUpdatedDetail,
 } from "@/components/finance/finance-client-helpers";
 import { AppShell, type AppShellUser } from "@/components/layout/AppShell";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { QuickCaptureBar } from "@/components/quick-capture/QuickCaptureBar";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
@@ -36,6 +37,7 @@ export function WorkspaceChrome({
   logoutSlot,
   children,
 }: WorkspaceChromeProps) {
+  const sync = useOptionalSync();
   const quickCaptureInputRef = useRef<HTMLTextAreaElement>(null);
   const [liveWallets, setLiveWallets] = useState<WalletWithBalanceDto[] | null>(
     null,
@@ -44,10 +46,27 @@ export function WorkspaceChrome({
     null,
   );
 
-  const wallets = liveWallets ?? initialWallets;
-  const categories = liveCategories ?? initialCategories;
+  const mirrorWallets =
+    sync?.mirror && sync.mirror.wallets.length > 0 ? sync.mirror.wallets : null;
+  const mirrorCategories =
+    sync?.mirror && sync.mirror.categories.length > 0
+      ? sync.mirror.categories
+      : null;
+
+  const wallets =
+    sync && !sync.isOnline
+      ? (mirrorWallets ?? liveWallets ?? initialWallets)
+      : (liveWallets ?? mirrorWallets ?? initialWallets);
+  const categories =
+    sync && !sync.isOnline
+      ? (mirrorCategories ?? liveCategories ?? initialCategories)
+      : (liveCategories ?? mirrorCategories ?? initialCategories);
 
   const refreshContexts = useCallback(async () => {
+    if (sync && !sync.isOnline) {
+      await sync.reloadMirror();
+      return;
+    }
     try {
       const [walletsRes, categoriesRes] = await Promise.all([
         apiFetch("/api/wallets"),
@@ -76,7 +95,7 @@ export function WorkspaceChrome({
     } catch {
       // Keep current cached Quick Capture context gracefully when offline.
     }
-  }, []);
+  }, [sync]);
 
   useEffect(() => {
     const onFinanceUpdated = (event: Event) => {

@@ -23,10 +23,9 @@ import {
 import {
   dispatchFinanceUpdated,
   dispatchWorkspaceUpdated,
-  readJsonSafe,
   resolveFinanceErrorMessage,
-  type ApiErrorPayload,
 } from "@/components/finance/finance-client-helpers";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
 import type { CategoryDto } from "@/features/finance/categories-service";
@@ -34,8 +33,12 @@ import type { FinanceEntryType } from "@/features/finance/schemas";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import { parseQuickCapture } from "@/features/quick-capture/parser";
 import type { QuickCaptureIntent } from "@/features/quick-capture/types";
+import {
+  buildOptimisticNoteDto,
+  buildOptimisticTransactionDto,
+  executeOfflineCapableMutation,
+} from "@/features/sync/client-api";
 import { cn } from "@/lib/cn";
-import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 import type { Dictionary } from "@/lib/i18n/types";
 
@@ -101,6 +104,7 @@ export function QuickCaptureBar({
   inputRef,
 }: QuickCaptureBarProps) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
   const localInputRef = useRef<HTMLTextAreaElement>(null);
   const resolvedInputRef = inputRef ?? localInputRef;
 
@@ -285,34 +289,71 @@ export function QuickCaptureBar({
       try {
         const txId = crypto.randomUUID();
         const idempotencyKey = crypto.randomUUID();
-        const response = await apiFetch("/api/transactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id: txId,
-            walletId: effectiveWalletId,
-            categoryId: effectiveCategoryId,
-            type: effectiveTxType,
-            amount: parsedAmount,
-            description: (parsedDescription || content).slice(0, 300),
-            occurredAt: new Date().toISOString(),
-            idempotencyKey,
-          }),
+        const nowIso = new Date().toISOString();
+        const finalDesc = (parsedDescription || content).slice(0, 300);
+        const targetWallet = activeWallets.find((w) => w.id === effectiveWalletId);
+        const targetCategory = categories.find((c) => c.id === effectiveCategoryId);
+
+        const optimisticTx = buildOptimisticTransactionDto({
+          id: txId,
+          walletId: effectiveWalletId,
+          walletName: targetWallet?.name ?? "",
+          categoryId: effectiveCategoryId,
+          categoryName: targetCategory?.name ?? "",
+          noteId: null,
+          type: effectiveTxType,
+          amount: parsedAmount,
+          description: finalDesc,
+          occurredAt: nowIso,
+          createdAt: nowIso,
+          updatedAt: nowIso,
         });
 
-        const payload = await readJsonSafe<
-          ApiErrorPayload & {
-            ok?: boolean;
-            data?: { transaction?: { id?: string } };
-          }
-        >(response);
+        const outcome = await executeOfflineCapableMutation<{
+          transaction?: { id?: string };
+        }>(
+          sync
+            ? {
+                userId: sync.userId,
+                isOnline: sync.isOnline,
+                storageAvailable: sync.storageAvailable,
+                onMirrorChanged: () => void sync.reloadMirror(),
+              }
+            : null,
+          {
+            entity: "transaction",
+            entityId: txId,
+            op: "upsert",
+            method: "POST",
+            path: "/api/transactions",
+            idempotencyKey,
+            updatedAt: nowIso,
+            body: {
+              id: txId,
+              walletId: effectiveWalletId,
+              categoryId: effectiveCategoryId,
+              type: effectiveTxType,
+              amount: parsedAmount,
+              description: finalDesc,
+              occurredAt: nowIso,
+              idempotencyKey,
+            },
+            optimisticSnapshot: {
+              kind: "transaction_upsert",
+              transaction: optimisticTx,
+            },
+          },
+        );
 
-        if (!response.ok || !payload?.ok) {
-          setErrorMessage(resolveFinanceErrorMessage(t, payload));
+        if (outcome.mode === "online" && outcome.errorPayload) {
+          setErrorMessage(resolveFinanceErrorMessage(t, outcome.errorPayload));
           return;
         }
 
-        const createdId = payload.data?.transaction?.id ?? txId;
+        const createdId =
+          outcome.mode === "online"
+            ? (outcome.data?.transaction?.id ?? txId)
+            : txId;
         resetDraftState();
         setFeedback({
           kind: "transaction",
@@ -338,35 +379,63 @@ export function QuickCaptureBar({
     try {
       const noteId = crypto.randomUUID();
       const idempotencyKey = crypto.randomUUID();
+      const nowIso = new Date().toISOString();
       const noteTitle = (
         parsedNoteTitle || t.linkedNotes.untitledNote
       ).slice(0, 200);
 
-      const response = await apiFetch("/api/notes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: noteId,
-          title: noteTitle,
-          content,
-          isPinned: false,
-          idempotencyKey,
-        }),
+      const optimisticNote = buildOptimisticNoteDto({
+        id: noteId,
+        title: noteTitle,
+        content,
+        folderId: null,
+        folderName: null,
+        isPinned: false,
+        tagNames: [],
+        createdAt: nowIso,
+        updatedAt: nowIso,
       });
 
-      const payload = await readJsonSafe<
-        ApiErrorPayload & {
-          ok?: boolean;
-          data?: { note?: { id?: string } };
-        }
-      >(response);
+      const outcome = await executeOfflineCapableMutation<{
+        note?: { id?: string };
+      }>(
+        sync
+          ? {
+              userId: sync.userId,
+              isOnline: sync.isOnline,
+              storageAvailable: sync.storageAvailable,
+              onMirrorChanged: () => void sync.reloadMirror(),
+            }
+          : null,
+        {
+          entity: "note",
+          entityId: noteId,
+          op: "upsert",
+          method: "POST",
+          path: "/api/notes",
+          idempotencyKey,
+          updatedAt: nowIso,
+          body: {
+            id: noteId,
+            title: noteTitle,
+            content,
+            isPinned: false,
+            idempotencyKey,
+          },
+          optimisticSnapshot: {
+            kind: "note_upsert",
+            note: optimisticNote,
+          },
+        },
+      );
 
-      if (!response.ok || !payload?.ok) {
-        setErrorMessage(resolveFinanceErrorMessage(t, payload));
+      if (outcome.mode === "online" && outcome.errorPayload) {
+        setErrorMessage(resolveFinanceErrorMessage(t, outcome.errorPayload));
         return;
       }
 
-      const createdId = payload.data?.note?.id ?? noteId;
+      const createdId =
+        outcome.mode === "online" ? (outcome.data?.note?.id ?? noteId) : noteId;
       resetDraftState();
       setFeedback({
         kind: "note",
@@ -384,7 +453,8 @@ export function QuickCaptureBar({
       setSubmitting(false);
     }
   }, [
-    activeWallets.length,
+    activeWallets,
+    categories,
     draftText,
     effectiveCategoryId,
     effectiveIntent,
@@ -396,6 +466,7 @@ export function QuickCaptureBar({
     parsedNoteTitle,
     resetDraftState,
     submitting,
+    sync,
     t,
   ]);
 

@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { MarkdownPreview } from "@/components/notes/MarkdownPreview";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { parseChecklists, toggleChecklistInMarkdown } from "@/features/notes/checklist";
@@ -40,6 +41,8 @@ import type {
   NoteDto,
   NoteMutationResult,
 } from "@/features/notes/service";
+import { buildOptimisticNoteDto } from "@/features/sync/client-api";
+import { applyOptimisticToMirror, enqueueOutboxMutation } from "@/features/sync/db";
 import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/cn";
@@ -109,6 +112,7 @@ export function NoteEditor({
   renderLinkedTransactionsSlot,
 }: NoteEditorProps) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
   const [title, setTitle] = useState(note.title);
   const [content, setContent] = useState(note.content);
   const [folderId, setFolderId] = useState<string | null>(note.folderId);
@@ -133,10 +137,54 @@ export function NoteEditor({
   const draftRef = useRef<NoteDraftSnapshot>(toDraftSnapshot(note));
   const onSavedRef = useRef(onSaved);
   const foldersRef = useRef(folders);
+  const noteRef = useRef(note);
+  const syncRef = useRef(sync);
+  const outboxOwnedNotesRef = useRef<Set<string>>(new Set());
   const mountedRef = useRef(true);
   const returningBackRef = useRef(false);
   const flushOnUnloadRef = useRef<() => void>(() => {});
   const coordinatorRef = useRef<NoteMutationCoordinator | null>(null);
+
+  useEffect(() => {
+    noteRef.current = note;
+  }, [note]);
+
+  useEffect(() => {
+    syncRef.current = sync;
+  }, [sync]);
+
+  const noteHasPendingOutbox = Boolean(
+    sync?.mirror?.outbox.some(
+      (item) =>
+        item.status === "pending" &&
+        item.entity === "note" &&
+        item.entityId === note.id,
+    ),
+  );
+
+  useEffect(() => {
+    if (
+      sync?.storageAvailable &&
+      sync.isOnline &&
+      outboxOwnedNotesRef.current.has(note.id) &&
+      !noteHasPendingOutbox &&
+      !dirtyRef.current &&
+      saveStatus === "pending_sync"
+    ) {
+      outboxOwnedNotesRef.current.delete(note.id);
+      queueMicrotask(() => {
+        if (mountedRef.current && activeNoteIdRef.current === note.id) {
+          setSaveStatus("saved");
+        }
+      });
+    }
+  }, [
+    note.id,
+    noteHasPendingOutbox,
+    saveStatus,
+    sync?.isOnline,
+    sync?.storageAvailable,
+  ]);
 
   const getCoordinator = useCallback(() => {
     if (!coordinatorRef.current) {
@@ -200,6 +248,16 @@ export function NoteEditor({
       }
 
       const savedNote = payload.data.note;
+      if (syncRef.current?.storageAvailable) {
+        void applyOptimisticToMirror(syncRef.current.userId, {
+          kind: "note_upsert",
+          note: savedNote,
+        })
+          .then(() => {
+            syncRef.current?.reloadMirror();
+          })
+          .catch(() => undefined);
+      }
 
       if (payload.data.conflictResolved === "server_newer") {
         onSavedRef.current(savedNote);
@@ -240,6 +298,103 @@ export function NoteEditor({
     [applyServerNote, getCoordinator],
   );
 
+  const queueNotePatchToOutbox = useCallback(
+    async (
+      targetNoteId: string,
+      effectiveSnapshot: NoteDraftSnapshot,
+      seq: number,
+      baseUpdatedAt: string,
+    ): Promise<NoteDto | null> => {
+      const coordinator = getCoordinator();
+      const currentSync = syncRef.current;
+      if (!currentSync || !currentSync.storageAvailable) {
+        coordinator.updatePendingDraftStatus(targetNoteId, seq, "pending_sync");
+        if (
+          mountedRef.current &&
+          activeNoteIdRef.current === targetNoteId &&
+          coordinator.isLatestSeq(targetNoteId, seq)
+        ) {
+          setSaveStatus("pending_sync");
+        }
+        return null;
+      }
+
+      const prevMs = Date.parse(baseUpdatedAt);
+      const nextTs = new Date(
+        Math.max(Date.now(), Number.isNaN(prevMs) ? 0 : prevMs + 1),
+      ).toISOString();
+      const baseNote =
+        noteRef.current.id === targetNoteId ? noteRef.current : undefined;
+      const optimisticNote = buildOptimisticNoteDto({
+        id: targetNoteId,
+        title: effectiveSnapshot.title,
+        content: effectiveSnapshot.content,
+        folderId: effectiveSnapshot.folderId,
+        folderName:
+          foldersRef.current.find((f) => f.id === effectiveSnapshot.folderId)
+            ?.name ?? null,
+        isPinned: effectiveSnapshot.isPinned,
+        tagNames: effectiveSnapshot.tags,
+        existingTags: baseNote?.tags,
+        createdAt: baseNote?.createdAt ?? nextTs,
+        updatedAt: nextTs,
+      });
+
+      const idempotencyKey = crypto.randomUUID();
+      await enqueueOutboxMutation(currentSync.userId, {
+        mutationId: crypto.randomUUID(),
+        createdAt: Date.now(),
+        idempotencyKey,
+        entity: "note",
+        entityId: targetNoteId,
+        op: "upsert",
+        method: "PATCH",
+        path: `/api/notes/${targetNoteId}`,
+        body: {
+          title: effectiveSnapshot.title,
+          content: effectiveSnapshot.content,
+          folderId: effectiveSnapshot.folderId,
+          isPinned: effectiveSnapshot.isPinned,
+          tags: effectiveSnapshot.tags,
+          updatedAt: nextTs,
+          idempotencyKey,
+        },
+        optimisticSnapshot: {
+          kind: "note_upsert",
+          note: optimisticNote,
+        },
+        updatedAt: nextTs,
+        status: "pending",
+        retryCount: 0,
+        nextRetryAt: null,
+        lastError: null,
+      });
+
+      outboxOwnedNotesRef.current.add(targetNoteId);
+      coordinator.seedKnownUpdatedAt(targetNoteId, nextTs);
+      currentSync.reloadMirror();
+      onSavedRef.current(optimisticNote);
+
+      if (coordinator.isLatestSeq(targetNoteId, seq)) {
+        if (activeNoteIdRef.current === targetNoteId) {
+          if (areDraftSnapshotsEqual(draftRef.current, effectiveSnapshot)) {
+            coordinator.clearPendingDraftIfLatest(targetNoteId, seq);
+            if (mountedRef.current) {
+              serverUpdatedAtRef.current = nextTs;
+              dirtyRef.current = false;
+              setSaveStatus("pending_sync");
+            }
+          }
+        } else {
+          coordinator.clearPendingDraftIfLatest(targetNoteId, seq);
+        }
+      }
+
+      return optimisticNote;
+    },
+    [getCoordinator],
+  );
+
   const persistSnapshot = useCallback(
     async (
       targetNoteId: string,
@@ -249,15 +404,16 @@ export function NoteEditor({
       options?: PersistSnapshotOptions,
     ): Promise<NoteDto | null> => {
       const coordinator = getCoordinator();
+      const isOfflineNow =
+        (syncRef.current ? !syncRef.current.isOnline : false) ||
+        (typeof navigator !== "undefined" && navigator.onLine === false);
       const effectiveSeq =
         seq ??
         coordinator.stagePendingDraft(
           targetNoteId,
           snapshot,
           baseUpdatedAt,
-          typeof navigator !== "undefined" && navigator.onLine === false
-            ? "pending_sync"
-            : "saving",
+          isOfflineNow ? "pending_sync" : "saving",
         );
 
       coordinator.markSeqQueued(targetNoteId, effectiveSeq);
@@ -265,30 +421,6 @@ export function NoteEditor({
       return coordinator.enqueue(targetNoteId, async () => {
         if (coordinator.isDeleted(targetNoteId)) {
           return null;
-        }
-
-        if (typeof navigator !== "undefined" && navigator.onLine === false) {
-          coordinator.updatePendingDraftStatus(
-            targetNoteId,
-            effectiveSeq,
-            "pending_sync",
-          );
-          if (
-            mountedRef.current &&
-            activeNoteIdRef.current === targetNoteId &&
-            coordinator.isLatestSeq(targetNoteId, effectiveSeq)
-          ) {
-            setSaveStatus("pending_sync");
-          }
-          return null;
-        }
-
-        if (
-          mountedRef.current &&
-          activeNoteIdRef.current === targetNoteId &&
-          coordinator.isLatestSeq(targetNoteId, effectiveSeq)
-        ) {
-          setSaveStatus("saving");
         }
 
         const sanitizedFolderId =
@@ -302,6 +434,27 @@ export function NoteEditor({
             : { ...snapshot, folderId: sanitizedFolderId };
         const authoritativeUpdatedAt =
           coordinator.getKnownUpdatedAt(targetNoteId) ?? baseUpdatedAt;
+
+        const currentlyOffline =
+          (syncRef.current ? !syncRef.current.isOnline : false) ||
+          (typeof navigator !== "undefined" && navigator.onLine === false);
+
+        if (currentlyOffline) {
+          return queueNotePatchToOutbox(
+            targetNoteId,
+            effectiveSnapshot,
+            effectiveSeq,
+            authoritativeUpdatedAt,
+          );
+        }
+
+        if (
+          mountedRef.current &&
+          activeNoteIdRef.current === targetNoteId &&
+          coordinator.isLatestSeq(targetNoteId, effectiveSeq)
+        ) {
+          setSaveStatus("saving");
+        }
 
         try {
           const bodyText = JSON.stringify({
@@ -339,23 +492,16 @@ export function NoteEditor({
             false,
           );
         } catch {
-          coordinator.updatePendingDraftStatus(
+          return queueNotePatchToOutbox(
             targetNoteId,
+            effectiveSnapshot,
             effectiveSeq,
-            "pending_sync",
+            authoritativeUpdatedAt,
           );
-          if (
-            mountedRef.current &&
-            activeNoteIdRef.current === targetNoteId &&
-            coordinator.isLatestSeq(targetNoteId, effectiveSeq)
-          ) {
-            setSaveStatus("pending_sync");
-          }
-          return null;
         }
       });
     },
-    [getCoordinator, reconcileMutationResponse],
+    [getCoordinator, queueNotePatchToOutbox, reconcileMutationResponse],
   );
 
   // Flush pending edits when switching to another note, and restore queued/pending drafts on re-selection.
@@ -806,7 +952,8 @@ export function NoteEditor({
       content: optimisticContent,
     };
     const isOffline =
-      typeof navigator !== "undefined" && navigator.onLine === false;
+      (syncRef.current ? !syncRef.current.isOnline : false) ||
+      (typeof navigator !== "undefined" && navigator.onLine === false);
     const seq = coordinator.stagePendingDraft(
       targetNoteId,
       nextDraft,
@@ -820,7 +967,20 @@ export function NoteEditor({
     setConflictNotice(false);
 
     if (isOffline) {
-      setSaveStatus("pending_sync");
+      if (syncRef.current?.storageAvailable) {
+        coordinator.markSeqQueued(targetNoteId, seq);
+        await coordinator.enqueue(targetNoteId, () =>
+          queueNotePatchToOutbox(
+            targetNoteId,
+            nextDraft,
+            seq,
+            coordinator.getKnownUpdatedAt(targetNoteId) ??
+              serverUpdatedAtRef.current,
+          ),
+        );
+      } else {
+        setSaveStatus("pending_sync");
+      }
       return;
     }
 
@@ -882,15 +1042,12 @@ export function NoteEditor({
           true,
         );
       } catch {
-        coordinator.updatePendingDraftStatus(targetNoteId, seq, "pending_sync");
-        if (
-          mountedRef.current &&
-          activeNoteIdRef.current === targetNoteId &&
-          coordinator.isLatestSeq(targetNoteId, seq)
-        ) {
-          setSaveStatus("pending_sync");
-        }
-        return null;
+        return queueNotePatchToOutbox(
+          targetNoteId,
+          nextDraft,
+          seq,
+          baseUpdatedAt,
+        );
       }
     });
   };
@@ -925,8 +1082,58 @@ export function NoteEditor({
     dirtyRef.current = false;
     setDeleting(true);
 
+    const queueDeleteLocally = async () => {
+      const currentSync = syncRef.current;
+      if (!currentSync || !currentSync.storageAvailable) {
+        coordinator.unmarkDeleted(targetNoteId);
+        if (mountedRef.current) {
+          setSaveStatus("pending_sync");
+          setDeleteModalOpen(false);
+        }
+        return;
+      }
+
+      const deletedAtIso = new Date().toISOString();
+      const idempotencyKey = crypto.randomUUID();
+      await enqueueOutboxMutation(currentSync.userId, {
+        mutationId: crypto.randomUUID(),
+        createdAt: Date.now(),
+        idempotencyKey,
+        entity: "note",
+        entityId: targetNoteId,
+        op: "delete",
+        method: "DELETE",
+        path: `/api/notes/${targetNoteId}`,
+        body: { updatedAt: deletedAtIso, idempotencyKey },
+        optimisticSnapshot: {
+          kind: "note_delete",
+          id: targetNoteId,
+          deletedAt: deletedAtIso,
+        },
+        updatedAt: deletedAtIso,
+        status: "pending",
+        retryCount: 0,
+        nextRetryAt: null,
+        lastError: null,
+      });
+      coordinator.clearNoteRuntime(targetNoteId);
+      currentSync.reloadMirror();
+      if (mountedRef.current) {
+        setDeleteModalOpen(false);
+      }
+      onDeleted(targetNoteId);
+    };
+
     try {
       await coordinator.enqueue(targetNoteId, async () => {
+        const isOfflineNow =
+          (syncRef.current ? !syncRef.current.isOnline : false) ||
+          (typeof navigator !== "undefined" && navigator.onLine === false);
+        if (isOfflineNow) {
+          await queueDeleteLocally();
+          return;
+        }
+
         try {
           const response = await apiFetch(`/api/notes/${targetNoteId}`, {
             method: "DELETE",
@@ -970,16 +1177,23 @@ export function NoteEditor({
           }
 
           coordinator.clearNoteRuntime(targetNoteId);
+          if (syncRef.current?.storageAvailable) {
+            void applyOptimisticToMirror(syncRef.current.userId, {
+              kind: "note_delete",
+              id: targetNoteId,
+              deletedAt: new Date().toISOString(),
+            })
+              .then(() => {
+                syncRef.current?.reloadMirror();
+              })
+              .catch(() => undefined);
+          }
           if (mountedRef.current) {
             setDeleteModalOpen(false);
           }
           onDeleted(targetNoteId);
         } catch {
-          coordinator.unmarkDeleted(targetNoteId);
-          if (mountedRef.current) {
-            setSaveStatus("pending_sync");
-            setDeleteModalOpen(false);
-          }
+          await queueDeleteLocally();
         }
       });
     } finally {

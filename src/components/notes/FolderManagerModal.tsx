@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { FolderPlus, Pencil, Trash2 } from "lucide-react";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -10,7 +11,10 @@ import type {
   FolderDto,
   FolderMutationResult,
 } from "@/features/notes/service";
-import { apiFetch } from "@/lib/http-client";
+import {
+  buildOptimisticFolderDto,
+  executeOfflineCapableMutation,
+} from "@/features/sync/client-api";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface FolderManagerModalProps {
@@ -52,6 +56,7 @@ export function FolderManagerModal({
   onFoldersChanged,
 }: FolderManagerModalProps) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -70,33 +75,58 @@ export function FolderManagerModal({
     setCreating(true);
     setErrorMsg(null);
     try {
-      const response = await apiFetch("/api/folders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: trimmed,
-          idempotencyKey: crypto.randomUUID(),
-        }),
+      const folderId = crypto.randomUUID();
+      const nowIso = new Date().toISOString();
+      const optimisticFolder = buildOptimisticFolderDto({
+        id: folderId,
+        name: trimmed,
+        createdAt: nowIso,
+        updatedAt: nowIso,
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { ok: true; data: { folder: FolderDto } }
-        | ApiErrorPayload
-        | null;
 
-      if (
-        !response.ok ||
-        !payload ||
-        !("ok" in payload) ||
-        payload.ok !== true ||
-        !payload.data?.folder
-      ) {
+      const idempotencyKey = crypto.randomUUID();
+      const outcome = await executeOfflineCapableMutation<{
+        folder: FolderDto;
+      }>(sync, {
+        entity: "folder",
+        entityId: folderId,
+        op: "upsert",
+        method: "POST",
+        path: "/api/folders",
+        idempotencyKey,
+        body: {
+          id: folderId,
+          name: trimmed,
+          updatedAt: nowIso,
+          idempotencyKey,
+        },
+        updatedAt: nowIso,
+        optimisticSnapshot: {
+          kind: "folder_upsert",
+          folder: optimisticFolder,
+        },
+      });
+
+      if (outcome.mode === "queued") {
+        const nextFolders = [...folders, optimisticFolder].sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+        );
+        setNewName("");
+        onFoldersChanged(nextFolders);
+        return;
+      }
+
+      if (outcome.errorStatus !== undefined || !outcome.data?.folder) {
         setErrorMsg(
-          resolveFolderErrorMessage(t, payload as ApiErrorPayload | null),
+          resolveFolderErrorMessage(
+            t,
+            (outcome.errorPayload as ApiErrorPayload | null) ?? null,
+          ),
         );
         return;
       }
 
-      const nextFolders = [...folders, payload.data.folder].sort((a, b) =>
+      const nextFolders = [...folders, outcome.data.folder].sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
       );
       setNewName("");
@@ -118,40 +148,70 @@ export function FolderManagerModal({
     setBusyId(folderId);
     setErrorMsg(null);
     try {
-      const response = await apiFetch(`/api/folders/${folderId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: trimmed,
-          idempotencyKey: crypto.randomUUID(),
-        }),
+      const existingFolder = folders.find((item) => item.id === folderId);
+      const nowIso = new Date().toISOString();
+      const optimisticFolder = buildOptimisticFolderDto({
+        id: folderId,
+        name: trimmed,
+        noteCount: existingFolder?.noteCount ?? 0,
+        createdAt: existingFolder?.createdAt ?? nowIso,
+        updatedAt: nowIso,
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { ok: true; data: FolderMutationResult }
-        | ApiErrorPayload
-        | null;
 
-      if (
-        !response.ok ||
-        !payload ||
-        !("ok" in payload) ||
-        payload.ok !== true ||
-        !payload.data?.folder
-      ) {
+      const idempotencyKey = crypto.randomUUID();
+      const outcome = await executeOfflineCapableMutation<FolderMutationResult>(
+        sync,
+        {
+          entity: "folder",
+          entityId: folderId,
+          op: "upsert",
+          method: "PATCH",
+          path: `/api/folders/${folderId}`,
+          idempotencyKey,
+          body: {
+            name: trimmed,
+            updatedAt: nowIso,
+            idempotencyKey,
+          },
+          updatedAt: nowIso,
+          optimisticSnapshot: {
+            kind: "folder_upsert",
+            folder: optimisticFolder,
+          },
+        },
+      );
+
+      if (outcome.mode === "queued") {
+        const nextFolders = folders
+          .map((item) => (item.id === folderId ? optimisticFolder : item))
+          .sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+          );
+        setEditingId(null);
+        setEditingName("");
+        onFoldersChanged(nextFolders);
+        return;
+      }
+
+      if (outcome.errorStatus !== undefined || !outcome.data?.folder) {
         setErrorMsg(
-          resolveFolderErrorMessage(t, payload as ApiErrorPayload | null),
+          resolveFolderErrorMessage(
+            t,
+            (outcome.errorPayload as ApiErrorPayload | null) ?? null,
+          ),
         );
         return;
       }
 
+      const serverFolder = outcome.data.folder;
       const nextFolders = folders
-        .map((item) => (item.id === folderId ? payload.data.folder : item))
+        .map((item) => (item.id === folderId ? serverFolder : item))
         .sort((a, b) =>
           a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
         );
       setEditingId(null);
       setEditingName("");
-      if (payload.data.conflictResolved === "server_newer") {
+      if (outcome.data.conflictResolved === "server_newer") {
         setErrorMsg(t.notes.conflictServerWinsNotice);
       }
       onFoldersChanged(nextFolders);
@@ -166,33 +226,51 @@ export function FolderManagerModal({
     setBusyId(folderId);
     setErrorMsg(null);
     try {
-      const response = await apiFetch(`/api/folders/${folderId}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | { ok: true; data: FolderDeleteResult }
-        | ApiErrorPayload
-        | null;
+      const deletedAtIso = new Date().toISOString();
+      const idempotencyKey = crypto.randomUUID();
+      const outcome = await executeOfflineCapableMutation<FolderDeleteResult>(
+        sync,
+        {
+          entity: "folder",
+          entityId: folderId,
+          op: "delete",
+          method: "DELETE",
+          path: `/api/folders/${folderId}`,
+          idempotencyKey,
+          body: { updatedAt: deletedAtIso, idempotencyKey },
+          updatedAt: deletedAtIso,
+          optimisticSnapshot: {
+            kind: "folder_delete",
+            id: folderId,
+            deletedAt: deletedAtIso,
+          },
+        },
+      );
 
-      if (
-        !response.ok ||
-        !payload ||
-        !("ok" in payload) ||
-        payload.ok !== true ||
-        !payload.data
-      ) {
+      if (outcome.mode === "queued") {
+        const nextFolders = folders.filter((item) => item.id !== folderId);
+        if (editingId === folderId) {
+          setEditingId(null);
+        }
+        onFoldersChanged(nextFolders, folderId);
+        return;
+      }
+
+      if (outcome.errorStatus !== undefined || !outcome.data) {
         setErrorMsg(
-          resolveFolderErrorMessage(t, payload as ApiErrorPayload | null),
+          resolveFolderErrorMessage(
+            t,
+            (outcome.errorPayload as ApiErrorPayload | null) ?? null,
+          ),
         );
         return;
       }
 
-      if (!payload.data.deleted) {
-        if (payload.data.folder) {
+      if (!outcome.data.deleted) {
+        if (outcome.data.folder) {
+          const restored = outcome.data.folder;
           const nextFolders = folders
-            .map((item) => (item.id === folderId ? payload.data.folder! : item))
+            .map((item) => (item.id === folderId ? restored : item))
             .sort((a, b) =>
               a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
             );

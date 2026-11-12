@@ -4,11 +4,10 @@ import { useMemo, useState, type FormEvent } from "react";
 import {
   dispatchFinanceUpdated,
   fromDateTimeLocalValue,
-  readJsonSafe,
   resolveFinanceErrorMessage,
   toDateTimeLocalValue,
-  type ApiErrorPayload,
 } from "@/components/finance/finance-client-helpers";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -17,7 +16,10 @@ import { parseIdrDigits } from "@/features/finance/format";
 import type { FinanceEntryType } from "@/features/finance/schemas";
 import type { TransactionDto } from "@/features/finance/transactions-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
-import { apiFetch } from "@/lib/http-client";
+import {
+  buildOptimisticTransactionDto,
+  executeOfflineCapableMutation,
+} from "@/features/sync/client-api";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface TransactionFormModalProps {
@@ -37,6 +39,7 @@ function TransactionFormBody({
   onMutated,
 }: Omit<TransactionFormModalProps, "open">) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
   const activeWallets = useMemo(
     () => wallets.filter((w) => w.archivedAt === null),
     [wallets],
@@ -122,33 +125,70 @@ function TransactionFormBody({
 
     try {
       const trimmedDesc = description.trim();
+      const txId = editingTransaction?.id ?? crypto.randomUUID();
       const url = editingTransaction
         ? `/api/transactions/${editingTransaction.id}`
         : "/api/transactions";
       const method = editingTransaction ? "PATCH" : "POST";
+      const idempotencyKey = crypto.randomUUID();
+      const nowIso = new Date().toISOString();
+      const targetWallet = wallets.find((w) => w.id === walletId);
+      const targetCategory = categories.find((c) => c.id === categoryId);
 
-      const response = await apiFetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
-        },
-        body: JSON.stringify({
-          walletId,
-          categoryId,
-          type,
-          amount: parsedAmount,
-          description: trimmedDesc.length > 0 ? trimmedDesc : null,
-          occurredAt: isoOccurredAt,
-          ...(editingTransaction
-            ? { updatedAt: editingTransaction.updatedAt }
-            : {}),
-        }),
+      const optimisticTx = buildOptimisticTransactionDto({
+        id: txId,
+        walletId,
+        walletName: targetWallet?.name ?? editingTransaction?.walletName ?? "",
+        categoryId,
+        categoryName:
+          targetCategory?.name ?? editingTransaction?.categoryName ?? "",
+        noteId: editingTransaction?.noteId ?? null,
+        type,
+        amount: parsedAmount,
+        description: trimmedDesc.length > 0 ? trimmedDesc : null,
+        occurredAt: isoOccurredAt,
+        createdAt: editingTransaction?.createdAt ?? nowIso,
+        updatedAt: nowIso,
       });
 
-      if (!response.ok) {
-        const errPayload = await readJsonSafe<ApiErrorPayload>(response);
-        setErrorMsg(resolveFinanceErrorMessage(t, errPayload));
+      const outcome = await executeOfflineCapableMutation(
+        sync
+          ? {
+              userId: sync.userId,
+              isOnline: sync.isOnline,
+              storageAvailable: sync.storageAvailable,
+              onMirrorChanged: () => void sync.reloadMirror(),
+            }
+          : null,
+        {
+          entity: "transaction",
+          entityId: txId,
+          op: "upsert",
+          method,
+          path: url,
+          idempotencyKey,
+          updatedAt: nowIso,
+          body: {
+            ...(editingTransaction ? {} : { id: txId }),
+            walletId,
+            categoryId,
+            type,
+            amount: parsedAmount,
+            description: trimmedDesc.length > 0 ? trimmedDesc : null,
+            occurredAt: isoOccurredAt,
+            ...(editingTransaction
+              ? { updatedAt: editingTransaction.updatedAt }
+              : {}),
+          },
+          optimisticSnapshot: {
+            kind: "transaction_upsert",
+            transaction: optimisticTx,
+          },
+        },
+      );
+
+      if (outcome.mode === "online" && outcome.errorPayload) {
+        setErrorMsg(resolveFinanceErrorMessage(t, outcome.errorPayload));
         return;
       }
 

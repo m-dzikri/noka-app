@@ -56,6 +56,7 @@ export default async function NoteDetailPage({ params }: NoteDetailPageProps) {
 
   return (
     <NoteDetailView
+      routeNoteId={parsedId.success ? parsedId.data : id}
       initialNote={note}
       initialFolders={foldersList}
       enableAttachments

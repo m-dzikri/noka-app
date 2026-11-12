@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { PrivacyBlurToggle } from "@/components/finance/PrivacyBlurToggle";
+import { SyncStatusBadge } from "@/components/layout/SyncStatusBadge";
 import { WorkspaceChrome } from "@/components/layout/WorkspaceChrome";
 import { PrivacyProvider } from "@/components/providers/PrivacyProvider";
+import { SyncProvider } from "@/components/providers/SyncProvider";
 import { getDb } from "@/db";
 import { getSessionUser } from "@/features/auth/session";
 import { listCategories } from "@/features/finance/categories-service";
@@ -30,17 +32,20 @@ export default async function AppWorkspaceLayout({
     ]);
 
   return (
-    <PrivacyProvider initialCookieBlurred={initialCookieBlurred}>
-      <WorkspaceChrome
-        user={{ id: user.id, name: user.name, email: user.email }}
-        initialWallets={initialWallets}
-        initialCategories={initialCategories}
-        privacyBlurSlot={<PrivacyBlurToggle />}
-        logoutSlot={<LogoutButton />}
-      >
-        {children}
-      </WorkspaceChrome>
-    </PrivacyProvider>
+    <SyncProvider user={user}>
+      <PrivacyProvider initialCookieBlurred={initialCookieBlurred}>
+        <WorkspaceChrome
+          user={{ id: user.id, name: user.name, email: user.email }}
+          initialWallets={initialWallets}
+          initialCategories={initialCategories}
+          syncStatusSlot={<SyncStatusBadge />}
+          privacyBlurSlot={<PrivacyBlurToggle />}
+          logoutSlot={<LogoutButton />}
+        >
+          {children}
+        </WorkspaceChrome>
+      </PrivacyProvider>
+    </SyncProvider>
   );
 }
 

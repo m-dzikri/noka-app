@@ -678,5 +678,35 @@ export const idDictionary: Dictionary = {
     ledgerOpenNotePrefix: "Catatan:",
     invalidAmountError: "Nominal harus bilangan bulat lebih dari 0.",
   },
+  sync: {
+    statusSynced: "Tersinkron",
+    statusOffline: "Offline",
+    statusSyncing: "Menyinkronkan...",
+    statusSyncError: "Perlu Sinkron",
+    statusAriaLabel: "Status sinkronisasi offline",
+    syncNowButton: "Sync Sekarang",
+    syncingButton: "Menyinkronkan...",
+    openDetailsAriaLabel: "Buka detail status sinkronisasi",
+    panelTitle: "Status Sinkronisasi",
+    panelCloseButton: "Tutup",
+    pendingCountPrefix: "Antrean menunggu:",
+    failedCountPrefix: "Gagal sinkron:",
+    lastSyncedPrefix: "Sinkron terakhir:",
+    neverSyncedLabel: "Belum pernah",
+    failedItemsHeading: "Mutasi gagal disinkronkan",
+    discardMutationButton: "Buang",
+    onlineOnlyWalletsNotice:
+      "Kelola dompet (tambah, ubah, arsip, hapus) hanya tersedia saat online.",
+    onlineOnlyCategoriesNotice:
+      "Kelola kategori custom hanya tersedia saat online.",
+    onlineOnlyAttachmentsNotice:
+      "Unggah dan hapus lampiran gambar dinonaktifkan saat offline (gambar ter-cache tetap dapat dilihat).",
+    privateModeBannerTitle: "Penyimpanan Offline Terbatas",
+    privateModeBannerBody:
+      "Browser membatasi IndexedDB atau Service Worker (mode privat). Noka tetap berjalan normal secara online tanpa mirror offline lokal.",
+    dismissBannerButton: "Tutup pemberitahuan",
+    offlineNoteFallbackHint:
+      "Dimuat dari mirror offline lokal perangkat.",
+  },
 };
 

@@ -28,6 +28,7 @@ import {
   type ApiErrorPayload,
   type WorkspaceUpdatedDetail,
 } from "@/components/finance/finance-client-helpers";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
@@ -39,6 +40,14 @@ import type {
 } from "@/features/finance/transactions-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import type { LinkedTransactionsListResult } from "@/features/notes/linked-transactions-service";
+import {
+  buildOptimisticTransactionDto,
+  executeOfflineCapableMutation,
+} from "@/features/sync/client-api";
+import {
+  computeLocalLinkedTransactions,
+  queryLocalTransactionsForPicker,
+} from "@/features/sync/local-queries";
 import { cn } from "@/lib/cn";
 import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
@@ -102,6 +111,7 @@ export function NoteLinkedTransactionsPanel({
   initialNoteId,
 }: NoteLinkedTransactionsPanelProps) {
   const { locale, t } = useI18n();
+  const sync = useOptionalSync();
   const hasMatchingInitialData = Boolean(
     initialData && initialNoteId === noteId,
   );
@@ -118,12 +128,24 @@ export function NoteLinkedTransactionsPanel({
   >(null);
 
   const wallets = useMemo(
-    () => fetchedWallets ?? propWallets ?? [],
-    [fetchedWallets, propWallets],
+    () =>
+      fetchedWallets ??
+      (sync && !sync.isOnline && sync.mirror
+        ? sync.mirror.wallets
+        : undefined) ??
+      propWallets ??
+      [],
+    [fetchedWallets, propWallets, sync],
   );
   const categories = useMemo(
-    () => fetchedCategories ?? propCategories ?? [],
-    [fetchedCategories, propCategories],
+    () =>
+      fetchedCategories ??
+      (sync && !sync.isOnline && sync.mirror
+        ? sync.mirror.categories
+        : undefined) ??
+      propCategories ??
+      [],
+    [fetchedCategories, propCategories, sync],
   );
 
   const [busyUnlinkId, setBusyUnlinkId] = useState<string | null>(null);
@@ -155,6 +177,11 @@ export function NoteLinkedTransactionsPanel({
   const [pickerError, setPickerError] = useState<string | null>(null);
 
   const loadFinanceContext = useCallback(async () => {
+    if (sync && !sync.isOnline && sync.mirror) {
+      setFetchedWallets(sync.mirror.wallets);
+      setFetchedCategories(sync.mirror.categories);
+      return;
+    }
     try {
       const [walletsRes, categoriesRes] = await Promise.all([
         apiFetch("/api/wallets"),
@@ -179,11 +206,21 @@ export function NoteLinkedTransactionsPanel({
         }
       }
     } catch {
-      // Retain existing wallets/categories offline
+      if (sync?.mirror) {
+        setFetchedWallets(sync.mirror.wallets);
+        setFetchedCategories(sync.mirror.categories);
+      }
     }
-  }, []);
+  }, [sync]);
 
   const loadLinkedTransactions = useCallback(async () => {
+    if (sync && !sync.isOnline && sync.mirror) {
+      setData(computeLocalLinkedTransactions(sync.mirror, noteId));
+      setPanelError(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setPanelError(null);
     try {
@@ -196,16 +233,26 @@ export function NoteLinkedTransactionsPanel({
       >(response);
 
       if (!response.ok || !payload?.ok || !payload.data) {
+        if (sync?.mirror) {
+          setData(computeLocalLinkedTransactions(sync.mirror, noteId));
+          setPanelError(null);
+          return;
+        }
         setPanelError(resolveFinanceErrorMessage(t, payload));
         return;
       }
       setData(payload.data);
     } catch {
-      setPanelError(t.errors.generic);
+      if (sync?.mirror) {
+        setData(computeLocalLinkedTransactions(sync.mirror, noteId));
+        setPanelError(null);
+      } else {
+        setPanelError(t.errors.generic);
+      }
     } finally {
       setLoading(false);
     }
-  }, [noteId, t]);
+  }, [noteId, sync, t]);
 
   useEffect(() => {
     let active = true;
@@ -213,6 +260,25 @@ export function NoteLinkedTransactionsPanel({
     const shouldFetchContext = !propWallets || !propCategories;
 
     if (!shouldFetchLinked && !shouldFetchContext) {
+      return () => {
+        active = false;
+      };
+    }
+
+    if (sync && !sync.isOnline && sync.mirror) {
+      const mirrorSnapshot = sync.mirror;
+      queueMicrotask(() => {
+        if (!active) return;
+        if (shouldFetchLinked) {
+          setData(computeLocalLinkedTransactions(mirrorSnapshot, noteId));
+          setPanelError(null);
+          setLoading(false);
+        }
+        if (shouldFetchContext) {
+          setFetchedWallets(mirrorSnapshot.wallets);
+          setFetchedCategories(mirrorSnapshot.categories);
+        }
+      });
       return () => {
         active = false;
       };
@@ -231,7 +297,12 @@ export function NoteLinkedTransactionsPanel({
 
           if (active) {
             if (!response.ok || !payload?.ok || !payload.data) {
-              setPanelError(resolveFinanceErrorMessage(t, payload));
+              if (sync?.mirror) {
+                setData(computeLocalLinkedTransactions(sync.mirror, noteId));
+                setPanelError(null);
+              } else {
+                setPanelError(resolveFinanceErrorMessage(t, payload));
+              }
             } else {
               setData(payload.data);
               setPanelError(null);
@@ -240,7 +311,12 @@ export function NoteLinkedTransactionsPanel({
           }
         } catch {
           if (active) {
-            setPanelError(t.errors.generic);
+            if (sync?.mirror) {
+              setData(computeLocalLinkedTransactions(sync.mirror, noteId));
+              setPanelError(null);
+            } else {
+              setPanelError(t.errors.generic);
+            }
             setLoading(false);
           }
         }
@@ -280,7 +356,7 @@ export function NoteLinkedTransactionsPanel({
     return () => {
       active = false;
     };
-  }, [hasMatchingInitialData, noteId, propCategories, propWallets, t]);
+  }, [hasMatchingInitialData, noteId, propCategories, propWallets, sync, t]);
 
   useEffect(() => {
     const onFinanceUpdated = (event: Event) => {
@@ -388,10 +464,38 @@ export function NoteLinkedTransactionsPanel({
     setCreateSubmitting(true);
     try {
       const txId = crypto.randomUUID();
-      const response = await apiFetch(`/api/notes/${noteId}/transactions`, {
+      const nowIso = new Date().toISOString();
+      const selectedWallet = wallets.find((w) => w.id === walletId);
+      const selectedCategory = categories.find((c) => c.id === categoryId);
+      const optimisticTx = buildOptimisticTransactionDto({
+        id: txId,
+        walletId,
+        walletName: selectedWallet?.name ?? "",
+        categoryId,
+        categoryName: selectedCategory
+          ? resolveCategoryDisplayName(selectedCategory, t)
+          : "",
+        noteId,
+        type: createType,
+        amount: amountNum,
+        description: createDescription.trim() || null,
+        occurredAt: occurredIso,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+
+      const idempotencyKey = crypto.randomUUID();
+      const outcome = await executeOfflineCapableMutation<{
+        transaction?: TransactionDto;
+        summary?: LinkedTransactionsListResult["summary"];
+      }>(sync, {
+        entity: "transaction",
+        entityId: txId,
+        op: "upsert",
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        path: `/api/notes/${noteId}/transactions`,
+        idempotencyKey,
+        body: {
           id: txId,
           walletId,
           categoryId,
@@ -399,26 +503,51 @@ export function NoteLinkedTransactionsPanel({
           amount: amountNum,
           description: createDescription.trim() || null,
           occurredAt: occurredIso,
-          idempotencyKey: crypto.randomUUID(),
-        }),
+          updatedAt: nowIso,
+          idempotencyKey,
+        },
+        updatedAt: nowIso,
+        optimisticSnapshot: {
+          kind: "transaction_upsert",
+          transaction: optimisticTx,
+        },
       });
 
-      const payload = await readJsonSafe<
-        ApiErrorPayload & {
-          ok?: boolean;
-          data?: {
-            transaction?: TransactionDto;
-            summary?: LinkedTransactionsListResult["summary"];
+      if (outcome.mode === "queued") {
+        setData((prev) => {
+          const nextItems = [
+            optimisticTx,
+            ...prev.items.filter((item) => item.id !== optimisticTx.id),
+          ];
+          return {
+            items: nextItems,
+            summary: summarizeClientItems(nextItems),
           };
-        }
-      >(response);
-
-      if (!response.ok || !payload?.ok || !payload.data?.transaction) {
-        setCreateError(resolveFinanceErrorMessage(t, payload));
+        });
+        setCreateOpen(false);
+        setPanelError(null);
+        setPanelStatus(t.linkedNotes.createdSuccess);
+        dispatchFinanceUpdated("linked-transactions-panel");
+        dispatchWorkspaceUpdated({
+          kind: "transaction",
+          id: optimisticTx.id,
+          source: "linked-transactions-panel",
+        });
         return;
       }
 
-      const createdTx = payload.data.transaction;
+      if (outcome.errorStatus !== undefined || !outcome.data?.transaction) {
+        setCreateError(
+          resolveFinanceErrorMessage(
+            t,
+            (outcome.errorPayload as ApiErrorPayload | null) ?? null,
+          ),
+        );
+        return;
+      }
+
+      const createdTx = outcome.data.transaction;
+      const summaryOverride = outcome.data.summary;
       setData((prev) => {
         const nextItems = [
           createdTx,
@@ -426,7 +555,7 @@ export function NoteLinkedTransactionsPanel({
         ];
         return {
           items: nextItems,
-          summary: payload.data?.summary ?? summarizeClientItems(nextItems),
+          summary: summaryOverride ?? summarizeClientItems(nextItems),
         };
       });
 
@@ -457,6 +586,27 @@ export function NoteLinkedTransactionsPanel({
         setPickerError(null);
       }
 
+      if (sync && !sync.isOnline && sync.mirror) {
+        const localPage = queryLocalTransactionsForPicker(sync.mirror, {
+          unlinkedOnly: effectiveUnlinkedOnly,
+          limit: 25,
+          cursor: cursor ?? undefined,
+        });
+        if (isMore) {
+          setPickerItems((prev) => {
+            const seen = new Set(prev.map((item) => item.id));
+            const appended = localPage.items.filter((item) => !seen.has(item.id));
+            return [...prev, ...appended];
+          });
+        } else {
+          setPickerItems(localPage.items);
+        }
+        setPickerNextCursor(localPage.nextCursor);
+        setPickerLoading(false);
+        setPickerLoadingMore(false);
+        return;
+      }
+
       try {
         const params = new URLSearchParams({ limit: "25" });
         if (effectiveUnlinkedOnly) {
@@ -474,6 +624,16 @@ export function NoteLinkedTransactionsPanel({
         >(response);
 
         if (!response.ok || !payload?.ok || !payload.data) {
+          if (sync?.mirror) {
+            const localPage = queryLocalTransactionsForPicker(sync.mirror, {
+              unlinkedOnly: effectiveUnlinkedOnly,
+              limit: 25,
+              cursor: cursor ?? undefined,
+            });
+            setPickerItems(localPage.items);
+            setPickerNextCursor(localPage.nextCursor);
+            return;
+          }
           setPickerError(resolveFinanceErrorMessage(t, payload));
           return;
         }
@@ -491,13 +651,23 @@ export function NoteLinkedTransactionsPanel({
         }
         setPickerNextCursor(payload.data.nextCursor);
       } catch {
-        setPickerError(t.errors.generic);
+        if (sync?.mirror) {
+          const localPage = queryLocalTransactionsForPicker(sync.mirror, {
+            unlinkedOnly: effectiveUnlinkedOnly,
+            limit: 25,
+            cursor: cursor ?? undefined,
+          });
+          setPickerItems(localPage.items);
+          setPickerNextCursor(localPage.nextCursor);
+        } else {
+          setPickerError(t.errors.generic);
+        }
       } finally {
         setPickerLoading(false);
         setPickerLoadingMore(false);
       }
     },
-    [pickerUnlinkedOnly, t],
+    [pickerUnlinkedOnly, sync, t],
   );
 
   const openPickerModal = () => {
@@ -516,32 +686,75 @@ export function NoteLinkedTransactionsPanel({
     setPickerBusyId(tx.id);
     setPickerError(null);
     try {
-      const response = await apiFetch(`/api/notes/${noteId}/transactions`, {
+      const nowIso = new Date().toISOString();
+      const optimisticTx: TransactionDto = {
+        ...tx,
+        noteId,
+        updatedAt: nowIso,
+      };
+      const idempotencyKey = crypto.randomUUID();
+      const outcome = await executeOfflineCapableMutation<{
+        transaction?: TransactionDto;
+        summary?: LinkedTransactionsListResult["summary"];
+      }>(sync, {
+        entity: "noteLink",
+        entityId: `${noteId}:${tx.id}`,
+        op: "link",
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        path: `/api/notes/${noteId}/transactions`,
+        idempotencyKey,
+        body: {
           existingTransactionId: tx.id,
           updatedAt: tx.updatedAt,
-          idempotencyKey: crypto.randomUUID(),
-        }),
+          idempotencyKey,
+        },
+        updatedAt: tx.updatedAt,
+        optimisticSnapshot: {
+          kind: "note_link",
+          noteId,
+          transactionId: tx.id,
+          transaction: optimisticTx,
+        },
       });
 
-      const payload = await readJsonSafe<
-        ApiErrorPayload & {
-          ok?: boolean;
-          data?: {
-            transaction?: TransactionDto;
-            summary?: LinkedTransactionsListResult["summary"];
+      if (outcome.mode === "queued") {
+        setData((prev) => {
+          const nextItems = [
+            optimisticTx,
+            ...prev.items.filter((item) => item.id !== optimisticTx.id),
+          ];
+          return {
+            items: nextItems,
+            summary: summarizeClientItems(nextItems),
           };
-        }
-      >(response);
-
-      if (!response.ok || !payload?.ok || !payload.data?.transaction) {
-        setPickerError(resolveFinanceErrorMessage(t, payload));
+        });
+        setPickerItems((prev) =>
+          prev.map((item) => (item.id === optimisticTx.id ? optimisticTx : item)),
+        );
+        setPickerOpen(false);
+        setPanelError(null);
+        setPanelStatus(t.linkedNotes.linkedSuccess);
+        dispatchFinanceUpdated("linked-transactions-panel");
+        dispatchWorkspaceUpdated({
+          kind: "transaction",
+          id: optimisticTx.id,
+          source: "linked-transactions-panel",
+        });
         return;
       }
 
-      const linkedTx = payload.data.transaction;
+      if (outcome.errorStatus !== undefined || !outcome.data?.transaction) {
+        setPickerError(
+          resolveFinanceErrorMessage(
+            t,
+            (outcome.errorPayload as ApiErrorPayload | null) ?? null,
+          ),
+        );
+        return;
+      }
+
+      const linkedTx = outcome.data.transaction;
+      const summaryOverride = outcome.data.summary;
       setData((prev) => {
         const nextItems = [
           linkedTx,
@@ -549,7 +762,7 @@ export function NoteLinkedTransactionsPanel({
         ];
         return {
           items: nextItems,
-          summary: payload.data?.summary ?? summarizeClientItems(nextItems),
+          summary: summaryOverride ?? summarizeClientItems(nextItems),
         };
       });
       setPickerItems((prev) =>
@@ -580,38 +793,63 @@ export function NoteLinkedTransactionsPanel({
     setPanelError(null);
     setPanelStatus(null);
     try {
-      const response = await apiFetch(
-        `/api/notes/${noteId}/transactions/${tx.id}`,
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            updatedAt: tx.updatedAt,
-            idempotencyKey: crypto.randomUUID(),
-          }),
+      const idempotencyKey = crypto.randomUUID();
+      const outcome = await executeOfflineCapableMutation<{
+        unlinked?: boolean;
+        summary?: LinkedTransactionsListResult["summary"];
+      }>(sync, {
+        entity: "noteLink",
+        entityId: `${noteId}:${tx.id}`,
+        op: "unlink",
+        method: "DELETE",
+        path: `/api/notes/${noteId}/transactions/${tx.id}`,
+        idempotencyKey,
+        body: {
+          updatedAt: tx.updatedAt,
+          idempotencyKey,
         },
-      );
+        updatedAt: tx.updatedAt,
+        optimisticSnapshot: {
+          kind: "note_unlink",
+          noteId,
+          transactionId: tx.id,
+        },
+      });
 
-      const payload = await readJsonSafe<
-        ApiErrorPayload & {
-          ok?: boolean;
-          data?: {
-            unlinked?: boolean;
-            summary?: LinkedTransactionsListResult["summary"];
+      if (outcome.mode === "queued") {
+        setData((prev) => {
+          const nextItems = prev.items.filter((item) => item.id !== tx.id);
+          return {
+            items: nextItems,
+            summary: summarizeClientItems(nextItems),
           };
-        }
-      >(response);
-
-      if (!response.ok || !payload?.ok) {
-        setPanelError(resolveFinanceErrorMessage(t, payload));
+        });
+        setPanelStatus(t.linkedNotes.unlinkSuccess);
+        dispatchFinanceUpdated("linked-transactions-panel");
+        dispatchWorkspaceUpdated({
+          kind: "transaction",
+          id: tx.id,
+          source: "linked-transactions-panel",
+        });
         return;
       }
 
+      if (outcome.errorStatus !== undefined || !outcome.data) {
+        setPanelError(
+          resolveFinanceErrorMessage(
+            t,
+            (outcome.errorPayload as ApiErrorPayload | null) ?? null,
+          ),
+        );
+        return;
+      }
+
+      const summaryOverride = outcome.data.summary;
       setData((prev) => {
         const nextItems = prev.items.filter((item) => item.id !== tx.id);
         return {
           items: nextItems,
-          summary: payload.data?.summary ?? summarizeClientItems(nextItems),
+          summary: summaryOverride ?? summarizeClientItems(nextItems),
         };
       });
       setPanelStatus(t.linkedNotes.unlinkSuccess);

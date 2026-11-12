@@ -11,6 +11,7 @@ export default defineConfig({
   use: {
     baseURL: appUrl,
     trace: "on-first-retry",
+    channel: "chrome",
   },
   projects: [
     {

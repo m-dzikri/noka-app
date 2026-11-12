@@ -23,6 +23,7 @@ import { TransactionFormModal } from "@/components/finance/TransactionFormModal"
 import { TransferFormModal } from "@/components/finance/TransferFormModal";
 import { WalletListSection } from "@/components/finance/WalletListSection";
 import { WalletManagerModal } from "@/components/finance/WalletManagerModal";
+import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -37,6 +38,11 @@ import type { CategoryDto } from "@/features/finance/categories-service";
 import type { FinanceSummaryDto } from "@/features/finance/summary-service";
 import type { TransactionDto } from "@/features/finance/transactions-service";
 import type { TransferDto } from "@/features/finance/transfers-service";
+import {
+  executeOfflineCapableMutation,
+  isLikelyNetworkError,
+} from "@/features/sync/client-api";
+import { computeLocalFinanceSummary } from "@/features/sync/local-queries";
 import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -91,6 +97,7 @@ export function FinanceWorkspace({
   initialCategories,
 }: FinanceWorkspaceProps) {
   const { t } = useI18n();
+  const sync = useOptionalSync();
 
   const [summary, setSummary] = useState<FinanceSummaryDto>(initialSummary);
   const [categories, setCategories] = useState<CategoryDto[]>(initialCategories);
@@ -147,44 +154,126 @@ export function FinanceWorkspace({
     [],
   );
 
+  const syncMirror = sync?.mirror ?? null;
+  const applyLocalSummaryFromMirror = useCallback(
+    (nextFilters: LedgerFiltersState, cursor?: string | null) => {
+      if (!syncMirror) {
+        return false;
+      }
+      const computed = computeLocalFinanceSummary(syncMirror, {
+        from: nextFilters.from || undefined,
+        to: nextFilters.to || undefined,
+        walletId: nextFilters.walletId || undefined,
+        type: nextFilters.type,
+        categoryId:
+          nextFilters.categoryId && nextFilters.type !== "transfer"
+            ? nextFilters.categoryId
+            : undefined,
+        includeArchived: true,
+        tzOffset: -new Date().getTimezoneOffset(),
+        cursor: cursor ?? undefined,
+      });
+
+      if (cursor) {
+        setSummary((prev) => ({
+          ...computed,
+          ledger: {
+            items: [...prev.ledger.items, ...computed.ledger.items],
+            nextCursor: computed.ledger.nextCursor,
+          },
+        }));
+      } else {
+        setSummary(computed);
+      }
+
+      if (syncMirror.categories.length > 0) {
+        setCategories(syncMirror.categories);
+      }
+      return true;
+    },
+    [syncMirror],
+  );
+
   const fetchSummaryWithFilters = useCallback(
     async (nextFilters: LedgerFiltersState) => {
       setErrorMsg(null);
-      const summaryParams = buildSummaryQuery(nextFilters, null);
+      const offlineNow =
+        sync !== null
+          ? !sync.isOnline
+          : typeof navigator !== "undefined" && navigator.onLine === false;
 
-      const [summaryRes, catsRes] = await Promise.all([
-        apiFetch(`/api/finance/summary?${summaryParams.toString()}`),
-        apiFetch("/api/categories"),
-      ]);
-
-      if (summaryRes.ok) {
-        const payload = await readJsonSafe<{ data: FinanceSummaryDto }>(
-          summaryRes,
-        );
-        if (payload?.data) {
-          setSummary(payload.data);
-        }
-      } else {
-        await surfaceNonOkError(summaryRes);
+      if (offlineNow && applyLocalSummaryFromMirror(nextFilters, null)) {
+        return;
       }
 
-      if (catsRes.ok) {
-        const payload = await readJsonSafe<{
-          data: { categories: CategoryDto[] };
-        }>(catsRes);
-        if (payload?.data?.categories) {
-          setCategories(payload.data.categories);
+      const summaryParams = buildSummaryQuery(nextFilters, null);
+      try {
+        const [summaryRes, catsRes] = await Promise.all([
+          apiFetch(`/api/finance/summary?${summaryParams.toString()}`),
+          apiFetch("/api/categories"),
+        ]);
+
+        if (summaryRes.ok) {
+          const payload = await readJsonSafe<{ data: FinanceSummaryDto }>(
+            summaryRes,
+          );
+          if (payload?.data) {
+            setSummary(payload.data);
+          }
+        } else {
+          await surfaceNonOkError(summaryRes);
         }
-      } else {
-        await surfaceNonOkError(catsRes);
+
+        if (catsRes.ok) {
+          const payload = await readJsonSafe<{
+            data: { categories: CategoryDto[] };
+          }>(catsRes);
+          if (payload?.data?.categories) {
+            setCategories(payload.data.categories);
+          }
+        } else {
+          await surfaceNonOkError(catsRes);
+        }
+      } catch (err) {
+        if (
+          isLikelyNetworkError(err) &&
+          applyLocalSummaryFromMirror(nextFilters, null)
+        ) {
+          return;
+        }
+        setErrorMsg(t.errors.generic);
       }
     },
-    [buildSummaryQuery, surfaceNonOkError],
+    [
+      applyLocalSummaryFromMirror,
+      buildSummaryQuery,
+      surfaceNonOkError,
+      sync,
+      t.errors.generic,
+    ],
   );
 
   const refreshAllFinanceData = useCallback(async () => {
     await fetchSummaryWithFilters(filters);
   }, [fetchSummaryWithFilters, filters]);
+
+  useEffect(() => {
+    if (!sync?.mirror) {
+      return;
+    }
+    if (!sync.isOnline || sync.pendingCount > 0 || sync.mirrorVersion > 1) {
+      queueMicrotask(() => {
+        applyLocalSummaryFromMirror(filters, null);
+      });
+    }
+  }, [
+    applyLocalSummaryFromMirror,
+    filters,
+    sync?.isOnline,
+    sync?.mirror,
+    sync?.mirrorVersion,
+    sync?.pendingCount,
+  ]);
 
   useEffect(() => {
     const onExternalFinanceUpdate = () => {
@@ -255,7 +344,19 @@ export function FinanceWorkspace({
     setLoadingMore(true);
     setErrorMsg(null);
 
+    const offlineNow =
+      sync !== null
+        ? !sync.isOnline
+        : typeof navigator !== "undefined" && navigator.onLine === false;
+
     try {
+      if (
+        (offlineNow || summary.ledger.nextCursor.startsWith("local-offset:")) &&
+        applyLocalSummaryFromMirror(filters, summary.ledger.nextCursor)
+      ) {
+        return;
+      }
+
       const params = buildSummaryQuery(filters, summary.ledger.nextCursor);
       const res = await apiFetch(`/api/finance/summary?${params.toString()}`);
       if (res.ok) {
@@ -272,6 +373,13 @@ export function FinanceWorkspace({
       } else {
         await surfaceNonOkError(res);
       }
+    } catch (err) {
+      if (
+        !isLikelyNetworkError(err) ||
+        !applyLocalSummaryFromMirror(filters, summary.ledger.nextCursor)
+      ) {
+        setErrorMsg(t.errors.generic);
+      }
     } finally {
       setLoadingMore(false);
     }
@@ -280,18 +388,35 @@ export function FinanceWorkspace({
   async function handleDeleteTransaction(tx: TransactionDto): Promise<void> {
     setBusyDeleteId(tx.id);
     setErrorMsg(null);
+    const nowIso = new Date().toISOString();
     try {
-      const res = await apiFetch(`/api/transactions/${tx.id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
+      const outcome = await executeOfflineCapableMutation(
+        sync
+          ? {
+              userId: sync.userId,
+              isOnline: sync.isOnline,
+              storageAvailable: sync.storageAvailable,
+              onMirrorChanged: () => void sync.reloadMirror(),
+            }
+          : null,
+        {
+          entity: "transaction",
+          entityId: tx.id,
+          op: "delete",
+          method: "DELETE",
+          path: `/api/transactions/${tx.id}`,
+          updatedAt: tx.updatedAt,
+          body: { updatedAt: tx.updatedAt },
+          optimisticSnapshot: {
+            kind: "transaction_delete",
+            id: tx.id,
+            deletedAt: nowIso,
+          },
         },
-        body: JSON.stringify({ updatedAt: tx.updatedAt }),
-      });
+      );
 
-      if (!res.ok) {
-        await surfaceNonOkError(res);
+      if (outcome.mode === "online" && outcome.errorPayload) {
+        setErrorMsg(resolveFinanceErrorMessage(t, outcome.errorPayload));
         return;
       }
 
@@ -305,18 +430,35 @@ export function FinanceWorkspace({
   async function handleDeleteTransfer(transfer: TransferDto): Promise<void> {
     setBusyDeleteId(transfer.id);
     setErrorMsg(null);
+    const nowIso = new Date().toISOString();
     try {
-      const res = await apiFetch(`/api/transfers/${transfer.id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": crypto.randomUUID(),
+      const outcome = await executeOfflineCapableMutation(
+        sync
+          ? {
+              userId: sync.userId,
+              isOnline: sync.isOnline,
+              storageAvailable: sync.storageAvailable,
+              onMirrorChanged: () => void sync.reloadMirror(),
+            }
+          : null,
+        {
+          entity: "transfer",
+          entityId: transfer.id,
+          op: "delete",
+          method: "DELETE",
+          path: `/api/transfers/${transfer.id}`,
+          updatedAt: transfer.updatedAt,
+          body: { updatedAt: transfer.updatedAt },
+          optimisticSnapshot: {
+            kind: "transfer_delete",
+            id: transfer.id,
+            deletedAt: nowIso,
+          },
         },
-        body: JSON.stringify({ updatedAt: transfer.updatedAt }),
-      });
+      );
 
-      if (!res.ok) {
-        await surfaceNonOkError(res);
+      if (outcome.mode === "online" && outcome.errorPayload) {
+        setErrorMsg(resolveFinanceErrorMessage(t, outcome.errorPayload));
         return;
       }
 
