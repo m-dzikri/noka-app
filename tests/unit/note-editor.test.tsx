@@ -13,6 +13,10 @@ import { NotesWorkspace } from "@/components/notes/NotesWorkspace";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
 import { LocaleToggle } from "@/components/ui/LocaleToggle";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import {
+  areDraftSnapshotsEqual,
+  NoteMutationCoordinator,
+} from "@/features/notes/mutation-queue";
 import type { FolderDto, NoteDto, TagDto } from "@/features/notes/service";
 
 const routerPushMock = vi.fn();
@@ -880,5 +884,396 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-02)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Back to Notes" }));
     expect(routerPushMock).toHaveBeenCalledWith("/app/notes");
+  });
+
+  it("serializes per-note mutations in NoteMutationCoordinator while keeping different notes independent", async () => {
+    const coordinator = new NoteMutationCoordinator();
+    const events: string[] = [];
+
+    let resolveA1!: () => void;
+    let resolveB1!: () => void;
+
+    const taskA1 = coordinator.enqueue("note-a", async () => {
+      events.push("A1:start");
+      await new Promise<void>((resolve) => {
+        resolveA1 = resolve;
+      });
+      events.push("A1:end");
+      return "a1";
+    });
+
+    const taskB1 = coordinator.enqueue("note-b", async () => {
+      events.push("B1:start");
+      await new Promise<void>((resolve) => {
+        resolveB1 = resolve;
+      });
+      events.push("B1:end");
+      return "b1";
+    });
+
+    const taskA2 = coordinator.enqueue("note-a", async () => {
+      events.push("A2:start");
+      events.push("A2:end");
+      return "a2";
+    });
+
+    await Promise.resolve();
+    expect(coordinator.hasInFlight("note-a")).toBe(true);
+    expect(coordinator.hasInFlight("note-b")).toBe(true);
+    // note-b starts immediately without waiting on note-a; A2 waits behind A1.
+    expect(events).toEqual(["A1:start", "B1:start"]);
+
+    resolveB1();
+    await expect(taskB1).resolves.toBe("b1");
+    expect(events).toEqual(["A1:start", "B1:start", "B1:end"]);
+
+    resolveA1();
+    await expect(taskA1).resolves.toBe("a1");
+    await expect(taskA2).resolves.toBe("a2");
+    expect(events).toEqual([
+      "A1:start",
+      "B1:start",
+      "B1:end",
+      "A1:end",
+      "A2:start",
+      "A2:end",
+    ]);
+    expect(coordinator.hasInFlight("note-a")).toBe(false);
+
+    // Rejected task does not wedge subsequent tasks on the same note.
+    await expect(
+      coordinator.enqueue("note-a", async () => {
+        throw new Error("transient failure");
+      }),
+    ).rejects.toThrow("transient failure");
+    await expect(
+      coordinator.enqueue("note-a", async () => "recovered"),
+    ).resolves.toBe("recovered");
+
+    // Monotonic timestamp seeding & snapshot equality guard (including tags containing `|`).
+    coordinator.seedKnownUpdatedAt("note-a", "2026-11-12T02:00:00.000Z");
+    coordinator.seedKnownUpdatedAt("note-a", "2026-11-12T01:00:00.000Z");
+    expect(coordinator.getKnownUpdatedAt("note-a")).toBe(
+      "2026-11-12T02:00:00.000Z",
+    );
+    expect(
+      areDraftSnapshotsEqual(
+        {
+          title: "T",
+          content: "C",
+          folderId: null,
+          isPinned: false,
+          tags: ["a|b", "c"],
+        },
+        {
+          title: "T",
+          content: "C",
+          folderId: null,
+          isPinned: false,
+          tags: ["a", "b|c"],
+        },
+      ),
+    ).toBe(false);
+
+    const seq1 = coordinator.stagePendingDraft(
+      "note-a",
+      {
+        title: "Draft",
+        content: "Body",
+        folderId: "f-1",
+        isPinned: false,
+        tags: [],
+      },
+      "2026-11-12T02:00:00.000Z",
+      "pending_sync",
+    );
+    expect(coordinator.isLatestSeqQueued("note-a")).toBe(false);
+    coordinator.markSeqQueued("note-a", seq1);
+    expect(coordinator.isLatestSeqQueued("note-a")).toBe(true);
+    coordinator.reconcilePendingFolder("note-a", null);
+    expect(coordinator.getPendingDraft("note-a")?.snapshot.folderId).toBeNull();
+  });
+
+  it("handles rapid A -> B -> A switching, per-note flush queuing, offline draft preservation, and online reconnect flush", async () => {
+    const noteAInitial = makeNote({
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      title: "Alpha Initial",
+      content: "- [ ] First\n- [ ] Second",
+      updatedAt: "2026-11-12T01:00:00.000Z",
+    });
+    const noteB = makeNote({
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      title: "Beta Note",
+      content: "Beta body",
+      updatedAt: "2026-11-12T01:05:00.000Z",
+    });
+
+    interface DeferredResponse {
+      url: string;
+      body: Record<string, unknown>;
+      resolve: (response: Response) => void;
+    }
+    const deferredRequests: DeferredResponse[] = [];
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const parsedBody = init?.body ? JSON.parse(String(init.body)) : {};
+      return new Promise<Response>((resolve) => {
+        deferredRequests.push({
+          url: String(input),
+          body: parsedBody,
+          resolve,
+        });
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onSaved = vi.fn();
+    const { rerender, unmount } = render(
+      <PreferencesProvider
+        initialLocale="en"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        <NoteEditor
+          note={noteAInitial}
+          folders={sampleFolders}
+          onSaved={onSaved}
+          onDeleted={vi.fn()}
+        />
+      </PreferencesProvider>,
+    );
+
+    const wrap = (currentNote: NoteDto) => (
+      <PreferencesProvider
+        initialLocale="en"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        <NoteEditor
+          note={currentNote}
+          folders={sampleFolders}
+          onSaved={onSaved}
+          onDeleted={vi.fn()}
+        />
+      </PreferencesProvider>
+    );
+
+    // 1. Edit Note A then immediately switch A -> B -> A before Flush #1 settles.
+    fireEvent.change(screen.getByLabelText("Note title"), {
+      target: { value: "Alpha Draft 1" },
+    });
+    rerender(wrap(noteB));
+
+    await waitFor(() => {
+      expect(deferredRequests).toHaveLength(1);
+    });
+    expect(deferredRequests[0].body.title).toBe("Alpha Draft 1");
+    expect(deferredRequests[0].body.updatedAt).toBe(noteAInitial.updatedAt);
+
+    // Switch immediately back to A while parent prop is still stale ("Alpha Initial", t0).
+    rerender(wrap(noteAInitial));
+    expect((screen.getByLabelText("Note title") as HTMLInputElement).value).toBe(
+      "Alpha Draft 1",
+    );
+    expect(screen.getByTestId("note-save-status")).toHaveTextContent("Saving...");
+
+    // Edit again and pin while Flush #1 is still in-flight -> Flush #2 queues behind Flush #1!
+    fireEvent.change(screen.getByLabelText("Note title"), {
+      target: { value: "Alpha Draft 2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Pin note" }));
+    expect(deferredRequests).toHaveLength(1);
+
+    // Resolve Flush #1 with t1 -> Flush #2 automatically receives updatedAt = t1 and keeps "Saving..." until #2 completes.
+    const t1 = "2026-11-12T02:00:00.000Z";
+    const t2 = "2026-11-12T03:00:00.000Z";
+    await act(async () => {
+      deferredRequests[0].resolve(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              note: {
+                ...noteAInitial,
+                title: "Alpha Draft 1",
+                updatedAt: t1,
+              },
+              conflictResolved: "applied",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(deferredRequests).toHaveLength(2);
+    });
+    expect(deferredRequests[1].body.title).toBe("Alpha Draft 2");
+    expect(deferredRequests[1].body.isPinned).toBe(true);
+    expect(deferredRequests[1].body.updatedAt).toBe(t1);
+    expect(screen.getByTestId("note-save-status")).toHaveTextContent("Saving...");
+
+    await act(async () => {
+      deferredRequests[1].resolve(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              note: {
+                ...noteAInitial,
+                title: "Alpha Draft 2",
+                isPinned: true,
+                updatedAt: t2,
+              },
+              conflictResolved: "applied",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("note-save-status")).toHaveTextContent("Saved");
+    });
+
+    // 2. Rapid checklist double-click while Note A is open: Toggle #1 + Toggle #2 serialize without race.
+    fireEvent.click(screen.getAllByRole("checkbox")[0]);
+    fireEvent.click(screen.getAllByRole("checkbox")[1]);
+    await waitFor(() => {
+      expect(deferredRequests).toHaveLength(3);
+    });
+    expect(deferredRequests[2].url).toBe(
+      `/api/notes/${noteAInitial.id}/checklist`,
+    );
+    expect(deferredRequests[2].body.updatedAt).toBe(t2);
+
+    const t3 = "2026-11-12T03:30:00.000Z";
+    await act(async () => {
+      deferredRequests[2].resolve(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              note: {
+                ...noteAInitial,
+                title: "Alpha Draft 2",
+                isPinned: true,
+                content: "- [x] First\n- [ ] Second",
+                checklistCompleted: 1,
+                updatedAt: t3,
+              },
+              conflictResolved: "applied",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(deferredRequests).toHaveLength(4);
+    });
+    expect(deferredRequests[3].url).toBe(`/api/notes/${noteAInitial.id}`);
+    expect(deferredRequests[3].body.content).toBe("- [x] First\n- [x] Second");
+    expect(deferredRequests[3].body.updatedAt).toBe(t3);
+
+    const t4 = "2026-11-12T04:00:00.000Z";
+    await act(async () => {
+      deferredRequests[3].resolve(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              note: {
+                ...noteAInitial,
+                title: "Alpha Draft 2",
+                isPinned: true,
+                content: "- [x] First\n- [x] Second",
+                checklistCompleted: 2,
+                updatedAt: t4,
+              },
+              conflictResolved: "applied",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("note-save-status")).toHaveTextContent("Saved");
+    });
+
+    // 3. Offline A -> B -> A preserves pending_sync draft, then A -> B + online auto-flushes Note A!
+    Object.defineProperty(window.navigator, "onLine", {
+      value: false,
+      configurable: true,
+    });
+    const staleA = {
+      ...noteAInitial,
+      title: "Alpha Draft 2",
+      updatedAt: t4,
+    };
+    fireEvent.change(screen.getByLabelText("Note title"), {
+      target: { value: "Alpha Offline Draft" },
+    });
+    rerender(wrap(noteB));
+    // Re-select Note A with stale title while still offline -> restores "Alpha Offline Draft" & "Pending sync".
+    rerender(wrap(staleA));
+    expect((screen.getByLabelText("Note title") as HTMLInputElement).value).toBe(
+      "Alpha Offline Draft",
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("note-save-status")).toHaveTextContent(
+        "Pending sync",
+      );
+    });
+
+    // Switch back to B, reconnect online -> Note A's switched-away pending_sync draft auto-flushes!
+    rerender(wrap(noteB));
+    const callsBeforeReconnect = deferredRequests.length;
+    Object.defineProperty(window.navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(deferredRequests.length).toBeGreaterThan(callsBeforeReconnect);
+    });
+    const reconnectReq = deferredRequests[callsBeforeReconnect];
+    expect(reconnectReq.url).toBe(`/api/notes/${noteAInitial.id}`);
+    expect(reconnectReq.body.title).toBe("Alpha Offline Draft");
+    expect(reconnectReq.body.updatedAt).toBe(t4);
+
+    await act(async () => {
+      reconnectReq.resolve(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              note: { ...staleA, title: "Alpha Offline Draft" },
+              conflictResolved: "applied",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+      await Promise.resolve();
+    });
+
+    unmount();
   });
 });

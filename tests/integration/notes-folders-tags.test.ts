@@ -1,7 +1,7 @@
 import { eq, inArray } from "drizzle-orm";
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getDb } from "@/db";
+import { getDb, getPool } from "@/db";
 import { users } from "@/db/schema/auth";
 import { categories, transactions, wallets } from "@/db/schema/finance";
 import { noteAttachments, tags } from "@/db/schema/notes";
@@ -1188,6 +1188,91 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     } finally {
       unregister();
     }
+  });
+
+  it("provisions pg_trgm GIN partial indexes on notes.title/content for scalable ILIKE search (PERF-2)", async () => {
+    const pool = getPool();
+
+    const extRes = await pool.query<{ extname: string }>(
+      "SELECT extname FROM pg_extension WHERE extname = 'pg_trgm'",
+    );
+    expect(extRes.rows).toHaveLength(1);
+
+    const idxRes = await pool.query<{ indexname: string; indexdef: string }>(
+      `SELECT indexname, indexdef
+       FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND tablename = 'notes'
+         AND indexname IN ('notes_title_trgm_active_idx', 'notes_content_trgm_active_idx')
+       ORDER BY indexname ASC`,
+    );
+    expect(idxRes.rows).toHaveLength(2);
+    expect(idxRes.rows[0].indexname).toBe("notes_content_trgm_active_idx");
+    expect(idxRes.rows[0].indexdef).toContain("USING gin (content gin_trgm_ops)");
+    expect(idxRes.rows[0].indexdef).toContain("WHERE (deleted_at IS NULL)");
+    expect(idxRes.rows[1].indexname).toBe("notes_title_trgm_active_idx");
+    expect(idxRes.rows[1].indexdef).toContain("USING gin (title gin_trgm_ops)");
+    expect(idxRes.rows[1].indexdef).toContain("WHERE (deleted_at IS NULL)");
+
+    const user = await createRegisteredUser("TrgmSearchUser");
+    // Bulk-seed 5,000 notes and flush the GIN fastupdate pending list so PostgreSQL's planner
+    // prefers GIN trigram bitmap scans on ILIKE patterns over scanning all 5,000 user rows.
+    const client = await pool.connect();
+    try {
+      await client.query(
+        `INSERT INTO notes (user_id, title, content)
+         SELECT
+           $1,
+           CASE WHEN g = 42 THEN 'Target Trigram Header 42' ELSE 'Journal Entry ' || g END,
+           CASE
+             WHEN g = 17 THEN 'Contains specific substrTrigramNeedle token in markdown body'
+             ELSE 'Routine note body number ' || g || ' with searchable prose and distinct words ' || g
+           END
+         FROM generate_series(1, 5000) AS g`,
+        [user.userId],
+      );
+      await client.query("SELECT gin_clean_pending_list('notes_title_trgm_active_idx')");
+      await client.query("SELECT gin_clean_pending_list('notes_content_trgm_active_idx')");
+      await client.query("ANALYZE notes");
+      await client.query("BEGIN");
+      await client.query("SET LOCAL enable_seqscan = off");
+      await client.query("SET LOCAL enable_indexscan = off");
+      const explainRes = await client.query<{ "QUERY PLAN": string }>(
+        `EXPLAIN (COSTS OFF)
+         SELECT id
+         FROM notes
+         WHERE user_id = $1
+           AND deleted_at IS NULL
+           AND (
+             title ILIKE '%substrTrigramNeedle%' ESCAPE '\\'
+             OR content ILIKE '%substrTrigramNeedle%' ESCAPE '\\'
+           )`,
+        [user.userId],
+      );
+      await client.query("COMMIT");
+
+      const planText = explainRes.rows.map((row) => row["QUERY PLAN"]).join("\n");
+      expect(planText).toContain("notes_title_trgm_active_idx");
+      expect(planText).toContain("notes_content_trgm_active_idx");
+    } finally {
+      client.release();
+    }
+
+    const searchStart = performance.now();
+    const searchRes = await notesGet(
+      makeAuthedRequest(
+        "http://localhost:3000/api/notes?q=substrTrigramNeedle",
+        "GET",
+        user.cookie,
+      ),
+    );
+    const searchElapsedMs = performance.now() - searchStart;
+    expect(searchRes.status).toBe(200);
+    expect(
+      ((await searchRes.json()) as { data: { items: { title: string }[] } })
+        .data.items.map((item) => item.title),
+    ).toEqual(["Journal Entry 17"]);
+    expect(searchElapsedMs).toBeLessThan(300);
   });
 });
 
