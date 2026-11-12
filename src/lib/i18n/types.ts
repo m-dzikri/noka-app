@@ -218,6 +218,136 @@ export interface FoldersDictionary {
   deleteNotice: string;
 }
 
+export interface FinanceDictionary {
+  pageTitle: string;
+  pageSubtitle: string;
+  totalBalanceLabel: string;
+  walletsSectionTitle: string;
+  manageWalletsButton: string;
+  manageCategoriesButton: string;
+  newTransactionButton: string;
+  newTransferButton: string;
+  showArchivedLabel: string;
+  defaultBadge: string;
+  archivedBadge: string;
+  safeToSpendBadge: string;
+  noWalletsTitle: string;
+  noWalletsDescription: string;
+  createFirstWalletCta: string;
+  walletTypes: {
+    cash: string;
+    bank: string;
+    ewallet: string;
+  };
+  filters: {
+    allWallets: string;
+    allTypes: string;
+    income: string;
+    expense: string;
+    allCategories: string;
+    fromDate: string;
+    toDate: string;
+    reset: string;
+  };
+  ledger: {
+    sectionTitle: string;
+    transactionsTab: string;
+    transfersTab: string;
+    linkedBadge: string;
+    emptyTransactions: string;
+    emptyTransfers: string;
+    loadMore: string;
+    loadingMore: string;
+    editButton: string;
+    deleteButton: string;
+    deletingButton: string;
+    confirmDeleteTransaction: string;
+    confirmDeleteTransfer: string;
+    transferArrowAria: string;
+  };
+  walletModal: {
+    title: string;
+    description: string;
+    newWalletHeading: string;
+    editWalletHeading: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    typeLabel: string;
+    initialBalanceLabel: string;
+    includeInSafeToSpendLabel: string;
+    setDefaultLabel: string;
+    createButton: string;
+    creatingButton: string;
+    saveButton: string;
+    savingButton: string;
+    cancelEditButton: string;
+    editButton: string;
+    archiveButton: string;
+    unarchiveButton: string;
+    deleteButton: string;
+    archiveOfferTitle: string;
+    archiveOfferButton: string;
+    nameRequiredError: string;
+    invalidAmountError: string;
+  };
+  categoryModal: {
+    title: string;
+    description: string;
+    newCategoryHeading: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    typeLabel: string;
+    createButton: string;
+    creatingButton: string;
+    systemLockedBadge: string;
+    renameButton: string;
+    saveRenameButton: string;
+    deleteButton: string;
+    migrateNotice: string;
+    nameRequiredError: string;
+  };
+  transactionModal: {
+    createTitle: string;
+    editTitle: string;
+    typeLabel: string;
+    incomeOption: string;
+    expenseOption: string;
+    walletLabel: string;
+    categoryLabel: string;
+    amountLabel: string;
+    amountPlaceholder: string;
+    descriptionLabel: string;
+    descriptionPlaceholder: string;
+    occurredAtLabel: string;
+    createButton: string;
+    creatingButton: string;
+    saveButton: string;
+    savingButton: string;
+    noActiveWalletsNotice: string;
+    invalidAmountError: string;
+    selectWalletError: string;
+    selectCategoryError: string;
+  };
+  transferModal: {
+    createTitle: string;
+    editTitle: string;
+    fromWalletLabel: string;
+    toWalletLabel: string;
+    amountLabel: string;
+    amountPlaceholder: string;
+    noteLabel: string;
+    notePlaceholder: string;
+    occurredAtLabel: string;
+    createButton: string;
+    creatingButton: string;
+    saveButton: string;
+    savingButton: string;
+    needTwoWalletsNotice: string;
+    sameWalletError: string;
+    invalidAmountError: string;
+  };
+}
+
 export interface Dictionary {
   common: {
     appName: string;
@@ -281,6 +411,18 @@ export interface Dictionary {
     ATTACHMENT_NOT_FOUND: string;
     ATTACHMENT_OBJECT_MISSING: string;
     STORAGE_UNAVAILABLE: string;
+    RESOURCE_ALREADY_EXISTS: string;
+    WALLET_NOT_FOUND: string;
+    WALLET_ARCHIVED: string;
+    WALLET_HAS_HISTORY: string;
+    CATEGORY_NOT_FOUND: string;
+    CATEGORY_ALREADY_EXISTS: string;
+    CATEGORY_TYPE_MISMATCH: string;
+    CANNOT_MODIFY_SYSTEM_CATEGORY: string;
+    CANNOT_DELETE_SYSTEM_CATEGORY: string;
+    TRANSACTION_NOT_FOUND: string;
+    TRANSFER_NOT_FOUND: string;
+    SAME_WALLET_TRANSFER: string;
     generic: string;
   };
   preferences: {
@@ -368,8 +510,9 @@ export interface Dictionary {
   // Strongly typed Notes & Folders namespaces populated in RFC-004.
   notes: NotesDictionary;
   folders: FoldersDictionary;
-  // Optional namespaces populated incrementally by RFC-005 through RFC-010 without stubs.
-  finance?: Record<string, unknown>;
+  // Strongly typed Finance Core namespace populated in RFC-006.
+  finance: FinanceDictionary;
+  // Optional namespaces populated incrementally by RFC-007 through RFC-010 without stubs.
   privacy?: Record<string, unknown>;
   quickCapture?: Record<string, unknown>;
   linkedNotes?: Record<string, unknown>;

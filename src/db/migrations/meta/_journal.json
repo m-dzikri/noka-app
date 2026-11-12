@@ -15,6 +15,13 @@
       "when": 1794446015349,
       "tag": "0001_notes_pg_trgm_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794472584854,
+      "tag": "0002_categories_active_name_idx",
+      "breakpoints": true
     }
   ]
 }
