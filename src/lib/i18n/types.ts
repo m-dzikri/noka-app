@@ -175,6 +175,31 @@ export interface NotesDictionary {
   deleteConfirmButton: string;
   deletingNote: string;
   noteCountSummary: string;
+  attachments: {
+    sectionTitle: string;
+    countBadge: string;
+    uploadButton: string;
+    uploadInputAria: string;
+    uploadingStatus: string;
+    limitReachedNotice: string;
+    offlineNotice: string;
+    offlinePlaceholder: string;
+    retryLoadButton: string;
+    emptyText: string;
+    imageAlt: string;
+    openPreviewAria: string;
+    deleteButton: string;
+    deleteButtonAria: string;
+    deleteConfirmTitle: string;
+    deleteConfirmDescription: string;
+    deleteConfirmButton: string;
+    deletingButton: string;
+    lightboxTitle: string;
+    closePreview: string;
+    unsupportedClientType: string;
+    clientEmptyFile: string;
+    clientFileTooLarge: string;
+  };
 }
 
 export interface FoldersDictionary {
@@ -247,6 +272,15 @@ export interface Dictionary {
     FOLDER_NAME_EXISTS: string;
     NOTE_ALREADY_EXISTS: string;
     FOLDER_ALREADY_EXISTS: string;
+    INVALID_MULTIPART: string;
+    PAYLOAD_TOO_LARGE: string;
+    EMPTY_FILE: string;
+    FILE_TOO_LARGE: string;
+    UNSUPPORTED_IMAGE_TYPE: string;
+    ATTACHMENT_LIMIT_REACHED: string;
+    ATTACHMENT_NOT_FOUND: string;
+    ATTACHMENT_OBJECT_MISSING: string;
+    STORAGE_UNAVAILABLE: string;
     generic: string;
   };
   preferences: {

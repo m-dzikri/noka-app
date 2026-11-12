@@ -19,6 +19,7 @@ import {
   noteTags,
   tags,
 } from "@/db/schema/notes";
+import { cleanupNoteAttachments } from "@/features/notes/attachments-service";
 import { parseChecklists, toggleChecklistInMarkdown } from "@/features/notes/checklist";
 import {
   NOTE_LIST_DEFAULT_LIMIT,
@@ -1062,6 +1063,17 @@ export async function deleteNoteInTx(
       ),
     );
 
+  if (attachmentRows.length > 0) {
+    await tx
+      .delete(noteAttachments)
+      .where(
+        and(
+          eq(noteAttachments.noteId, noteId),
+          eq(noteAttachments.userId, userId),
+        ),
+      );
+  }
+
   // DATA-4: detach linked finance transactions without deleting them.
   await tx
     .update(transactions)
@@ -1499,3 +1511,5 @@ export async function listTags(
     updatedAt: row.updatedAt.toISOString(),
   }));
 }
+
+registerNoteDeleteCleanup(cleanupNoteAttachments);

@@ -60,6 +60,15 @@ export const enDictionary: Dictionary = {
     FOLDER_NAME_EXISTS: "A folder with this name already exists.",
     NOTE_ALREADY_EXISTS: "Note ID already exists.",
     FOLDER_ALREADY_EXISTS: "Folder ID already exists.",
+    INVALID_MULTIPART: "Invalid multipart upload payload.",
+    PAYLOAD_TOO_LARGE: "Request payload exceeds the maximum upload limit.",
+    EMPTY_FILE: "Uploaded image file cannot be empty.",
+    FILE_TOO_LARGE: "Image file size exceeds the 5 MB limit.",
+    UNSUPPORTED_IMAGE_TYPE: "Only JPEG, PNG, and WebP images are supported.",
+    ATTACHMENT_LIMIT_REACHED: "Maximum of 5 image attachments per note reached.",
+    ATTACHMENT_NOT_FOUND: "Attachment not found.",
+    ATTACHMENT_OBJECT_MISSING: "Attachment file could not be found in storage.",
+    STORAGE_UNAVAILABLE: "Attachment storage service is temporarily unavailable.",
     generic: "Unable to process request.",
   },
   preferences: {
@@ -352,6 +361,36 @@ export const enDictionary: Dictionary = {
     deleteConfirmButton: "Yes, Delete Note",
     deletingNote: "Deleting...",
     noteCountSummary: "{count} notes",
+    attachments: {
+      sectionTitle: "Image Attachments",
+      countBadge: "{count}/5",
+      uploadButton: "Upload Image",
+      uploadInputAria: "Select image file attachment (JPEG, PNG, or WebP)",
+      uploadingStatus: "Uploading image...",
+      limitReachedNotice: "Maximum of 5 images per note has been reached.",
+      offlineNotice:
+        "Offline mode: uploading and deleting attachments is disabled until back online.",
+      offlinePlaceholder:
+        "Image unavailable offline. It will retry when back online.",
+      retryLoadButton: "Retry",
+      emptyText:
+        "No image attachments yet (up to 5 JPEG, PNG, or WebP files, max 5 MB each).",
+      imageAlt: "Note image attachment",
+      openPreviewAria: "Open image attachment preview",
+      deleteButton: "Delete",
+      deleteButtonAria: "Delete image attachment",
+      deleteConfirmTitle: "Delete Image Attachment?",
+      deleteConfirmDescription:
+        "This image will be permanently deleted from this note and storage.",
+      deleteConfirmButton: "Yes, Delete Image",
+      deletingButton: "Deleting...",
+      lightboxTitle: "Attachment Preview",
+      closePreview: "Close Preview",
+      unsupportedClientType:
+        "Unsupported file type. Choose a JPEG, PNG, or WebP image.",
+      clientEmptyFile: "Image file cannot be empty.",
+      clientFileTooLarge: "File size exceeds the 5 MB maximum limit.",
+    },
   },
   folders: {
     manageButton: "Manage Folders",
