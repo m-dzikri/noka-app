@@ -66,6 +66,12 @@ export const notes = pgTable(
         desc(table.id),
       )
       .where(sql`${table.deletedAt} IS NULL`),
+    index("notes_title_trgm_active_idx")
+      .using("gin", table.title.op("gin_trgm_ops"))
+      .where(sql`${table.deletedAt} IS NULL`),
+    index("notes_content_trgm_active_idx")
+      .using("gin", table.content.op("gin_trgm_ops"))
+      .where(sql`${table.deletedAt} IS NULL`),
   ],
 );
 

@@ -27,6 +27,12 @@ import { MarkdownPreview } from "@/components/notes/MarkdownPreview";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { parseChecklists, toggleChecklistInMarkdown } from "@/features/notes/checklist";
+import {
+  areDraftSnapshotsEqual,
+  NoteMutationCoordinator,
+  type NoteDraftSnapshot,
+  type PendingSaveStatus,
+} from "@/features/notes/mutation-queue";
 import { NOTE_MAX_TAGS, normalizeTagNames } from "@/features/notes/schemas";
 import type {
   FolderDto,
@@ -39,7 +45,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/cn";
 
 export type EditorViewMode = "edit" | "preview" | "split";
-export type NoteSaveStatus = "saved" | "saving" | "pending_sync" | "error";
+export type NoteSaveStatus = "saved" | PendingSaveStatus;
 
 export interface NoteEditorProps {
   note: NoteDto;
@@ -52,17 +58,9 @@ export interface NoteEditorProps {
   renderLinkedTransactionsSlot?: (note: NoteDto) => ReactNode;
 }
 
-interface DraftSnapshot {
-  title: string;
-  content: string;
-  folderId: string | null;
-  isPinned: boolean;
-  tags: string[];
-}
-
 const AUTO_SAVE_DEBOUNCE_MS = 600;
 
-function toDraftSnapshot(note: NoteDto): DraftSnapshot {
+function toDraftSnapshot(note: NoteDto): NoteDraftSnapshot {
   return {
     title: note.title,
     content: note.content,
@@ -70,6 +68,26 @@ function toDraftSnapshot(note: NoteDto): DraftSnapshot {
     isPinned: note.isPinned,
     tags: note.tags.map((item) => item.name),
   };
+}
+
+function resolveValidFolderId(
+  candidateFolderId: string | null,
+  fallbackFolderId: string | null,
+  folders: FolderDto[],
+): string | null {
+  if (candidateFolderId === null) {
+    return null;
+  }
+  if (folders.some((item) => item.id === candidateFolderId)) {
+    return candidateFolderId;
+  }
+  if (
+    fallbackFolderId !== null &&
+    folders.some((item) => item.id === fallbackFolderId)
+  ) {
+    return fallbackFolderId;
+  }
+  return null;
 }
 
 /**
@@ -106,27 +124,40 @@ export function NoteEditor({
   const activeNoteIdRef = useRef(note.id);
   const serverUpdatedAtRef = useRef(note.updatedAt);
   const dirtyRef = useRef(false);
-  const draftRef = useRef<DraftSnapshot>(toDraftSnapshot(note));
+  const draftRef = useRef<NoteDraftSnapshot>(toDraftSnapshot(note));
   const onSavedRef = useRef(onSaved);
+  const foldersRef = useRef(folders);
+  const mountedRef = useRef(true);
+  const coordinatorRef = useRef<NoteMutationCoordinator | null>(null);
+
+  const getCoordinator = useCallback(() => {
+    if (!coordinatorRef.current) {
+      coordinatorRef.current = new NoteMutationCoordinator();
+    }
+    return coordinatorRef.current;
+  }, []);
 
   useEffect(() => {
     onSavedRef.current = onSaved;
   }, [onSaved]);
 
-  const applyServerNote = useCallback((serverNote: NoteDto, showConflict: boolean) => {
-    serverUpdatedAtRef.current = serverNote.updatedAt;
-    dirtyRef.current = false;
-    draftRef.current = toDraftSnapshot(serverNote);
-    setTitle(serverNote.title);
-    setContent(serverNote.content);
-    setFolderId(serverNote.folderId);
-    setIsPinned(serverNote.isPinned);
-    setTagNames(serverNote.tags.map((item) => item.name));
-    setSaveStatus("saved");
-    if (showConflict) {
-      setConflictNotice(true);
-    }
-  }, []);
+  const applyServerNote = useCallback(
+    (serverNote: NoteDto, showConflict: boolean) => {
+      serverUpdatedAtRef.current = serverNote.updatedAt;
+      dirtyRef.current = false;
+      draftRef.current = toDraftSnapshot(serverNote);
+      setTitle(serverNote.title);
+      setContent(serverNote.content);
+      setFolderId(serverNote.folderId);
+      setIsPinned(serverNote.isPinned);
+      setTagNames(serverNote.tags.map((item) => item.name));
+      setSaveStatus("saved");
+      if (showConflict) {
+        setConflictNotice(true);
+      }
+    },
+    [],
+  );
 
   const clearPendingTimer = useCallback(() => {
     if (debounceTimerRef.current !== null) {
@@ -135,112 +166,285 @@ export function NoteEditor({
     }
   }, []);
 
-  const persistSnapshot = useCallback(
-    async (
+  const reconcileMutationResponse = useCallback(
+    (
       targetNoteId: string,
-      snapshot: DraftSnapshot,
-      baseUpdatedAt: string,
-    ): Promise<NoteDto | null> => {
-      if (typeof navigator !== "undefined" && navigator.onLine === false) {
-        if (activeNoteIdRef.current === targetNoteId) {
-          setSaveStatus("pending_sync");
+      seq: number,
+      expectedSnapshot: NoteDraftSnapshot,
+      response: Response,
+      payload: { ok?: boolean; data?: NoteMutationResult } | null,
+      syncContentOnApplied: boolean,
+    ): NoteDto | null => {
+      const coordinator = getCoordinator();
+
+      if (!response.ok || payload?.ok !== true || !payload.data?.note) {
+        const failStatus: PendingSaveStatus =
+          response.status >= 500 ? "pending_sync" : "error";
+        coordinator.updatePendingDraftStatus(targetNoteId, seq, failStatus);
+        if (
+          mountedRef.current &&
+          activeNoteIdRef.current === targetNoteId &&
+          coordinator.isLatestSeq(targetNoteId, seq)
+        ) {
+          setSaveStatus(failStatus);
         }
         return null;
       }
 
-      if (activeNoteIdRef.current === targetNoteId) {
-        setSaveStatus("saving");
+      const savedNote = payload.data.note;
+
+      if (payload.data.conflictResolved === "server_newer") {
+        onSavedRef.current(savedNote);
+        if (coordinator.isLatestSeq(targetNoteId, seq)) {
+          coordinator.seedKnownUpdatedAt(targetNoteId, savedNote.updatedAt, true);
+          coordinator.clearPendingDraftIfLatest(targetNoteId, seq);
+          if (mountedRef.current && activeNoteIdRef.current === targetNoteId) {
+            applyServerNote(savedNote, true);
+          }
+        }
+        return savedNote;
       }
 
-      try {
-        const response = await apiFetch(`/api/notes/${targetNoteId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: snapshot.title,
-            content: snapshot.content,
-            folderId: snapshot.folderId,
-            isPinned: snapshot.isPinned,
-            tags: snapshot.tags,
-            updatedAt: baseUpdatedAt,
-            idempotencyKey: crypto.randomUUID(),
-          }),
-        });
+      coordinator.seedKnownUpdatedAt(targetNoteId, savedNote.updatedAt);
+      onSavedRef.current(savedNote);
 
-        const payload = (await response.json().catch(() => null)) as {
-          ok?: boolean;
-          data?: NoteMutationResult;
-        } | null;
+      if (coordinator.isLatestSeq(targetNoteId, seq)) {
+        if (activeNoteIdRef.current === targetNoteId) {
+          if (areDraftSnapshotsEqual(draftRef.current, expectedSnapshot)) {
+            coordinator.clearPendingDraftIfLatest(targetNoteId, seq);
+            if (mountedRef.current) {
+              serverUpdatedAtRef.current = savedNote.updatedAt;
+              dirtyRef.current = false;
+              if (syncContentOnApplied) {
+                draftRef.current = toDraftSnapshot(savedNote);
+                setContent(savedNote.content);
+              }
+              setSaveStatus("saved");
+            }
+          }
+        } else {
+          coordinator.clearPendingDraftIfLatest(targetNoteId, seq);
+        }
+      }
 
-        if (!response.ok || payload?.ok !== true || !payload.data?.note) {
-          if (activeNoteIdRef.current === targetNoteId) {
-            setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
+      return savedNote;
+    },
+    [applyServerNote, getCoordinator],
+  );
+
+  const persistSnapshot = useCallback(
+    async (
+      targetNoteId: string,
+      snapshot: NoteDraftSnapshot,
+      baseUpdatedAt: string,
+      seq?: number,
+    ): Promise<NoteDto | null> => {
+      const coordinator = getCoordinator();
+      const effectiveSeq =
+        seq ??
+        coordinator.stagePendingDraft(
+          targetNoteId,
+          snapshot,
+          baseUpdatedAt,
+          typeof navigator !== "undefined" && navigator.onLine === false
+            ? "pending_sync"
+            : "saving",
+        );
+
+      coordinator.markSeqQueued(targetNoteId, effectiveSeq);
+
+      return coordinator.enqueue(targetNoteId, async () => {
+        if (coordinator.isDeleted(targetNoteId)) {
+          return null;
+        }
+
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          coordinator.updatePendingDraftStatus(
+            targetNoteId,
+            effectiveSeq,
+            "pending_sync",
+          );
+          if (
+            mountedRef.current &&
+            activeNoteIdRef.current === targetNoteId &&
+            coordinator.isLatestSeq(targetNoteId, effectiveSeq)
+          ) {
+            setSaveStatus("pending_sync");
           }
           return null;
         }
 
-        const savedNote = payload.data.note;
-        onSavedRef.current(savedNote);
+        if (
+          mountedRef.current &&
+          activeNoteIdRef.current === targetNoteId &&
+          coordinator.isLatestSeq(targetNoteId, effectiveSeq)
+        ) {
+          setSaveStatus("saving");
+        }
 
-        if (activeNoteIdRef.current === targetNoteId) {
-          if (payload.data.conflictResolved === "server_newer") {
-            applyServerNote(savedNote, true);
-          } else {
-            serverUpdatedAtRef.current = savedNote.updatedAt;
-            const matchesCurrentDraft =
-              draftRef.current.title === snapshot.title &&
-              draftRef.current.content === snapshot.content &&
-              draftRef.current.folderId === snapshot.folderId &&
-              draftRef.current.isPinned === snapshot.isPinned &&
-              draftRef.current.tags.join("|") === snapshot.tags.join("|");
+        const sanitizedFolderId =
+          snapshot.folderId !== null &&
+          !foldersRef.current.some((item) => item.id === snapshot.folderId)
+            ? null
+            : snapshot.folderId;
+        const effectiveSnapshot: NoteDraftSnapshot =
+          sanitizedFolderId === snapshot.folderId
+            ? snapshot
+            : { ...snapshot, folderId: sanitizedFolderId };
+        const authoritativeUpdatedAt =
+          coordinator.getKnownUpdatedAt(targetNoteId) ?? baseUpdatedAt;
 
-            if (matchesCurrentDraft) {
-              dirtyRef.current = false;
-              setSaveStatus("saved");
-            }
+        try {
+          const response = await apiFetch(`/api/notes/${targetNoteId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: effectiveSnapshot.title,
+              content: effectiveSnapshot.content,
+              folderId: effectiveSnapshot.folderId,
+              isPinned: effectiveSnapshot.isPinned,
+              tags: effectiveSnapshot.tags,
+              updatedAt: authoritativeUpdatedAt,
+              idempotencyKey: crypto.randomUUID(),
+            }),
+          });
+
+          const payload = (await response.json().catch(() => null)) as {
+            ok?: boolean;
+            data?: NoteMutationResult;
+          } | null;
+
+          return reconcileMutationResponse(
+            targetNoteId,
+            effectiveSeq,
+            effectiveSnapshot,
+            response,
+            payload,
+            false,
+          );
+        } catch {
+          coordinator.updatePendingDraftStatus(
+            targetNoteId,
+            effectiveSeq,
+            "pending_sync",
+          );
+          if (
+            mountedRef.current &&
+            activeNoteIdRef.current === targetNoteId &&
+            coordinator.isLatestSeq(targetNoteId, effectiveSeq)
+          ) {
+            setSaveStatus("pending_sync");
           }
+          return null;
         }
-
-        return savedNote;
-      } catch {
-        if (activeNoteIdRef.current === targetNoteId) {
-          setSaveStatus("pending_sync");
-        }
-        return null;
-      }
+      });
     },
-    [applyServerNote],
+    [getCoordinator, reconcileMutationResponse],
   );
 
-  // Flush pending edits when switching to another note, then load the newly selected note.
+  // Flush pending edits when switching to another note, and restore queued/pending drafts on re-selection.
   useEffect(() => {
+    foldersRef.current = folders;
+    const coordinator = getCoordinator();
+
+    for (const pending of coordinator.listPendingDrafts()) {
+      if (
+        pending.snapshot.folderId !== null &&
+        !folders.some((item) => item.id === pending.snapshot.folderId)
+      ) {
+        coordinator.reconcilePendingFolder(pending.noteId, null);
+      }
+    }
+
     const previousNoteId = activeNoteIdRef.current;
     if (previousNoteId !== note.id) {
       clearPendingTimer();
       if (dirtyRef.current) {
-        void persistSnapshot(
-          previousNoteId,
-          draftRef.current,
-          serverUpdatedAtRef.current,
-        );
+        const pendingPrev = coordinator.getPendingDraft(previousNoteId);
+        const alreadyQueued =
+          pendingPrev !== undefined &&
+          pendingPrev.status === "saving" &&
+          coordinator.isLatestSeqQueued(previousNoteId) &&
+          areDraftSnapshotsEqual(pendingPrev.snapshot, draftRef.current);
+
+        if (!alreadyQueued) {
+          const prevStatus: PendingSaveStatus =
+            typeof navigator !== "undefined" && navigator.onLine === false
+              ? "pending_sync"
+              : "saving";
+          const prevSeq =
+            pendingPrev &&
+            areDraftSnapshotsEqual(pendingPrev.snapshot, draftRef.current)
+              ? pendingPrev.seq
+              : coordinator.stagePendingDraft(
+                  previousNoteId,
+                  draftRef.current,
+                  serverUpdatedAtRef.current,
+                  prevStatus,
+                );
+          void persistSnapshot(
+            previousNoteId,
+            draftRef.current,
+            serverUpdatedAtRef.current,
+            prevSeq,
+          );
+        }
       }
 
       activeNoteIdRef.current = note.id;
-      serverUpdatedAtRef.current = note.updatedAt;
-      dirtyRef.current = false;
-      draftRef.current = toDraftSnapshot(note);
+      coordinator.seedKnownUpdatedAt(note.id, note.updatedAt);
 
-      setTitle(note.title);
-      setContent(note.content);
-      setFolderId(note.folderId);
-      setIsPinned(note.isPinned);
-      setTagNames(note.tags.map((item) => item.name));
-      setTagInput("");
-      setTagLimitError(false);
-      setSaveStatus("saved");
-      setConflictNotice(false);
-    } else if (!dirtyRef.current) {
-      serverUpdatedAtRef.current = note.updatedAt;
+      const pendingForNext = coordinator.getPendingDraft(note.id);
+      if (pendingForNext) {
+        const validFolderId = resolveValidFolderId(
+          pendingForNext.snapshot.folderId,
+          note.folderId,
+          folders,
+        );
+        const restoredSnapshot: NoteDraftSnapshot =
+          validFolderId === pendingForNext.snapshot.folderId
+            ? pendingForNext.snapshot
+            : {
+                ...pendingForNext.snapshot,
+                folderId: validFolderId,
+              };
+        if (validFolderId !== pendingForNext.snapshot.folderId) {
+          coordinator.reconcilePendingFolder(note.id, validFolderId);
+        }
+
+        serverUpdatedAtRef.current =
+          coordinator.getKnownUpdatedAt(note.id) ?? note.updatedAt;
+        dirtyRef.current = true;
+        draftRef.current = restoredSnapshot;
+        setTitle(restoredSnapshot.title);
+        setContent(restoredSnapshot.content);
+        setFolderId(restoredSnapshot.folderId);
+        setIsPinned(restoredSnapshot.isPinned);
+        setTagNames(restoredSnapshot.tags);
+        setTagInput("");
+        setTagLimitError(false);
+        setSaveStatus(pendingForNext.status);
+        setConflictNotice(false);
+      } else {
+        coordinator.seedKnownUpdatedAt(note.id, note.updatedAt, true);
+        serverUpdatedAtRef.current = note.updatedAt;
+        dirtyRef.current = false;
+        draftRef.current = toDraftSnapshot(note);
+
+        setTitle(note.title);
+        setContent(note.content);
+        setFolderId(note.folderId);
+        setIsPinned(note.isPinned);
+        setTagNames(note.tags.map((item) => item.name));
+        setTagInput("");
+        setTagLimitError(false);
+        setSaveStatus("saved");
+        setConflictNotice(false);
+      }
+    } else if (!dirtyRef.current && !coordinator.hasPendingOrInFlight(note.id)) {
+      coordinator.seedKnownUpdatedAt(note.id, note.updatedAt);
+      serverUpdatedAtRef.current =
+        coordinator.getKnownUpdatedAt(note.id) ?? note.updatedAt;
       draftRef.current = toDraftSnapshot(note);
       setTitle(note.title);
       setContent(note.content);
@@ -248,82 +452,152 @@ export function NoteEditor({
       setIsPinned(note.isPinned);
       setTagNames(note.tags.map((item) => item.name));
       setTagLimitError(false);
-    } else if (
-      draftRef.current.folderId !== null &&
-      !folders.some((item) => item.id === draftRef.current.folderId)
-    ) {
-      const fallbackFolderId =
-        note.folderId !== null &&
-        folders.some((item) => item.id === note.folderId)
-          ? note.folderId
-          : null;
-      draftRef.current = {
-        ...draftRef.current,
-        folderId: fallbackFolderId,
-      };
-      setFolderId(fallbackFolderId);
+    } else {
+      coordinator.seedKnownUpdatedAt(note.id, note.updatedAt);
+      if (
+        draftRef.current.folderId !== null &&
+        !folders.some((item) => item.id === draftRef.current.folderId)
+      ) {
+        const fallbackFolderId = resolveValidFolderId(
+          note.folderId,
+          null,
+          folders,
+        );
+        draftRef.current = {
+          ...draftRef.current,
+          folderId: fallbackFolderId,
+        };
+        coordinator.reconcilePendingFolder(note.id, fallbackFolderId);
+        setFolderId(fallbackFolderId);
+      }
     }
-  }, [clearPendingTimer, folders, note, persistSnapshot]);
+  }, [clearPendingTimer, folders, getCoordinator, note, persistSnapshot]);
 
   useEffect(() => {
     const handleOnline = () => {
-      if (!dirtyRef.current) {
-        return;
-      }
       clearPendingTimer();
-      void persistSnapshot(
-        activeNoteIdRef.current,
-        draftRef.current,
-        serverUpdatedAtRef.current,
-      );
+      const coordinator = getCoordinator();
+      const activeId = activeNoteIdRef.current;
+
+      if (dirtyRef.current) {
+        const activePending = coordinator.getPendingDraft(activeId);
+        if (
+          !activePending ||
+          activePending.status === "pending_sync" ||
+          !coordinator.isLatestSeqQueued(activeId)
+        ) {
+          const seq =
+            activePending?.seq ??
+            coordinator.stagePendingDraft(
+              activeId,
+              draftRef.current,
+              serverUpdatedAtRef.current,
+              "saving",
+            );
+          coordinator.updatePendingDraftStatus(activeId, seq, "saving");
+          void persistSnapshot(
+            activeId,
+            draftRef.current,
+            serverUpdatedAtRef.current,
+            seq,
+          );
+        }
+      }
+
+      for (const pending of coordinator.listPendingDrafts()) {
+        if (pending.noteId === activeId) {
+          continue;
+        }
+        if (
+          pending.status === "pending_sync" &&
+          !coordinator.hasInFlight(pending.noteId)
+        ) {
+          coordinator.updatePendingDraftStatus(
+            pending.noteId,
+            pending.seq,
+            "saving",
+          );
+          void persistSnapshot(
+            pending.noteId,
+            pending.snapshot,
+            pending.baseUpdatedAt,
+            pending.seq,
+          );
+        }
+      }
     };
 
     window.addEventListener("online", handleOnline);
     return () => {
       window.removeEventListener("online", handleOnline);
     };
-  }, [clearPendingTimer, persistSnapshot]);
+  }, [clearPendingTimer, getCoordinator, persistSnapshot]);
 
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       clearPendingTimer();
     };
   }, [clearPendingTimer]);
 
   const scheduleDebouncedSave = useCallback(
-    (nextDraft: DraftSnapshot) => {
+    (nextDraft: NoteDraftSnapshot) => {
+      const coordinator = getCoordinator();
+      const targetNoteId = activeNoteIdRef.current;
+      const seq = coordinator.stagePendingDraft(
+        targetNoteId,
+        nextDraft,
+        serverUpdatedAtRef.current,
+        "saving",
+      );
+
       draftRef.current = nextDraft;
       dirtyRef.current = true;
       setConflictNotice(false);
       setSaveStatus("saving");
       clearPendingTimer();
 
-      const targetNoteId = activeNoteIdRef.current;
       debounceTimerRef.current = setTimeout(() => {
         debounceTimerRef.current = null;
         void persistSnapshot(
           targetNoteId,
-          draftRef.current,
+          nextDraft,
           serverUpdatedAtRef.current,
+          seq,
         );
       }, AUTO_SAVE_DEBOUNCE_MS);
     },
-    [clearPendingTimer, persistSnapshot],
+    [clearPendingTimer, getCoordinator, persistSnapshot],
   );
 
   const commitMetadataImmediately = useCallback(
-    (nextDraft: DraftSnapshot) => {
+    (nextDraft: NoteDraftSnapshot) => {
+      const coordinator = getCoordinator();
+      const targetNoteId = activeNoteIdRef.current;
+      const initialStatus: PendingSaveStatus =
+        typeof navigator !== "undefined" && navigator.onLine === false
+          ? "pending_sync"
+          : "saving";
+      const seq = coordinator.stagePendingDraft(
+        targetNoteId,
+        nextDraft,
+        serverUpdatedAtRef.current,
+        initialStatus,
+      );
+
       draftRef.current = nextDraft;
       dirtyRef.current = true;
       setConflictNotice(false);
       clearPendingTimer();
       void persistSnapshot(
-        activeNoteIdRef.current,
+        targetNoteId,
         nextDraft,
         serverUpdatedAtRef.current,
+        seq,
       );
     },
-    [clearPendingTimer, persistSnapshot],
+    [clearPendingTimer, getCoordinator, persistSnapshot],
   );
 
   const handleTitleChange = (nextTitle: string) => {
@@ -408,8 +682,10 @@ export function NoteEditor({
 
   const handleToggleChecklist = async (index: number, checked: boolean) => {
     clearPendingTimer();
+    const coordinator = getCoordinator();
     const targetNoteId = activeNoteIdRef.current;
-    const wasDirtyBeforeToggle = dirtyRef.current;
+    const wasDirtyOrQueuedBeforeToggle =
+      dirtyRef.current || coordinator.hasPendingOrInFlight(targetNoteId);
 
     let optimisticContent: string;
     try {
@@ -422,79 +698,98 @@ export function NoteEditor({
       return;
     }
 
-    const nextDraft: DraftSnapshot = {
+    const nextDraft: NoteDraftSnapshot = {
       ...draftRef.current,
       content: optimisticContent,
     };
+    const isOffline =
+      typeof navigator !== "undefined" && navigator.onLine === false;
+    const seq = coordinator.stagePendingDraft(
+      targetNoteId,
+      nextDraft,
+      serverUpdatedAtRef.current,
+      isOffline ? "pending_sync" : "saving",
+    );
+
     setContent(optimisticContent);
     draftRef.current = nextDraft;
     dirtyRef.current = true;
     setConflictNotice(false);
 
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    if (isOffline) {
       setSaveStatus("pending_sync");
       return;
     }
 
-    if (wasDirtyBeforeToggle) {
-      await persistSnapshot(targetNoteId, nextDraft, serverUpdatedAtRef.current);
+    if (wasDirtyOrQueuedBeforeToggle) {
+      await persistSnapshot(
+        targetNoteId,
+        nextDraft,
+        serverUpdatedAtRef.current,
+        seq,
+      );
       return;
     }
 
-    const baseUpdatedAt = serverUpdatedAtRef.current;
-    setSaveStatus("saving");
-    try {
-      const response = await apiFetch(`/api/notes/${targetNoteId}/checklist`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          index,
-          checked,
-          updatedAt: baseUpdatedAt,
-          idempotencyKey: crypto.randomUUID(),
-        }),
-      });
+    coordinator.markSeqQueued(targetNoteId, seq);
 
-      const payload = (await response.json().catch(() => null)) as {
-        ok?: boolean;
-        data?: NoteMutationResult;
-      } | null;
+    await coordinator.enqueue(targetNoteId, async () => {
+      if (coordinator.isDeleted(targetNoteId)) {
+        return null;
+      }
 
-      if (!response.ok || payload?.ok !== true || !payload.data?.note) {
-        if (activeNoteIdRef.current === targetNoteId) {
-          setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
+      if (
+        mountedRef.current &&
+        activeNoteIdRef.current === targetNoteId &&
+        coordinator.isLatestSeq(targetNoteId, seq)
+      ) {
+        setSaveStatus("saving");
+      }
+
+      const baseUpdatedAt =
+        coordinator.getKnownUpdatedAt(targetNoteId) ??
+        serverUpdatedAtRef.current;
+
+      try {
+        const response = await apiFetch(
+          `/api/notes/${targetNoteId}/checklist`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              index,
+              checked,
+              updatedAt: baseUpdatedAt,
+              idempotencyKey: crypto.randomUUID(),
+            }),
+          },
+        );
+
+        const payload = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          data?: NoteMutationResult;
+        } | null;
+
+        return reconcileMutationResponse(
+          targetNoteId,
+          seq,
+          nextDraft,
+          response,
+          payload,
+          true,
+        );
+      } catch {
+        coordinator.updatePendingDraftStatus(targetNoteId, seq, "pending_sync");
+        if (
+          mountedRef.current &&
+          activeNoteIdRef.current === targetNoteId &&
+          coordinator.isLatestSeq(targetNoteId, seq)
+        ) {
+          setSaveStatus("pending_sync");
         }
-        return;
+        return null;
       }
-
-      const updatedNote = payload.data.note;
-      onSavedRef.current(updatedNote);
-
-      if (activeNoteIdRef.current === targetNoteId) {
-        if (payload.data.conflictResolved === "server_newer") {
-          applyServerNote(updatedNote, true);
-        } else {
-          serverUpdatedAtRef.current = updatedNote.updatedAt;
-          const matchesCurrentDraft =
-            draftRef.current.content === optimisticContent &&
-            draftRef.current.title === nextDraft.title &&
-            draftRef.current.folderId === nextDraft.folderId &&
-            draftRef.current.isPinned === nextDraft.isPinned &&
-            draftRef.current.tags.join("|") === nextDraft.tags.join("|");
-
-          if (matchesCurrentDraft) {
-            dirtyRef.current = false;
-            draftRef.current = toDraftSnapshot(updatedNote);
-            setContent(updatedNote.content);
-            setSaveStatus("saved");
-          }
-        }
-      }
-    } catch {
-      if (activeNoteIdRef.current === targetNoteId) {
-        setSaveStatus("pending_sync");
-      }
-    }
+    });
   };
 
   const applyToolbarSyntax = (
@@ -521,44 +816,73 @@ export function NoteEditor({
 
   const handleConfirmDelete = async () => {
     clearPendingTimer();
+    const targetNoteId = note.id;
+    const coordinator = getCoordinator();
+    coordinator.markDeleted(targetNoteId);
     dirtyRef.current = false;
     setDeleting(true);
+
     try {
-      const response = await apiFetch(`/api/notes/${note.id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
-      });
+      await coordinator.enqueue(targetNoteId, async () => {
+        try {
+          const response = await apiFetch(`/api/notes/${targetNoteId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
+          });
 
-      const payload = (await response.json().catch(() => null)) as {
-        ok?: boolean;
-        data?: NoteDeleteResult;
-      } | null;
+          const payload = (await response.json().catch(() => null)) as {
+            ok?: boolean;
+            data?: NoteDeleteResult;
+          } | null;
 
-      if (!response.ok || payload?.ok !== true || !payload.data) {
-        setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
-        setDeleteModalOpen(false);
-        return;
-      }
+          if (!response.ok || payload?.ok !== true || !payload.data) {
+            coordinator.unmarkDeleted(targetNoteId);
+            if (mountedRef.current) {
+              setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
+              setDeleteModalOpen(false);
+            }
+            return;
+          }
 
-      if (!payload.data.deleted) {
-        if (payload.data.note) {
-          applyServerNote(payload.data.note, true);
-          onSavedRef.current(payload.data.note);
-        } else {
-          setSaveStatus("error");
+          if (!payload.data.deleted) {
+            coordinator.unmarkDeleted(targetNoteId);
+            if (payload.data.note) {
+              coordinator.seedKnownUpdatedAt(
+                targetNoteId,
+                payload.data.note.updatedAt,
+                true,
+              );
+              if (mountedRef.current) {
+                applyServerNote(payload.data.note, true);
+              }
+              onSavedRef.current(payload.data.note);
+            } else if (mountedRef.current) {
+              setSaveStatus("error");
+            }
+            if (mountedRef.current) {
+              setDeleteModalOpen(false);
+            }
+            return;
+          }
+
+          coordinator.clearNoteRuntime(targetNoteId);
+          if (mountedRef.current) {
+            setDeleteModalOpen(false);
+          }
+          onDeleted(targetNoteId);
+        } catch {
+          coordinator.unmarkDeleted(targetNoteId);
+          if (mountedRef.current) {
+            setSaveStatus("pending_sync");
+            setDeleteModalOpen(false);
+          }
         }
-        setDeleteModalOpen(false);
-        return;
-      }
-
-      setDeleteModalOpen(false);
-      onDeleted(note.id);
-    } catch {
-      setSaveStatus("pending_sync");
-      setDeleteModalOpen(false);
+      });
     } finally {
-      setDeleting(false);
+      if (mountedRef.current) {
+        setDeleting(false);
+      }
     }
   };
 
