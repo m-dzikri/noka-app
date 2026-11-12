@@ -228,3 +228,78 @@ Executed directly against `feat/rfc-004-notes-workspace` @ `687c623` (`next-env.
   - Keep monitoring rapid back-and-forth note switching in `NoteEditor.tsx:218-226` (currently fire-and-forget async `persistSnapshot` safely suppresses stale UI status on another note, though queueing per-note in-flight flushes could tighten rapid same-note re-selection races).
   - Consider scheduling a `pg_trgm` GIN index migration on `notes.title` / `notes.content` prior to high note-volume scale-up.
 
+---
+
+## Round 3 -- 2026-11-12
+
+- **RFC:** `RFC-004` ([`RFC-004-Notes-Workspace-And-Search.md`](../RFCs/RFC-004-Notes-Workspace-And-Search.md))
+- **Branch & Commit:** `feat/rfc-004-notes-workspace` @ `245e5e3` (commits reviewed since Round 2 `1a94f58`: `4580e28`, `3d46b8c`, `245e5e3`)
+- **Review Context:** Fresh review session (Round 3 re-review verifying implementation of Round 2 non-blocking improvements; none of `4580e28`, `3d46b8c`, or `245e5e3` was authored in this session)
+- **Reviewer Verdict:** **Approved** (**Overall Risk Level: Low**)
+
+### Step 0: Verification Run Output (Round 3)
+
+Executed directly against `feat/rfc-004-notes-workspace` @ `245e5e3`:
+
+1. **Lint (`npm run lint` -> `eslint .`):**
+   - Result: `LINT_EXIT=0` (clean pass).
+2. **Typecheck (`npm run typecheck` -> `tsc --noEmit`):**
+   - Result: `TSC_EXIT=0` (clean pass).
+3. **Unit & Integration Test Suite (`npm test` -> `vitest run`, Vitest `5.1.0`):**
+   - Result: `Test Files 15 passed (15)`, `Tests 74 passed (74)`, `0` skipped, `Duration 7.34s`, `TEST_EXIT=0` (`+3` new tests since Round 2).
+   - `RFC-004`-relevant suites observed:
+     - `tests/unit/notes-checklist-markdown.test.ts` — `5` tests passed.
+     - `tests/unit/note-editor.test.tsx` — `9` tests passed (`NoteMutationCoordinator` + rapid `A -> B -> A` / checklist race / offline reconnect suite).
+     - `tests/integration/notes-folders-tags.test.ts` — `5` tests passed (includes `pg_trgm` extension, GIN partial index DDL, `EXPLAIN` plan across 5,000 notes, and `GET /api/notes?q=... < 300ms` assertion).
+     - `tests/unit/auth-forms.test.tsx` — `7` tests passed.
+4. **End-to-End Test Suite (`$env:CI="true"; npx playwright test tests/e2e/notes-workspace.spec.ts`):**
+   - Executed against fresh production build & server (`npm run build && npm run start`).
+   - Result: `2 passed (14.8s)` (`EXIT=0`):
+     - `[desktop]` `RFC-004: Notes Workspace E2E (TS-004-04) > verifies auth redirect -> /app/notes, folder & note lifecycle, checklist reload persistence, pagination, and zero overflow across viewports` (`5.0s`).
+     - `[mobile]` `RFC-004: Notes Workspace E2E (TS-004-04) > verifies auth redirect -> /app/notes, folder & note lifecycle, checklist reload persistence, pagination, and zero overflow across viewports` (`3.9s`).
+5. **Production Build & Schema Check (`npm run build` -> `next build` `16.4.6` Turbopack + `npx drizzle-kit check`):**
+   - Executed with `$env:DATABASE_URL=""; $env:SESSION_SECRET=""; $env:APP_URL="http://127.0.0.1:3114"` (local `.env` loaded: `- Environments: .env`).
+   - Result: `BUILD_EXIT=0` (routes unchanged: `ƒ (Dynamic)` on app & API routes, `○ (Static)` on `/icon.svg`) and `npx drizzle-kit check` -> `Everything's fine`, `DRIZZLE_CHECK_EXIT=0`.
+6. **Traceability Check (`python .agents/skills/workflow-status/scripts/trace-check.py .`):**
+   - Result: `33 requirements, 31 features, 61 rules, 10 RFCs`, `0 failure(s), 5 warning(s)` (`F20`–`F24` planned v1.1 features), `TRACE_EXIT=0`.
+7. **Hygiene Scan (`Get-ChildItem -Path src -Recurse -File | Select-String -Pattern 'TODO|FIXME|eslint-disable|process\.env|rehype-raw|\bany\b'`):**
+   - Result: Clean (`process.env` only in `src/lib/env.ts`; `rehype-raw` only in comment at `src/components/notes/MarkdownPreview.tsx:109`; `\bany\b` only prose comments/copy).
+
+### Product Type Check Scope
+
+- **Product Type:** Web App (`PRD.md:20-40`, `RULES.md:22-44` — Multi-user Responsive Web App + PWA + Public SEO Pages).
+- **Applied Checks:** Auth & Sessions, Authorization per Resource, Data Model & Migrations (including Drizzle snapshot parity and `pg_trgm` partial GIN migration), Accessibility, Responsive Layout, Offline Sync (explicit `PRD.md` exception), and Page-Load / API CRUD Performance (`PERF-2`).
+- **Explicitly Skipped Checks (per `review-rfc` & `PRD.md` Web App scope):**
+  - *Binary Size* — Skipped (Web App/PWA delivered via browser rather than native desktop/mobile binary; controlled via production `next build`).
+  - *Public Third-Party API SLA & Versioning* — Skipped (private first-party session routes scoped exclusively to Noka's own web client).
+
+### Audit of Changes Since Round 2 (`4580e28`, `3d46b8c`, `245e5e3`)
+
+1. **Per-Note Mutation Queue & Draft Preservation (`src/features/notes/mutation-queue.ts:1-217`, `src/components/notes/NoteEditor.tsx:122-887`):**
+   - [`NoteMutationCoordinator`](../src/features/notes/mutation-queue.ts#L54-L217) enforces FIFO per-`noteId` promise serialization while keeping different notes parallel, catches upstream task rejections cleanly (`previous.catch(() => undefined)`) so a transient failure never wedges later tasks, compares snapshot tags element-by-element ([`areDraftSnapshotsEqual`](../src/features/notes/mutation-queue.ts#L22-L43), avoiding `|` delimiter edge cases), and tracks monotonic `knownUpdatedAt`, sequence numbers, pending drafts, and deleted tombstones.
+   - [`NoteEditor`](../src/components/notes/NoteEditor.tsx#L96-L1295) flushes dirty drafts on note switch (`lines 360-392`), restores in-flight or `"pending_sync"` drafts (`folderId`-sanitized via [`resolveValidFolderId`](../src/components/notes/NoteEditor.tsx#L73-L91)) upon rapid `A -> B -> A` re-selection (`lines 397-428`), prevents stale prop overwrites (`line 444`), serializes rapid checklist clicks behind in-flight/dirty state (`lines 683-793`), and retries both active and switched-away `"pending_sync"` drafts on `online` (`lines 476-534`).
+   - Verified directly by `tests/unit/note-editor.test.tsx:889-1279` (`TS-004-02`, passing).
+2. **PostgreSQL `pg_trgm` Partial GIN Indexes (`src/db/schema/notes.ts:69-74`, `src/db/migrations/0001_notes_pg_trgm_indexes.sql:1-3`):**
+   - Schema defines partial GIN trigram indexes `notes_title_trgm_active_idx` and `notes_content_trgm_active_idx` (`WHERE deleted_at IS NULL`) aligning with `listNotes` `ILIKE ... ESCAPE '\\'` predicates (`src/features/notes/service.ts:654-666`).
+   - Migration `0001_notes_pg_trgm_indexes.sql` includes `CREATE EXTENSION IF NOT EXISTS "pg_trgm"` before index creation and passes `drizzle-kit check` with zero snapshot drift.
+   - Verified directly by `tests/integration/notes-folders-tags.test.ts:1193-1278` (`TS-004-03`, asserting extension presence, index DDL, PostgreSQL `EXPLAIN` index usage across 5,000 notes, and `GET /api/notes?q=...` latency `< 300 ms`).
+3. **Documentation & Traceability Alignment (`RFCs/RFC-004-Notes-Workspace-And-Search.md:72-73, 108-110`, `TEST-STRATEGY.md:186-188`):**
+   - `RFC-004` `Implementation Notes` and `TEST-STRATEGY.md` accurately record `NoteMutationCoordinator`, rapid `A -> B -> A` state guarantees, `0001_notes_pg_trgm_indexes.sql`, and the expanded `TS-004-02`/`TS-004-03` assertions.
+
+### Review Dimensions (Round 3)
+
+1. **RFC Adherence — PASS:** Implements and thoroughly documents both Round 2 non-blocking recommendations in [`RFC-004`](../RFCs/RFC-004-Notes-Workspace-And-Search.md#L108-L110) and [`TEST-STRATEGY.md`](../TEST-STRATEGY.md#L186-L188) with no scope creep beyond `F7`/`F8`.
+2. **Rules Compliance — PASS:** Schema & migration follow `STACK-2` (Drizzle SQL migration + zero manual drift), `PERF-2` (`< 300 ms` verified on 5,000 notes), `UI-6`, `TEST-1`, `QUAL-2`, `QUAL-3`, and `QUAL-4`.
+3. **Security — PASS:** Queueing and GIN index changes are strictly additive; `userId` isolation, parameterized `ESCAPE '\\'` queries, CSRF/session checks, `rehype-raw`-free Markdown sanitization, and post-commit delete cleanup remain unchanged and intact.
+4. **Performance — PASS:** Partial GIN trigram indexes optimize substring `ILIKE` filtering across active notes (`PERF-2 < 300 ms` verified on 5,000 rows), while per-note FIFO queueing avoids redundant concurrent `PATCH` races per note without blocking edits to other notes.
+5. **Maintainability — PASS:** Clean cohesion in [`mutation-queue.ts`](../src/features/notes/mutation-queue.ts), strong unit + integration test coverage (`74/74` Vitest + `2/2` Playwright E2E), and clean Drizzle migration metadata.
+
+### Overall Assessment (Round 3)
+
+- **Overall Risk Level:** **Low**
+- **Summary:** Both newly landed enhancements — [`NoteMutationCoordinator`](../src/features/notes/mutation-queue.ts) for serialized per-note mutations and draft preservation across `A -> B -> A` switches, and `pg_trgm` partial GIN indexes in [`0001_notes_pg_trgm_indexes.sql`](../src/db/migrations/0001_notes_pg_trgm_indexes.sql) — are cleanly implemented, verified by `3` new tests and full CI Playwright E2E, and accurately documented in `RFC-004` and `TEST-STRATEGY.md`. Zero blocking issues found.
+- **Blocking Issues:** None.
+- **Improvement Suggestions (Non-Blocking):**
+  - If navigating away directly mounts/unmounts `NoteEditor` within the `600 ms` debounce window (e.g., clicking Back in `NoteDetailView.tsx:68` before debounce fires), `clearPendingTimer()` on unmount (`NoteEditor.tsx:538-541`) still discards unsaved debounced keystrokes until `RFC-009` IndexedDB local persistence lands; consider a best-effort unmount/back flush if needed before `RFC-009`.
+  - Operational deployment note: `0001_notes_pg_trgm_indexes.sql` runs `CREATE EXTENSION IF NOT EXISTS "pg_trgm"`; if a production database uses a least-privilege migration role without extension-creation privilege, ensure `pg_trgm` is pre-enabled by the DB owner prior to running `npm run db:migrate`.
+
