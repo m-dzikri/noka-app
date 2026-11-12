@@ -189,7 +189,7 @@ export function MarkdownPreview({
               className={cn(
                 "text-[var(--text-primary)]",
                 itemClassName?.includes("task-list-item") &&
-                  "flex items-start gap-2.5",
+                  "flex flex-wrap items-start gap-2.5",
                 itemClassName,
               )}
             >
@@ -263,6 +263,7 @@ export function MarkdownPreview({
                 <input
                   type="checkbox"
                   checked={checked}
+                  data-checklist-index={rawIndex}
                   disabled={disabled || !onToggleChecklist}
                   aria-label={ariaLabel}
                   onChange={() => onToggleChecklist?.(rawIndex, !checked)}

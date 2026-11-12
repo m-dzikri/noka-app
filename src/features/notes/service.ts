@@ -173,6 +173,26 @@ function isUniqueConstraintViolation(error: unknown): boolean {
   return false;
 }
 
+function getUniqueConstraintName(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) {
+    return undefined;
+  }
+
+  const record = error as { constraint?: unknown; cause?: unknown };
+  if (typeof record.constraint === "string") {
+    return record.constraint;
+  }
+
+  if (typeof record.cause === "object" && record.cause !== null) {
+    const causeConstraint = (record.cause as { constraint?: unknown }).constraint;
+    if (typeof causeConstraint === "string") {
+      return causeConstraint;
+    }
+  }
+
+  return undefined;
+}
+
 function encodeNotesCursor(row: {
   isPinned: boolean;
   updatedAt: Date;
@@ -416,33 +436,66 @@ async function syncNoteTags(
 
       const deletedRow = deletedByLower.get(lower);
       if (deletedRow) {
-        const reactivated = await tx
-          .update(tags)
-          .set({
-            name: preferredName,
-            deletedAt: null,
-            updatedAt: now,
-          })
-          .where(and(eq(tags.id, deletedRow.id), isNotNull(tags.deletedAt)))
-          .returning({ id: tags.id });
+        try {
+          const reactivated = await tx.transaction(async (sp) =>
+            sp
+              .update(tags)
+              .set({
+                name: preferredName,
+                deletedAt: null,
+                updatedAt: now,
+              })
+              .where(and(eq(tags.id, deletedRow.id), isNotNull(tags.deletedAt)))
+              .returning({ id: tags.id }),
+          );
 
-        if (reactivated[0]) {
-          resolvedTagIds.push(reactivated[0].id);
-          continue;
+          if (reactivated[0]) {
+            resolvedTagIds.push(reactivated[0].id);
+            continue;
+          }
+        } catch (error) {
+          if (!isUniqueConstraintViolation(error)) {
+            throw error;
+          }
         }
       }
 
-      const inserted = await tx
-        .insert(tags)
-        .values({
-          userId,
-          name: preferredName,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .returning({ id: tags.id });
+      try {
+        // Isolate INSERT in a SAVEPOINT so concurrent tag creation 23505 does not abort the outer transaction.
+        const inserted = await tx.transaction(async (sp) =>
+          sp
+            .insert(tags)
+            .values({
+              userId,
+              name: preferredName,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .returning({ id: tags.id }),
+        );
 
-      resolvedTagIds.push(inserted[0].id);
+        resolvedTagIds.push(inserted[0].id);
+      } catch (error) {
+        if (!isUniqueConstraintViolation(error)) {
+          throw error;
+        }
+        const winner = await tx
+          .select({ id: tags.id })
+          .from(tags)
+          .where(
+            and(
+              eq(tags.userId, userId),
+              isNull(tags.deletedAt),
+              eq(sql`lower(${tags.name})`, lower),
+            ),
+          )
+          .limit(1);
+
+        if (!winner[0]) {
+          throw error;
+        }
+        resolvedTagIds.push(winner[0].id);
+      }
     }
   }
 
@@ -486,6 +539,26 @@ async function syncNoteTags(
 
   const hydratedMap = await fetchTagsByNoteIds(tx, userId, [noteId]);
   return hydratedMap.get(noteId) ?? [];
+}
+
+async function lockActiveNoteRow(
+  tx: DbOrTx,
+  userId: string,
+  noteId: string,
+): Promise<void> {
+  // Lock the notes row independently before outer-joining folders to satisfy PostgreSQL FOR UPDATE rules.
+  await tx
+    .select({ id: notes.id })
+    .from(notes)
+    .where(
+      and(
+        eq(notes.id, noteId),
+        eq(notes.userId, userId),
+        isNull(notes.deletedAt),
+      ),
+    )
+    .for("update")
+    .limit(1);
 }
 
 async function fetchHydratedNoteRow(
@@ -714,29 +787,52 @@ export async function createNote(
     const lww = resolveLwwTimestamp(new Date(0), input.updatedAt);
     const now = lww.nextUpdatedAt;
 
-    const inserted = await tx
-      .insert(notes)
-      .values({
-        ...(input.id !== undefined ? { id: input.id } : {}),
-        userId,
-        folderId: input.folderId ?? null,
-        title: input.title,
-        content: input.content,
-        isPinned: input.isPinned,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning({
-        id: notes.id,
-        folderId: notes.folderId,
-        title: notes.title,
-        content: notes.content,
-        isPinned: notes.isPinned,
-        createdAt: notes.createdAt,
-        updatedAt: notes.updatedAt,
-      });
+    let created:
+      | {
+          id: string;
+          folderId: string | null;
+          title: string;
+          content: string;
+          isPinned: boolean;
+          createdAt: Date;
+          updatedAt: Date;
+        }
+      | undefined;
 
-    const created = inserted[0];
+    try {
+      const inserted = await tx
+        .insert(notes)
+        .values({
+          ...(input.id !== undefined ? { id: input.id } : {}),
+          userId,
+          folderId: input.folderId ?? null,
+          title: input.title,
+          content: input.content,
+          isPinned: input.isPinned,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning({
+          id: notes.id,
+          folderId: notes.folderId,
+          title: notes.title,
+          content: notes.content,
+          isPinned: notes.isPinned,
+          createdAt: notes.createdAt,
+          updatedAt: notes.updatedAt,
+        });
+      created = inserted[0];
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        throw new ApiError(
+          409,
+          "NOTE_ALREADY_EXISTS",
+          "A note with this ID already exists",
+        );
+      }
+      throw error;
+    }
+
     const syncedTags = await syncNoteTags(tx, userId, created.id, input.tags, now);
 
     return buildNoteDto(
@@ -761,6 +857,7 @@ export async function updateNote(
   txArg?: DbOrTx,
 ): Promise<NoteMutationResult> {
   const run = async (tx: DbOrTx): Promise<NoteMutationResult> => {
+    await lockActiveNoteRow(tx, userId, noteId);
     const existing = await fetchHydratedNoteRow(tx, userId, noteId);
     if (!existing) {
       throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
@@ -855,6 +952,7 @@ export async function toggleNoteChecklist(
   txArg?: DbOrTx,
 ): Promise<NoteMutationResult> {
   const run = async (tx: DbOrTx): Promise<NoteMutationResult> => {
+    await lockActiveNoteRow(tx, userId, noteId);
     const existing = await fetchHydratedNoteRow(tx, userId, noteId);
     if (!existing) {
       throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
@@ -934,6 +1032,7 @@ export async function deleteNoteInTx(
   result: NoteDeleteResult;
   cleanupPayload: NoteDeleteCleanupPayload | null;
 }> {
+  await lockActiveNoteRow(tx, userId, noteId);
   const existing = await fetchHydratedNoteRow(tx, userId, noteId);
   if (!existing) {
     throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
@@ -1136,6 +1235,13 @@ export async function createFolder(
       };
     } catch (error) {
       if (isUniqueConstraintViolation(error)) {
+        if (getUniqueConstraintName(error) === "folders_pkey") {
+          throw new ApiError(
+            409,
+            "FOLDER_ALREADY_EXISTS",
+            "A folder with this ID already exists",
+          );
+        }
         throw new ApiError(
           409,
           "FOLDER_NAME_EXISTS",
@@ -1169,6 +1275,7 @@ export async function updateFolder(
           isNull(folders.deletedAt),
         ),
       )
+      .for("update")
       .limit(1);
 
     const existing = existingRows[0];
@@ -1250,6 +1357,13 @@ export async function updateFolder(
       };
     } catch (error) {
       if (isUniqueConstraintViolation(error)) {
+        if (getUniqueConstraintName(error) === "folders_pkey") {
+          throw new ApiError(
+            409,
+            "FOLDER_ALREADY_EXISTS",
+            "A folder with this ID already exists",
+          );
+        }
         throw new ApiError(
           409,
           "FOLDER_NAME_EXISTS",
@@ -1283,6 +1397,7 @@ export async function deleteFolder(
           isNull(folders.deletedAt),
         ),
       )
+      .for("update")
       .limit(1);
 
     const existing = existingRows[0];

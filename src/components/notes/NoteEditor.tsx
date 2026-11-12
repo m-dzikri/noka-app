@@ -27,7 +27,7 @@ import { MarkdownPreview } from "@/components/notes/MarkdownPreview";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { parseChecklists, toggleChecklistInMarkdown } from "@/features/notes/checklist";
-import { normalizeTagNames } from "@/features/notes/schemas";
+import { NOTE_MAX_TAGS, normalizeTagNames } from "@/features/notes/schemas";
 import type {
   FolderDto,
   NoteDeleteResult,
@@ -94,6 +94,7 @@ export function NoteEditor({
     note.tags.map((item) => item.name),
   );
   const [tagInput, setTagInput] = useState("");
+  const [tagLimitError, setTagLimitError] = useState(false);
   const [viewMode, setViewMode] = useState<EditorViewMode>("split");
   const [saveStatus, setSaveStatus] = useState<NoteSaveStatus>("saved");
   const [conflictNotice, setConflictNotice] = useState(false);
@@ -235,6 +236,7 @@ export function NoteEditor({
       setIsPinned(note.isPinned);
       setTagNames(note.tags.map((item) => item.name));
       setTagInput("");
+      setTagLimitError(false);
       setSaveStatus("saved");
       setConflictNotice(false);
     } else if (!dirtyRef.current) {
@@ -245,8 +247,42 @@ export function NoteEditor({
       setFolderId(note.folderId);
       setIsPinned(note.isPinned);
       setTagNames(note.tags.map((item) => item.name));
+      setTagLimitError(false);
+    } else if (
+      draftRef.current.folderId !== null &&
+      !folders.some((item) => item.id === draftRef.current.folderId)
+    ) {
+      const fallbackFolderId =
+        note.folderId !== null &&
+        folders.some((item) => item.id === note.folderId)
+          ? note.folderId
+          : null;
+      draftRef.current = {
+        ...draftRef.current,
+        folderId: fallbackFolderId,
+      };
+      setFolderId(fallbackFolderId);
     }
-  }, [clearPendingTimer, note, persistSnapshot]);
+  }, [clearPendingTimer, folders, note, persistSnapshot]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      if (!dirtyRef.current) {
+        return;
+      }
+      clearPendingTimer();
+      void persistSnapshot(
+        activeNoteIdRef.current,
+        draftRef.current,
+        serverUpdatedAtRef.current,
+      );
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [clearPendingTimer, persistSnapshot]);
 
   useEffect(() => {
     return () => {
@@ -331,11 +367,19 @@ export function NoteEditor({
     }
 
     const nextTags = normalizeTagNames([...tagNames, trimmed]);
-    setTagInput("");
     if (nextTags.join("|") === tagNames.join("|")) {
+      setTagInput("");
+      setTagLimitError(false);
       return;
     }
 
+    if (nextTags.length > NOTE_MAX_TAGS) {
+      setTagLimitError(true);
+      return;
+    }
+
+    setTagInput("");
+    setTagLimitError(false);
     setTagNames(nextTags);
     commitMetadataImmediately({
       ...draftRef.current,
@@ -347,6 +391,7 @@ export function NoteEditor({
     const nextTags = tagNames.filter(
       (tag) => tag.toLowerCase() !== tagToRemove.toLowerCase(),
     );
+    setTagLimitError(false);
     setTagNames(nextTags);
     commitMetadataImmediately({
       ...draftRef.current,
@@ -364,41 +409,39 @@ export function NoteEditor({
   const handleToggleChecklist = async (index: number, checked: boolean) => {
     clearPendingTimer();
     const targetNoteId = activeNoteIdRef.current;
+    const wasDirtyBeforeToggle = dirtyRef.current;
 
-    let baseUpdatedAt = serverUpdatedAtRef.current;
-    if (dirtyRef.current) {
-      const flushed = await persistSnapshot(
-        targetNoteId,
-        draftRef.current,
-        baseUpdatedAt,
-      );
-      if (!flushed) {
-        return;
-      }
-      baseUpdatedAt = flushed.updatedAt;
-    }
-
+    let optimisticContent: string;
     try {
-      const optimisticContent = toggleChecklistInMarkdown(
+      optimisticContent = toggleChecklistInMarkdown(
         draftRef.current.content,
         index,
         checked,
       );
-      setContent(optimisticContent);
-      draftRef.current = {
-        ...draftRef.current,
-        content: optimisticContent,
-      };
     } catch {
       return;
     }
 
+    const nextDraft: DraftSnapshot = {
+      ...draftRef.current,
+      content: optimisticContent,
+    };
+    setContent(optimisticContent);
+    draftRef.current = nextDraft;
+    dirtyRef.current = true;
+    setConflictNotice(false);
+
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      dirtyRef.current = true;
       setSaveStatus("pending_sync");
       return;
     }
 
+    if (wasDirtyBeforeToggle) {
+      await persistSnapshot(targetNoteId, nextDraft, serverUpdatedAtRef.current);
+      return;
+    }
+
+    const baseUpdatedAt = serverUpdatedAtRef.current;
     setSaveStatus("saving");
     try {
       const response = await apiFetch(`/api/notes/${targetNoteId}/checklist`, {
@@ -418,23 +461,39 @@ export function NoteEditor({
       } | null;
 
       if (!response.ok || payload?.ok !== true || !payload.data?.note) {
-        setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
+        if (activeNoteIdRef.current === targetNoteId) {
+          setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
+        }
         return;
       }
 
       const updatedNote = payload.data.note;
-      if (payload.data.conflictResolved === "server_newer") {
-        applyServerNote(updatedNote, true);
-      } else {
-        serverUpdatedAtRef.current = updatedNote.updatedAt;
-        dirtyRef.current = false;
-        draftRef.current = toDraftSnapshot(updatedNote);
-        setContent(updatedNote.content);
-        setSaveStatus("saved");
-      }
       onSavedRef.current(updatedNote);
+
+      if (activeNoteIdRef.current === targetNoteId) {
+        if (payload.data.conflictResolved === "server_newer") {
+          applyServerNote(updatedNote, true);
+        } else {
+          serverUpdatedAtRef.current = updatedNote.updatedAt;
+          const matchesCurrentDraft =
+            draftRef.current.content === optimisticContent &&
+            draftRef.current.title === nextDraft.title &&
+            draftRef.current.folderId === nextDraft.folderId &&
+            draftRef.current.isPinned === nextDraft.isPinned &&
+            draftRef.current.tags.join("|") === nextDraft.tags.join("|");
+
+          if (matchesCurrentDraft) {
+            dirtyRef.current = false;
+            draftRef.current = toDraftSnapshot(updatedNote);
+            setContent(updatedNote.content);
+            setSaveStatus("saved");
+          }
+        }
+      }
     } catch {
-      setSaveStatus("pending_sync");
+      if (activeNoteIdRef.current === targetNoteId) {
+        setSaveStatus("pending_sync");
+      }
     }
   };
 
@@ -704,7 +763,12 @@ export function NoteEditor({
                 type="text"
                 aria-label={t.notes.tagsLabel}
                 value={tagInput}
-                onChange={(event) => setTagInput(event.target.value)}
+                onChange={(event) => {
+                  setTagInput(event.target.value);
+                  if (tagLimitError) {
+                    setTagLimitError(false);
+                  }
+                }}
                 onKeyDown={handleTagInputKeyDown}
                 placeholder={t.notes.tagPlaceholder}
                 maxLength={40}
@@ -720,6 +784,14 @@ export function NoteEditor({
                 <span>{t.notes.addTagButton}</span>
               </button>
             </div>
+            {tagLimitError ? (
+              <p
+                role="alert"
+                className="w-full text-xs font-medium text-[var(--status-expense)]"
+              >
+                {t.notes.maxTagsReached}
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
@@ -734,7 +806,7 @@ export function NoteEditor({
             type="button"
             onClick={() =>
               applyToolbarSyntax((sel) => ({
-                text: `## ${sel || "Heading"}`,
+                text: `## ${sel || t.notes.toolDefaultHeading}`,
               }))
             }
             className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
@@ -746,7 +818,7 @@ export function NoteEditor({
             type="button"
             onClick={() =>
               applyToolbarSyntax((sel) => ({
-                text: `**${sel || "text"}**`,
+                text: `**${sel || t.notes.toolDefaultBold}**`,
               }))
             }
             className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
@@ -758,7 +830,7 @@ export function NoteEditor({
             type="button"
             onClick={() =>
               applyToolbarSyntax((sel) => ({
-                text: `*${sel || "text"}*`,
+                text: `*${sel || t.notes.toolDefaultItalic}*`,
               }))
             }
             className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
@@ -770,7 +842,7 @@ export function NoteEditor({
             type="button"
             onClick={() =>
               applyToolbarSyntax((sel) => ({
-                text: `${content.length > 0 && !content.endsWith("\n") ? "\n" : ""}- ${sel || "Item"}`,
+                text: `${content.length > 0 && !content.endsWith("\n") ? "\n" : ""}- ${sel || t.notes.toolDefaultList}`,
               }))
             }
             className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
@@ -782,7 +854,7 @@ export function NoteEditor({
             type="button"
             onClick={() =>
               applyToolbarSyntax((sel) => ({
-                text: `${content.length > 0 && !content.endsWith("\n") ? "\n" : ""}- [ ] ${sel || "Task"}`,
+                text: `${content.length > 0 && !content.endsWith("\n") ? "\n" : ""}- [ ] ${sel || t.notes.toolDefaultChecklist}`,
               }))
             }
             className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
@@ -794,7 +866,7 @@ export function NoteEditor({
             type="button"
             onClick={() =>
               applyToolbarSyntax((sel) => ({
-                text: `\`\`\`\n${sel || "code"}\n\`\`\``,
+                text: `\`\`\`\n${sel || t.notes.toolDefaultCode}\n\`\`\``,
               }))
             }
             className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"
@@ -806,7 +878,7 @@ export function NoteEditor({
             type="button"
             onClick={() =>
               applyToolbarSyntax((sel) => ({
-                text: `[${sel || "label"}](https://example.com)`,
+                text: `[${sel || t.notes.toolDefaultLink}](https://example.com)`,
               }))
             }
             className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)]"

@@ -149,9 +149,17 @@ export interface NotesDictionary {
   toolChecklist: string;
   toolCode: string;
   toolLink: string;
+  toolDefaultHeading: string;
+  toolDefaultBold: string;
+  toolDefaultItalic: string;
+  toolDefaultList: string;
+  toolDefaultChecklist: string;
+  toolDefaultCode: string;
+  toolDefaultLink: string;
   tagsLabel: string;
   tagPlaceholder: string;
   addTagButton: string;
+  maxTagsReached: string;
   removeTagAriaPrefix: string;
   statusSaved: string;
   statusSaving: string;

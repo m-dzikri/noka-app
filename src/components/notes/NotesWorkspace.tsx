@@ -126,6 +126,8 @@ export function NotesWorkspace({
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
     initialNotes[0]?.id ?? null,
   );
+  const [retainedSelectedNote, setRetainedSelectedNote] =
+    useState<NoteDto | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -141,6 +143,13 @@ export function NotesWorkspace({
   const hasFilterInteractionRef = useRef(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetchIdRef = useRef(0);
+  const notesListRef = useRef(notesList);
+  const selectedNoteIdRef = useRef(selectedNoteId);
+
+  useEffect(() => {
+    notesListRef.current = notesList;
+    selectedNoteIdRef.current = selectedNoteId;
+  }, [notesList, selectedNoteId]);
 
   const buildNotesQueryString = useCallback(
     (cursor?: string | null) => {
@@ -256,6 +265,7 @@ export function NotesWorkspace({
         }
 
         setErrorBanner(null);
+        setRetainedSelectedNote(null);
         setNotesList(payload.data.items);
         setNextCursor(payload.data.nextCursor);
         setSelectedNoteId((prev) =>
@@ -306,6 +316,7 @@ export function NotesWorkspace({
       }
 
       const created = payload.data.note;
+      setRetainedSelectedNote(null);
       setNotesList((prev) => sortNotesPinnedFirst([created, ...prev]));
       setSelectedNoteId(created.id);
       void refreshTagsAndFolders();
@@ -362,10 +373,19 @@ export function NotesWorkspace({
 
   const handleNoteSaved = useCallback(
     (updated: NoteDto) => {
+      const matchesActive = noteMatchesActiveFilters(
+        updated,
+        debouncedQuery,
+        folderFilter,
+        tagFilter,
+        pinnedOnly,
+      );
+
       setNotesList((prev) => {
-        const replaced = prev.map((item) =>
-          item.id === updated.id ? updated : item,
-        );
+        const exists = prev.some((item) => item.id === updated.id);
+        const replaced = exists
+          ? prev.map((item) => (item.id === updated.id ? updated : item))
+          : [updated, ...prev];
         const filtered = replaced.filter((item) =>
           noteMatchesActiveFilters(
             item,
@@ -377,6 +397,12 @@ export function NotesWorkspace({
         );
         return sortNotesPinnedFirst(filtered);
       });
+
+      if (selectedNoteIdRef.current === updated.id) {
+        // Keep the open editor mounted even when edits move the note outside active filters.
+        setRetainedSelectedNote(matchesActive ? null : updated);
+      }
+
       void refreshTagsAndFolders();
     },
     [
@@ -390,13 +416,20 @@ export function NotesWorkspace({
 
   const handleNoteDeleted = useCallback(
     (deletedId: string) => {
-      setNotesList((prev) => {
-        const remaining = prev.filter((item) => item.id !== deletedId);
-        setSelectedNoteId((current) =>
-          current === deletedId ? (remaining[0]?.id ?? null) : current,
+      const remaining = notesListRef.current.filter(
+        (item) => item.id !== deletedId,
+      );
+      setNotesList(remaining);
+
+      if (selectedNoteIdRef.current === deletedId) {
+        setSelectedNoteId(remaining[0]?.id ?? null);
+        setRetainedSelectedNote(null);
+      } else {
+        setRetainedSelectedNote((prev) =>
+          prev?.id === deletedId ? null : prev,
         );
-        return remaining;
-      });
+      }
+
       void refreshTagsAndFolders();
     },
     [refreshTagsAndFolders],
@@ -418,6 +451,11 @@ export function NotesWorkspace({
               : item,
           ),
         );
+        setRetainedSelectedNote((prev) =>
+          prev && prev.folderId === deletedFolderId
+            ? { ...prev, folderId: null, folderName: null }
+            : prev,
+        );
       } else {
         const nameById = new Map(nextFolders.map((f) => [f.id, f.name]));
         setNotesList((prev) =>
@@ -427,13 +465,19 @@ export function NotesWorkspace({
               : item,
           ),
         );
+        setRetainedSelectedNote((prev) =>
+          prev && prev.folderId && nameById.has(prev.folderId)
+            ? { ...prev, folderName: nameById.get(prev.folderId) ?? null }
+            : prev,
+        );
       }
     },
     [folderFilter],
   );
 
   const selectedNote =
-    notesList.find((item) => item.id === selectedNoteId) ?? null;
+    notesList.find((item) => item.id === selectedNoteId) ??
+    (retainedSelectedNote?.id === selectedNoteId ? retainedSelectedNote : null);
 
   const hasActiveFilters =
     Boolean(debouncedQuery.trim()) ||
@@ -658,6 +702,7 @@ export function NotesWorkspace({
                           window.matchMedia("(min-width: 1024px)").matches;
                         if (isDesktop) {
                           event.preventDefault();
+                          setRetainedSelectedNote(null);
                           setSelectedNoteId(note.id);
                         }
                       }}
