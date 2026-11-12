@@ -70,6 +70,9 @@ export const categories = pgTable(
     uniqueIndex("categories_user_system_key_active_idx")
       .on(table.userId, table.systemKey)
       .where(sql`${table.systemKey} IS NOT NULL AND ${table.deletedAt} IS NULL`),
+    uniqueIndex("categories_user_type_lower_name_active_idx")
+      .on(table.userId, table.type, sql`lower(${table.name})`)
+      .where(sql`${table.deletedAt} IS NULL`),
   ],
 );
 

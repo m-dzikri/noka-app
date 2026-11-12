@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "categories_user_type_lower_name_active_idx" ON "categories" USING btree ("user_id","type",lower("name")) WHERE "categories"."deleted_at" IS NULL;
