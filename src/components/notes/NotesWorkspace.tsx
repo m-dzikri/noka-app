@@ -18,11 +18,20 @@ import {
   Tag,
   X,
 } from "lucide-react";
+import {
+  WORKSPACE_UPDATED_EVENT,
+  dispatchFinanceUpdated,
+  type WorkspaceUpdatedDetail,
+} from "@/components/finance/finance-client-helpers";
 import { FolderManagerModal } from "@/components/notes/FolderManagerModal";
 import { NoteAttachmentsPanel } from "@/components/notes/NoteAttachmentsPanel";
 import { NoteEditor } from "@/components/notes/NoteEditor";
+import { NoteLinkedTransactionsPanel } from "@/components/notes/NoteLinkedTransactionsPanel";
 import { Button } from "@/components/ui/Button";
+import type { CategoryDto } from "@/features/finance/categories-service";
+import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import type { NoteAttachmentDto } from "@/features/notes/attachments-service";
+import type { LinkedTransactionsListResult } from "@/features/notes/linked-transactions-service";
 import type {
   FolderDto,
   NoteDto,
@@ -40,6 +49,10 @@ export interface NotesWorkspaceProps {
   initialTags: TagDto[];
   enableAttachments?: boolean;
   initialSelectedAttachments?: NoteAttachmentDto[];
+  enableLinkedTransactions?: boolean;
+  initialWallets?: WalletWithBalanceDto[];
+  initialCategories?: CategoryDto[];
+  initialLinkedTransactions?: LinkedTransactionsListResult;
   renderAttachmentsSlot?: (note: NoteDto) => ReactNode;
   renderLinkedTransactionsSlot?: (note: NoteDto) => ReactNode;
 }
@@ -118,6 +131,10 @@ export function NotesWorkspace({
   initialTags,
   enableAttachments = false,
   initialSelectedAttachments,
+  enableLinkedTransactions = false,
+  initialWallets,
+  initialCategories,
+  initialLinkedTransactions,
   renderAttachmentsSlot,
   renderLinkedTransactionsSlot,
 }: NotesWorkspaceProps) {
@@ -139,6 +156,12 @@ export function NotesWorkspace({
         initialPrimaryNoteId && initialSelectedAttachments !== undefined,
       ),
     );
+  const [ssrLinkedAvailable, setSsrLinkedAvailable] =
+    useState<boolean>(() =>
+      Boolean(
+        initialPrimaryNoteId && initialLinkedTransactions !== undefined,
+      ),
+    );
   const [retainedSelectedNote, setRetainedSelectedNote] =
     useState<NoteDto | null>(null);
 
@@ -147,6 +170,7 @@ export function NotesWorkspace({
       setSelectedNoteId(nextNoteId);
       if (nextNoteId !== initialPrimaryNoteId) {
         setSsrAttachmentsAvailable(false);
+        setSsrLinkedAvailable(false);
       }
     },
     [initialPrimaryNoteId],
@@ -308,6 +332,70 @@ export function NotesWorkspace({
     void runFetch();
   }, [buildNotesQueryString, selectNote, t.errors.generic]);
 
+  useEffect(() => {
+    const onWorkspaceUpdated = (event: Event) => {
+      const custom = event as CustomEvent<WorkspaceUpdatedDetail | undefined>;
+      if (
+        custom.detail?.kind !== "note" ||
+        custom.detail?.source === "notes-workspace"
+      ) {
+        return;
+      }
+
+      const currentFetchId = ++fetchIdRef.current;
+      const runExternalRefresh = async () => {
+        try {
+          const response = await apiFetch(
+            `/api/notes?${buildNotesQueryString(null)}`,
+          );
+          const payload = (await response.json().catch(() => null)) as {
+            ok?: boolean;
+            data?: NoteListResult;
+          } | null;
+
+          if (
+            currentFetchId !== fetchIdRef.current ||
+            !response.ok ||
+            payload?.ok !== true ||
+            !payload.data
+          ) {
+            return;
+          }
+
+          const currentSelectedId = selectedNoteIdRef.current;
+          const prevSelectedObj =
+            notesListRef.current.find((item) => item.id === currentSelectedId) ??
+            null;
+
+          setNotesList(payload.data.items);
+          setNextCursor(payload.data.nextCursor);
+
+          if (currentSelectedId) {
+            const stillInList = payload.data.items.some(
+              (item) => item.id === currentSelectedId,
+            );
+            if (!stillInList && prevSelectedObj) {
+              setRetainedSelectedNote(prevSelectedObj);
+            }
+          } else if (payload.data.items[0]) {
+            selectNote(payload.data.items[0].id);
+          }
+
+          void refreshTagsAndFolders();
+        } catch {
+          // Retain cached notes list silently when offline
+        }
+      };
+
+      void runExternalRefresh();
+    };
+
+    window.addEventListener(WORKSPACE_UPDATED_EVENT, onWorkspaceUpdated);
+    return () => {
+      window.removeEventListener(WORKSPACE_UPDATED_EVENT, onWorkspaceUpdated);
+    };
+  }, [buildNotesQueryString, refreshTagsAndFolders, selectNote]);
+
   const handleCreateNote = async () => {
     setCreatingNote(true);
     setErrorBanner(null);
@@ -456,6 +544,7 @@ export function NotesWorkspace({
       }
 
       void refreshTagsAndFolders();
+      dispatchFinanceUpdated("notes-workspace");
     },
     [refreshTagsAndFolders, selectNote],
   );
@@ -510,6 +599,31 @@ export function NotesWorkspace({
                 useInitialSsrSnapshot ? initialPrimaryNoteId : undefined
               }
               onNoteUpdatedAt={handleNoteTimestampUpdated}
+            />
+          );
+        }
+      : undefined);
+
+  const effectiveRenderLinkedTransactionsSlot =
+    renderLinkedTransactionsSlot ??
+    (enableLinkedTransactions
+      ? (currentNote: NoteDto) => {
+          const useInitialSsrSnapshot =
+            ssrLinkedAvailable &&
+            initialPrimaryNoteId !== null &&
+            currentNote.id === initialPrimaryNoteId;
+          return (
+            <NoteLinkedTransactionsPanel
+              key={currentNote.id}
+              noteId={currentNote.id}
+              wallets={initialWallets}
+              categories={initialCategories}
+              initialData={
+                useInitialSsrSnapshot ? initialLinkedTransactions : undefined
+              }
+              initialNoteId={
+                useInitialSsrSnapshot ? initialPrimaryNoteId : undefined
+              }
             />
           );
         }
@@ -863,7 +977,9 @@ export function NotesWorkspace({
               onDeleted={handleNoteDeleted}
               onOpenFolderManager={() => setFolderModalOpen(true)}
               renderAttachmentsSlot={effectiveRenderAttachmentsSlot}
-              renderLinkedTransactionsSlot={renderLinkedTransactionsSlot}
+              renderLinkedTransactionsSlot={
+                effectiveRenderLinkedTransactionsSlot
+              }
             />
           ) : (
             <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-surface)] p-8 text-center">

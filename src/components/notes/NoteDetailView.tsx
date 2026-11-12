@@ -7,7 +7,11 @@ import { ArrowLeft, FileWarning } from "lucide-react";
 import { FolderManagerModal } from "@/components/notes/FolderManagerModal";
 import { NoteAttachmentsPanel } from "@/components/notes/NoteAttachmentsPanel";
 import { NoteEditor } from "@/components/notes/NoteEditor";
+import { NoteLinkedTransactionsPanel } from "@/components/notes/NoteLinkedTransactionsPanel";
+import type { CategoryDto } from "@/features/finance/categories-service";
+import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import type { NoteAttachmentDto } from "@/features/notes/attachments-service";
+import type { LinkedTransactionsListResult } from "@/features/notes/linked-transactions-service";
 import type { FolderDto, NoteDto } from "@/features/notes/service";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -16,6 +20,10 @@ export interface NoteDetailViewProps {
   initialFolders: FolderDto[];
   enableAttachments?: boolean;
   initialAttachments?: NoteAttachmentDto[];
+  enableLinkedTransactions?: boolean;
+  initialWallets?: WalletWithBalanceDto[];
+  initialCategories?: CategoryDto[];
+  initialLinkedTransactions?: LinkedTransactionsListResult;
   renderAttachmentsSlot?: (note: NoteDto) => ReactNode;
   renderLinkedTransactionsSlot?: (note: NoteDto) => ReactNode;
 }
@@ -28,6 +36,10 @@ export function NoteDetailView({
   initialFolders,
   enableAttachments = false,
   initialAttachments,
+  enableLinkedTransactions = false,
+  initialWallets,
+  initialCategories,
+  initialLinkedTransactions,
   renderAttachmentsSlot,
   renderLinkedTransactionsSlot,
 }: NoteDetailViewProps) {
@@ -87,6 +99,21 @@ export function NoteDetailView({
         )
       : undefined);
 
+  const effectiveRenderLinkedTransactionsSlot =
+    renderLinkedTransactionsSlot ??
+    (enableLinkedTransactions
+      ? (currentNote: NoteDto) => (
+          <NoteLinkedTransactionsPanel
+            key={currentNote.id}
+            noteId={currentNote.id}
+            wallets={initialWallets}
+            categories={initialCategories}
+            initialData={initialLinkedTransactions}
+            initialNoteId={initialNote?.id}
+          />
+        )
+      : undefined);
+
   return (
     <div className="flex flex-col gap-4">
       <NoteEditor
@@ -103,7 +130,7 @@ export function NoteDetailView({
         }}
         onOpenFolderManager={() => setFolderModalOpen(true)}
         renderAttachmentsSlot={effectiveRenderAttachmentsSlot}
-        renderLinkedTransactionsSlot={renderLinkedTransactionsSlot}
+        renderLinkedTransactionsSlot={effectiveRenderLinkedTransactionsSlot}
       />
 
       <FolderManagerModal

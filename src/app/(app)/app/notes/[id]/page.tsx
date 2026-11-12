@@ -1,10 +1,17 @@
 import { redirect } from "next/navigation";
 import { NoteDetailView } from "@/components/notes/NoteDetailView";
+import { getDb } from "@/db";
 import { getSessionUser } from "@/features/auth/session";
+import { listCategories } from "@/features/finance/categories-service";
+import { loadWalletsWithBalances } from "@/features/finance/wallets-service";
 import {
   listNoteAttachments,
   type NoteAttachmentDto,
 } from "@/features/notes/attachments-service";
+import {
+  listNoteLinkedTransactions,
+  type LinkedTransactionsListResult,
+} from "@/features/notes/linked-transactions-service";
 import { uuidSchema } from "@/features/notes/schemas";
 import { getNoteById, listFolders, type NoteDto } from "@/features/notes/service";
 import { ApiError } from "@/lib/api-response";
@@ -26,10 +33,14 @@ export default async function NoteDetailPage({ params }: NoteDetailPageProps) {
 
   let note: NoteDto | null = null;
   let initialAttachments: NoteAttachmentDto[] = [];
+  let initialLinkedTransactions: LinkedTransactionsListResult | undefined;
   if (parsedId.success) {
     try {
       note = await getNoteById(user.id, parsedId.data);
-      initialAttachments = await listNoteAttachments(user.id, note.id);
+      [initialAttachments, initialLinkedTransactions] = await Promise.all([
+        listNoteAttachments(user.id, note.id),
+        listNoteLinkedTransactions(user.id, note.id),
+      ]);
     } catch (error) {
       if (!(error instanceof ApiError && error.status === 404)) {
         throw error;
@@ -37,7 +48,11 @@ export default async function NoteDetailPage({ params }: NoteDetailPageProps) {
     }
   }
 
-  const foldersList = await listFolders(user.id);
+  const [foldersList, initialWallets, initialCategories] = await Promise.all([
+    listFolders(user.id),
+    loadWalletsWithBalances(getDb(), user.id),
+    listCategories(user.id),
+  ]);
 
   return (
     <NoteDetailView
@@ -45,6 +60,10 @@ export default async function NoteDetailPage({ params }: NoteDetailPageProps) {
       initialFolders={foldersList}
       enableAttachments
       initialAttachments={initialAttachments}
+      enableLinkedTransactions
+      initialWallets={initialWallets}
+      initialCategories={initialCategories}
+      initialLinkedTransactions={initialLinkedTransactions}
     />
   );
 }

@@ -7,9 +7,11 @@ import { CategoryManagerModal } from "@/components/finance/CategoryManagerModal"
 import {
   dispatchFinanceUpdated,
   FINANCE_UPDATED_EVENT,
+  WORKSPACE_UPDATED_EVENT,
   readJsonSafe,
   resolveFinanceErrorMessage,
   type ApiErrorPayload,
+  type WorkspaceUpdatedDetail,
 } from "@/components/finance/finance-client-helpers";
 import {
   LedgerFilterBar,
@@ -188,12 +190,27 @@ export function FinanceWorkspace({
     const onExternalFinanceUpdate = () => {
       void refreshAllFinanceData();
     };
+    const onWorkspaceUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<WorkspaceUpdatedDetail | undefined>;
+      const source = customEvent.detail?.source;
+      if (
+        (!customEvent.detail?.kind ||
+          customEvent.detail.kind === "transaction") &&
+        source !== "finance-workspace" &&
+        source !== "quick-capture" &&
+        source !== "linked-transactions-panel"
+      ) {
+        void refreshAllFinanceData();
+      }
+    };
     window.addEventListener(FINANCE_UPDATED_EVENT, onExternalFinanceUpdate);
+    window.addEventListener(WORKSPACE_UPDATED_EVENT, onWorkspaceUpdated);
     return () => {
       window.removeEventListener(
         FINANCE_UPDATED_EVENT,
         onExternalFinanceUpdate,
       );
+      window.removeEventListener(WORKSPACE_UPDATED_EVENT, onWorkspaceUpdated);
     };
   }, [refreshAllFinanceData]);
 

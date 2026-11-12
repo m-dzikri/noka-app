@@ -18,6 +18,7 @@ import {
   transfers,
   wallets,
 } from "@/db/schema/finance";
+import { notes } from "@/db/schema/notes";
 import {
   calculateSafeToSpend,
   resolveActiveCycleWindow,
@@ -61,6 +62,7 @@ export interface CategoryBreakdownItem {
 
 export interface SummaryLedgerTransactionItem extends TransactionDto {
   kind: "transaction";
+  noteTitle: string | null;
 }
 
 export interface SummaryLedgerTransferItem extends TransferDto {
@@ -288,10 +290,15 @@ async function queryCombinedLedger(
             tx: transactions,
             walletName: wallets.name,
             categoryName: categories.name,
+            noteTitle: notes.title,
           })
           .from(transactions)
           .innerJoin(wallets, eq(transactions.walletId, wallets.id))
           .innerJoin(categories, eq(transactions.categoryId, categories.id))
+          .leftJoin(
+            notes,
+            and(eq(transactions.noteId, notes.id), isNull(notes.deletedAt)),
+          )
           .where(and(...txPredicates))
           .orderBy(
             desc(transactions.occurredAt),
@@ -315,6 +322,7 @@ async function queryCombinedLedger(
             categoryId: row.tx.categoryId,
             categoryName: row.categoryName,
             noteId: row.tx.noteId ?? null,
+            noteTitle: row.tx.noteId ? (row.noteTitle ?? null) : null,
             type: row.tx.type as FinanceEntryType,
             amount: Number(row.tx.amount),
             description: row.tx.description ?? null,

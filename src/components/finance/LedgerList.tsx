@@ -1,6 +1,7 @@
 "use client";
 
-import { Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { FileText, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
 import type { FinanceSummaryFilterType } from "@/features/finance/schemas";
@@ -87,9 +88,17 @@ export function LedgerList({
                       {item.walletName}
                     </span>
                     {item.noteId ? (
-                      <span className="rounded-full bg-[var(--accent-primary)]/15 px-2 py-0.5 text-xs text-[var(--accent-text)]">
-                        {t.finance.ledger.linkedBadge}
-                      </span>
+                      <Link
+                        href={`/app/notes/${item.noteId}`}
+                        data-testid={`ledger-linked-note-${item.id}`}
+                        aria-label={`${t.linkedNotes.ledgerOpenNotePrefix} ${item.noteTitle || t.linkedNotes.untitledNote}`}
+                        className="inline-flex max-w-44 items-center gap-1 rounded-full bg-[var(--accent-primary)]/15 px-2.5 py-0.5 text-xs font-medium text-[var(--accent-text)] transition-colors hover:bg-[var(--accent-primary)]/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]"
+                      >
+                        <FileText className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        <span className="truncate">
+                          {item.noteTitle || t.linkedNotes.untitledNote}
+                        </span>
+                      </Link>
                     ) : null}
                   </div>
                   {item.description ? (

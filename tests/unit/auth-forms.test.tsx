@@ -29,6 +29,18 @@ vi.mock("@/features/auth/session", () => ({
   getSessionUser: getSessionUserMock,
 }));
 
+vi.mock("@/db", () => ({
+  getDb: vi.fn(() => ({})),
+}));
+
+vi.mock("@/features/finance/wallets-service", () => ({
+  loadWalletsWithBalances: vi.fn(async () => []),
+}));
+
+vi.mock("@/features/finance/categories-service", () => ({
+  listCategories: vi.fn(async () => []),
+}));
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: vi.fn(() => undefined),
