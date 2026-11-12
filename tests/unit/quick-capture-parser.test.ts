@@ -121,6 +121,17 @@ describe("parseQuickCapture conservative local rule parser (TS-008-01)", () => {
       categoryId: "cat-transport",
       description: "terima kasih bayar parkir",
     });
+
+    expect(
+      parseQuickCapture("Beli kopi 25rb lewat BCA", BASE_CONTEXT),
+    ).toEqual({
+      intent: "transaction",
+      type: "expense",
+      amount: 25_000,
+      walletId: "w-bca",
+      categoryId: "cat-food_drink",
+      description: "Beli kopi",
+    });
   });
 
   it("conservatively keeps non-monetary numbers, dates, times, and notes under 1000 as note intent", () => {

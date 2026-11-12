@@ -79,7 +79,16 @@ export function WorkspaceChrome({
   }, []);
 
   useEffect(() => {
-    const onFinanceUpdated = () => {
+    const onFinanceUpdated = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ source?: string } | undefined>
+      ).detail;
+      if (
+        detail?.source === "quick-capture" ||
+        detail?.source === "linked-transactions-panel"
+      ) {
+        return;
+      }
       void refreshContexts();
     };
     const onWorkspaceUpdated = (event: Event) => {

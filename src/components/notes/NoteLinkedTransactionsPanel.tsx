@@ -283,7 +283,16 @@ export function NoteLinkedTransactionsPanel({
   }, [hasMatchingInitialData, noteId, propCategories, propWallets, t]);
 
   useEffect(() => {
-    const onFinanceUpdated = () => {
+    const onFinanceUpdated = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ source?: string } | undefined>
+      ).detail;
+      if (
+        detail?.source === "linked-transactions-panel" ||
+        detail?.source === "quick-capture"
+      ) {
+        return;
+      }
       void loadFinanceContext();
       void loadLinkedTransactions();
     };

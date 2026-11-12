@@ -12,6 +12,17 @@ export const NON_INCOME_COURTESY_PHRASES: readonly string[] = [
 ];
 
 /**
+ * Generic spending verbs scored below concrete item/service nouns so phrases
+ * like "Beli kopi 25rb" resolve to "food_drink" instead of "shopping".
+ */
+export const GENERIC_ACTION_KEYWORDS: ReadonlySet<string> = new Set([
+  "beli",
+  "buy",
+  "bayar",
+  "pay",
+]);
+
+/**
  * Bilingual keywords that switch transaction intent from default "expense" to "income".
  */
 export const INCOME_KEYWORDS: readonly string[] = [

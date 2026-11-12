@@ -80,6 +80,7 @@ export const enDictionary: Dictionary = {
     CANNOT_MODIFY_SYSTEM_CATEGORY: "Built-in system categories cannot be modified.",
     CANNOT_DELETE_SYSTEM_CATEGORY: "Built-in system categories cannot be deleted.",
     TRANSACTION_NOT_FOUND: "Transaction not found.",
+    TRANSACTION_ALREADY_LINKED: "Transaction is already linked to another note.",
     TRANSFER_NOT_FOUND: "Transfer not found.",
     SAME_WALLET_TRANSFER: "Source and destination wallets must be different.",
     generic: "Unable to process request.",

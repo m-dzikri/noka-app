@@ -80,6 +80,7 @@ export const idDictionary: Dictionary = {
     CANNOT_MODIFY_SYSTEM_CATEGORY: "Kategori sistem bawaan tidak dapat diubah.",
     CANNOT_DELETE_SYSTEM_CATEGORY: "Kategori sistem bawaan tidak dapat dihapus.",
     TRANSACTION_NOT_FOUND: "Transaksi tidak ditemukan.",
+    TRANSACTION_ALREADY_LINKED: "Transaksi sudah tertaut ke catatan lain.",
     TRANSFER_NOT_FOUND: "Transfer tidak ditemukan.",
     SAME_WALLET_TRANSFER: "Dompet asal dan dompet tujuan harus berbeda.",
     generic: "Permintaan tidak dapat diproses.",

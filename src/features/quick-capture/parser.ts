@@ -1,5 +1,6 @@
 import type { SystemCategoryKey } from "@/features/auth/default-categories";
 import {
+  GENERIC_ACTION_KEYWORDS,
   INCOME_KEYWORDS,
   NON_INCOME_COURTESY_PHRASES,
   SYSTEM_CATEGORY_SYNONYMS,
@@ -290,7 +291,7 @@ function resolveCategoryId(
     }
   }
 
-  // 3. Bilingual systemKey synonym dictionary (longest keyword match wins)
+  // 3. Bilingual systemKey synonym dictionary (specific nouns beat generic action verbs; longest keyword match wins)
   let bestMatch: { id: string; score: number } | null = null;
   for (const cat of candidates) {
     if (!cat.systemKey) continue;
@@ -300,12 +301,14 @@ function resolveCategoryId(
     if (!synonymEntries) continue;
 
     for (const entry of synonymEntries) {
+      const score =
+        (GENERIC_ACTION_KEYWORDS.has(entry.kw) ? 0 : 100) + entry.kw.length;
       if (
-        (!bestMatch || entry.kw.length > bestMatch.score) &&
+        (!bestMatch || score > bestMatch.score) &&
         lowerInput.includes(entry.kw) &&
         entry.pattern.test(input)
       ) {
-        bestMatch = { id: cat.id, score: entry.kw.length };
+        bestMatch = { id: cat.id, score };
       }
     }
   }
@@ -320,6 +323,9 @@ function resolveCategoryId(
   return fallbackCat?.id ?? candidates[0]!.id;
 }
 
+const WALLET_CONNECTOR_WORDS =
+  "(?:lewat|via|dari|pakai|pake|dengan|ke|di|from|using|with|by)";
+
 function buildTransactionDescription(
   rawTrimmed: string,
   span: MatchedMoneySpan,
@@ -330,7 +336,7 @@ function buildTransactionDescription(
 
   if (matchedWalletName) {
     const walletWordPattern = new RegExp(
-      `(?:^|\\s)${escapeRegex(matchedWalletName)}(?=$|\\s|[,.!?;:)])`,
+      `(?:^|\\s)(?:${WALLET_CONNECTOR_WORDS}\\s+)?${escapeRegex(matchedWalletName)}(?=$|\\s|[,.!?;:)])`,
       "gi",
     );
     cleaned = cleaned.replace(walletWordPattern, " ");

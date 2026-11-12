@@ -124,8 +124,17 @@ test.describe("RFC-008: Quick Capture & Linked Notes <-> Transactions E2E", () =
       await page.waitForLoadState("networkidle");
       await expect(page.getByRole("button", { name: "Catatan Baru" }).first()).toBeVisible();
       if (!isMobileProject) {
-        await page.getByRole("button", { name: "Catatan Baru" }).first().click();
+        await Promise.all([
+          page.waitForResponse(
+            (res) =>
+              res.url().endsWith("/api/notes") &&
+              res.request().method() === "POST" &&
+              res.ok(),
+          ),
+          page.getByRole("button", { name: "Catatan Baru" }).first().click(),
+        ]);
         const titleInput = page.getByLabel("Judul catatan");
+        await expect(titleInput).toHaveValue("");
         await titleInput.fill("Catatan Proyek Aktif");
         const contentInput = page.getByLabel("Isi Markdown catatan");
         await contentInput.fill("Draft belum tersimpan di editor");
@@ -183,10 +192,21 @@ test.describe("RFC-008: Quick Capture & Linked Notes <-> Transactions E2E", () =
 
       // 7. Create a dedicated Trip note to test Linked Transactions UI end-to-end
       await page.goto("/app/notes");
-      await page.getByRole("button", { name: "Catatan Baru" }).first().click();
+      await page.waitForLoadState("networkidle");
+      await Promise.all([
+        page.waitForResponse(
+          (res) =>
+            res.url().endsWith("/api/notes") &&
+            res.request().method() === "POST" &&
+            res.ok(),
+        ),
+        page.getByRole("button", { name: "Catatan Baru" }).first().click(),
+      ]);
       if (isMobileProject) {
         await page.waitForURL(/\/app\/notes\/[0-9a-f-]+/);
       }
+      const tripTitleInput = page.getByLabel("Judul catatan");
+      await expect(tripTitleInput).toHaveValue("");
       const patchTitlePromise = page.waitForResponse(
         (res) =>
           res.url().includes("/api/notes/") &&
@@ -194,7 +214,7 @@ test.describe("RFC-008: Quick Capture & Linked Notes <-> Transactions E2E", () =
           res.request().method() === "PATCH" &&
           res.ok(),
       );
-      await page.getByLabel("Judul catatan").fill("Anggaran Trip Bandung");
+      await tripTitleInput.fill("Anggaran Trip Bandung");
       await patchTitlePromise;
       await expect(page.getByTestId("note-save-status")).toHaveText(
         "Tersimpan",

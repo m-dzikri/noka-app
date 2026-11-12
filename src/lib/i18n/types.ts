@@ -537,6 +537,7 @@ export interface Dictionary {
     CANNOT_MODIFY_SYSTEM_CATEGORY: string;
     CANNOT_DELETE_SYSTEM_CATEGORY: string;
     TRANSACTION_NOT_FOUND: string;
+    TRANSACTION_ALREADY_LINKED: string;
     TRANSFER_NOT_FOUND: string;
     SAME_WALLET_TRANSFER: string;
     generic: string;

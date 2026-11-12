@@ -192,10 +192,13 @@ export function FinanceWorkspace({
     };
     const onWorkspaceUpdated = (event: Event) => {
       const customEvent = event as CustomEvent<WorkspaceUpdatedDetail | undefined>;
+      const source = customEvent.detail?.source;
       if (
         (!customEvent.detail?.kind ||
           customEvent.detail.kind === "transaction") &&
-        customEvent.detail?.source !== "finance-workspace"
+        source !== "finance-workspace" &&
+        source !== "quick-capture" &&
+        source !== "linked-transactions-panel"
       ) {
         void refreshAllFinanceData();
       }

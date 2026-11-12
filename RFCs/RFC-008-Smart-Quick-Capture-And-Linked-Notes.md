@@ -45,7 +45,7 @@ Menghadirkan dua fitur pembeda inti yang menyatukan Catatan dan Keuangan Noka:
   ```
 
 ### 2. Global Client Controller (`WorkspaceChrome.tsx`) & `QuickCaptureBar` (`F14`, `UI-4`, `UI-5`)
-- `src/components/layout/QuickCaptureBar.tsx`: props `{ wallets, categories, defaultWalletId, onSubmitNote, onSubmitTransaction, onClose? }` (`#noka-quick-capture-input`):
+- `src/components/quick-capture/QuickCaptureBar.tsx`: props `{ wallets, categories, defaultWalletId, onSubmitNote, onSubmitTransaction, onClose? }` (`#noka-quick-capture-input`):
   - Pintasan `Ctrl/Cmd + K` dan `/` (abaikan bila `activeElement` adalah `INPUT`/`TEXTAREA`/`SELECT`/`[contenteditable]`), `Escape` menutup pratinjau, `Enter` submit (`Shift+Enter` baris baru di mode Catatan).
   - Cek **0 dompet aktif**: `activeWallets = wallets.filter(w => w.archivedAt === null)`. Jika `activeWallets.length === 0`, tombol simpan transaksi nonaktif dengan CTA menuju `/app/finance`, sementara simpan Catatan tetap aktif.
   - Tombol ubah manual (*Catatan ↔ Transaksi*) menyediakan editor chip/nominal inline (`type`, nominal integer saat konversi ke Transaksi, dompet, kategori), serta menampilkan pratinjau nominal via `<PrivacyAmount />`. State input Quick Capture dipertahankan oleh `PreferencesProvider` ketika tema/bahasa diganti tanpa reload (`I18N-2`).
@@ -82,7 +82,7 @@ Semua route memakai amplop `API-1`, validasi UUID param (`422`), `400 INVALID_JS
 - `src/features/notes/linked-transactions-service.ts`
 - `src/features/finance/summary-service.ts` (diperbarui `LEFT JOIN notes WHERE deleted_at IS NULL` untuk menyertakan `noteTitle` pada `LedgerItemDto`)
 - `src/app/api/notes/[id]/transactions/route.ts`, `src/app/api/notes/[id]/transactions/[txId]/route.ts`
-- `src/components/layout/QuickCaptureBar.tsx`, `src/components/layout/WorkspaceChrome.tsx`, `src/app/(app)/app/layout.tsx`
+- `src/components/quick-capture/QuickCaptureBar.tsx`, `src/components/layout/WorkspaceChrome.tsx`, `src/app/(app)/app/layout.tsx`
 - `src/components/notes/NoteLinkedTransactionsPanel.tsx`, `src/components/notes/NoteEditor.tsx`, `src/components/notes/NotesWorkspace.tsx`, `src/app/(app)/app/notes/page.tsx`, `src/app/(app)/app/notes/[id]/page.tsx`
 - `src/components/finance/FinanceWorkspace.tsx` (listener `noka:workspace-updated` untuk menyegarkan summary/ledger) & `src/components/finance/LedgerList.tsx` (lencana backlink + fallback `untitledNote`)
 - `src/lib/i18n/types.ts`, `src/lib/i18n/dictionaries/{id,en}.ts` (menambahkan namespace `quickCapture` dan `linkedNotes`)
