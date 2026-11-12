@@ -303,3 +303,77 @@ Executed directly against `feat/rfc-004-notes-workspace` @ `245e5e3`:
   - If navigating away directly mounts/unmounts `NoteEditor` within the `600 ms` debounce window (e.g., clicking Back in `NoteDetailView.tsx:68` before debounce fires), `clearPendingTimer()` on unmount (`NoteEditor.tsx:538-541`) still discards unsaved debounced keystrokes until `RFC-009` IndexedDB local persistence lands; consider a best-effort unmount/back flush if needed before `RFC-009`.
   - Operational deployment note: `0001_notes_pg_trgm_indexes.sql` runs `CREATE EXTENSION IF NOT EXISTS "pg_trgm"`; if a production database uses a least-privilege migration role without extension-creation privilege, ensure `pg_trgm` is pre-enabled by the DB owner prior to running `npm run db:migrate`.
 
+---
+
+## Round 4 -- 2026-11-12
+
+- **RFC:** `RFC-004` ([`RFC-004-Notes-Workspace-And-Search.md`](../RFCs/RFC-004-Notes-Workspace-And-Search.md))
+- **Branch & Commit:** `feat/rfc-004-notes-workspace` @ `0daecff` (commits reviewed since Round 3 `2844a39`: `212dd9f`, `1f4ae34`, `0daecff`)
+- **Review Context:** Fresh review session (Round 4 re-review verifying implementation of Round 3 non-blocking suggestions; none of `212dd9f`, `1f4ae34`, or `0daecff` was authored in this session)
+- **Reviewer Verdict:** **Approved** (**Overall Risk Level: Low**)
+
+### Step 0: Verification Run Output (Round 4)
+
+Executed directly against `feat/rfc-004-notes-workspace` @ `0daecff`:
+
+1. **Lint (`npm run lint` -> `eslint .`):**
+   - Result: `LINT_EXIT=0` (clean pass).
+2. **Typecheck (`npm run typecheck` -> `tsc --noEmit`):**
+   - Result: `TSC_EXIT=0` (clean pass).
+3. **Unit & Integration Test Suite (`npm test` -> `vitest run`, Vitest `5.1.0`):**
+   - Result: `Test Files 15 passed (15)`, `Tests 75 passed (75)`, `0` skipped, `Duration 8.95s`, `TEST_EXIT=0` (`+1` new comprehensive unit test suite case since Round 3).
+   - `RFC-004`-relevant suites observed:
+     - `tests/unit/notes-checklist-markdown.test.ts` — `5` tests passed.
+     - `tests/unit/note-editor.test.tsx` — `10` tests passed (adds `waitForIdle`, clean/StrictMode zero-PATCH unmount, `<= 60_000`-byte `keepalive: true` unmount, `> 60_000`-byte `pagehide` without `keepalive` + zero duplicate unmount, offline unmount silence, and `NoteDetailView` online/offline Back flush).
+     - `tests/integration/notes-folders-tags.test.ts` — `5` tests passed.
+     - `tests/unit/auth-forms.test.tsx` — `7` tests passed.
+4. **End-to-End Test Suite (`npx playwright test tests/e2e/notes-workspace.spec.ts`):**
+   - Environment note: `CI=true` aborted on preflight because `http://localhost:3000` was already serving a running local server; running without `CI=true` reused that active `http://localhost:3000` server (`reuseExistingServer: !process.env.CI` in `playwright.config.ts`).
+   - Result: `2 passed (17.7s)` (`EXIT=0`), including editing `"Catatan Mobile Cepat"` within the `600 ms` debounce window and clicking **Kembali ke Catatan** before verifying list persistence:
+     - `[desktop]` `RFC-004: Notes Workspace E2E (TS-004-04) > verifies auth redirect -> /app/notes, folder & note lifecycle, checklist reload persistence, pagination, and zero overflow across viewports` (`16.2s`).
+     - `[mobile]` `RFC-004: Notes Workspace E2E (TS-004-04) > verifies auth redirect -> /app/notes, folder & note lifecycle, checklist reload persistence, pagination, and zero overflow across viewports` (`13.0s`).
+5. **Production Build & Schema Check (`npm run build` -> `next build` `16.4.6` Turbopack + `npx drizzle-kit check`):**
+   - Executed with `$env:DATABASE_URL=""; $env:SESSION_SECRET=""; $env:APP_URL="http://127.0.0.1:3114"` (local `.env` loaded: `- Environments: .env`).
+   - Result: `BUILD_EXIT=0` (all app/API routes `ƒ (Dynamic)` except `/icon.svg` `○ (Static)`) and `npx drizzle-kit check` -> `Everything's fine`, `DRIZZLE_CHECK_EXIT=0`.
+6. **Traceability Check (`python .agents/skills/workflow-status/scripts/trace-check.py .`):**
+   - Result: `33 requirements, 31 features, 61 rules, 10 RFCs`, `0 failure(s), 5 warning(s)` (`F20`–`F24` planned v1.1 features), `TRACE_EXIT=0`.
+7. **Hygiene Scan (`Get-ChildItem -Path src -Recurse -File | Select-String -Pattern 'TODO|FIXME|eslint-disable|process\.env|rehype-raw|\bany\b'`):**
+   - Result: Clean (`process.env` only in `src/lib/env.ts`; `rehype-raw` only in comment at `src/components/notes/MarkdownPreview.tsx:109`; `\bany\b` only prose comments/copy).
+
+### Product Type Check Scope
+
+- **Product Type:** Web App (`PRD.md:20-40`, `RULES.md:22-44` — Multi-user Responsive Web App + PWA + Public SEO Pages).
+- **Applied Checks:** Auth & Sessions, Authorization per Resource, Data Model & Migrations, Accessibility, Responsive Layout, Browser `keepalive` / `pagehide` lifecycle compatibility, Offline Sync (`PRD.md` explicit exception), and API Performance (`PERF-2`).
+- **Explicitly Skipped Checks (per `review-rfc` & `PRD.md` Web App scope):**
+  - *Binary Size* — Skipped (Web App/PWA delivered via browser rather than native app binary; verified bundle compilation via `npm run build`).
+  - *Public Third-Party API SLA & Versioning* — Skipped (first-party session routes scoped exclusively to Noka's own web client).
+
+### Audit of Changes Since Round 3 (`212dd9f`, `1f4ae34`, `0daecff`)
+
+1. **Awaitable Per-Note Idle Barrier & Navigation/Unload Flush (`src/features/notes/mutation-queue.ts:83-91`, `src/components/notes/NoteEditor.tsx:62-66, 246-326, 552-645`, `src/components/notes/NoteDetailView.tsx:68-71`):**
+   - [`waitForIdle`](../src/features/notes/mutation-queue.ts#L83-L91) loops over `this.queues.get(noteId)` until no queued/chained promises remain, safely settling even if an intermediate task rejects (`settled = run.catch(() => undefined)`).
+   - [`flushActiveDraftIfNeeded`](../src/components/notes/NoteEditor.tsx#L552-L594) clears any pending debounce timer, checks `!isDeleted`, online status, and `dirtyRef.current && (hadPendingTimer || !isLatestSeqQueued)`, and avoids duplicate sends if a save is already queued/sent (or on clean/StrictMode unmounts).
+   - Unmount and `pagehide` handlers invoke `flushOnUnloadRef` (`NoteEditor.tsx:596-612`), using `new TextEncoder().encode(bodyText).length <= KEEPALIVE_MAX_BYTES` (`60_000`) to set `keepalive: true` only within browser 64 KiB limits (`http-client.ts:37-40` passes `keepalive` cleanly through `fetch` with `credentials: "same-origin"`).
+   - [`handleBackClick`](../src/components/notes/NoteEditor.tsx#L615-L645) flushes active dirty drafts and awaits `waitForIdle` (disabling the Back button while flushing via `returningBack` without blocking offline navigation), while [`NoteDetailView`](../src/components/notes/NoteDetailView.tsx#L68-L71) refreshes the App Router cache alongside `router.push("/app/notes")`.
+2. **Documentation & Operational Notes (`RFCs/RFC-004-Notes-Workspace-And-Search.md:108-109`, `TEST-STRATEGY.md:186, 188`):**
+   - `RFC-004` `Implementation Notes` and `TEST-STRATEGY.md` accurately document the Back/pagehide/unmount flush semantics, `keepalive` 60 KB cap, and DBA/owner `CREATE EXTENSION IF NOT EXISTS "pg_trgm" SCHEMA public;` pre-provisioning guidance without modifying `0001_notes_pg_trgm_indexes.sql`.
+3. **Tests (`tests/unit/note-editor.test.tsx:1286-1495`, `tests/e2e/notes-workspace.spec.ts:138-142`):**
+   - All newly added behaviors are directly exercised and failing assertions would catch regressions in `waitForIdle`, clean unmount silence, `keepalive` size threshold, duplicate prevention across `pagehide` + unmount, offline silence, and mobile Back-navigation persistence.
+
+### Review Dimensions (Round 4)
+
+1. **RFC Adherence — PASS:** Implements and records both Round 3 non-blocking improvements cleanly within `RFC-004` (`F7`, `F8`, `AC-4.1`–`AC-4.5`).
+2. **Rules Compliance — PASS:** Preserves `UI-5`, `UI-6`, `SEC-1`/`SEC-4` (`credentials: "same-origin"` preserved on `keepalive` requests), `TEST-1`, `QUAL-2`, `QUAL-3`, and `QUAL-4`.
+3. **Security — PASS:** No security regressions; `keepalive` remains restricted to same-origin authenticated `apiFetch` `PATCH` requests.
+4. **Performance — PASS:** Bounded `60_000`-byte `keepalive` threshold prevents browser request rejection/overhead on large Markdown documents; zero redundant requests on clean unmount or post-`pagehide` unmount.
+5. **Maintainability — PASS:** Small, well-isolated additions in `mutation-queue.ts`, `NoteEditor.tsx`, and `NoteDetailView.tsx` with thorough unit + E2E coverage.
+
+### Overall Assessment (Round 4)
+
+- **Overall Risk Level:** **Low**
+- **Summary:** Both Round 3 non-blocking improvement items are cleanly resolved on `feat/rfc-004-notes-workspace` (`0daecff`) with thorough unit (`75/75`) and mobile/desktop Playwright E2E (`2/2`) coverage, clean lint/typecheck/build/Drizzle schema checks, and complete documentation alignment in `RFC-004` and `TEST-STRATEGY.md`. Zero blocking issues remain.
+- **Blocking Issues:** None.
+- **Improvement Suggestions (Non-Blocking):**
+  - Clean or restore `next-env.d.ts` (`./.next/dev/types/*` from active `next dev` vs `./.next/types/*` from `next build`) before finalizing commits/merging to `main`.
+  - Best-effort unload flushes remain inherently subject to browser tab-close cancellation for payloads exceeding `60_000` UTF-8 bytes until `RFC-009` adds client-side IndexedDB persistence.
+
