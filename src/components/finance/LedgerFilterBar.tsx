@@ -4,6 +4,7 @@ import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { CategoryDto } from "@/features/finance/categories-service";
+import type { CycleWindowInfo } from "@/features/finance/safe-to-spend";
 import type { FinanceSummaryFilterType } from "@/features/finance/schemas";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import { useI18n } from "@/lib/i18n/context";
@@ -20,6 +21,7 @@ export interface LedgerFilterBarProps {
   filters: LedgerFiltersState;
   wallets: WalletWithBalanceDto[];
   categories: CategoryDto[];
+  cycle?: Pick<CycleWindowInfo, "startDate" | "endDate">;
   onFilterChange: (patch: Partial<LedgerFiltersState>) => void;
   onReset: () => void;
 }
@@ -31,6 +33,7 @@ export function LedgerFilterBar({
   filters,
   wallets,
   categories,
+  cycle,
   onFilterChange,
   onReset,
 }: LedgerFilterBarProps) {
@@ -43,7 +46,8 @@ export function LedgerFilterBar({
       );
 
   return (
-    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
+    <div className="flex flex-col gap-2">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-6">
       <div className="flex flex-col gap-1">
         <label
           htmlFor="filter-wallet"
@@ -138,6 +142,17 @@ export function LedgerFilterBar({
           <span>{t.finance.filters.reset}</span>
         </Button>
       </div>
+    </div>
+    {cycle && (!filters.from || !filters.to) ? (
+      <p
+        data-testid="ledger-filter-cycle-hint"
+        className="text-xs text-[var(--text-muted)]"
+      >
+        {t.finance.filters.cycleDefaultHint
+          .replace("{start}", cycle.startDate)
+          .replace("{end}", cycle.endDate)}
+      </p>
+    ) : null}
     </div>
   );
 }

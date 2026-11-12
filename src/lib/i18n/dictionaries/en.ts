@@ -455,6 +455,7 @@ export const enDictionary: Dictionary = {
       fromDate: "From",
       toDate: "To",
       reset: "Reset Filters",
+      cycleDefaultHint: "Blank = active cycle default ({start} to {end})",
     },
     ledger: {
       sectionTitle: "Ledger History",

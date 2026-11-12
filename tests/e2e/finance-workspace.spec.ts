@@ -67,7 +67,7 @@ async function assertNoHorizontalOverflow(page: Page, label: string): Promise<vo
   ).toBeLessThanOrEqual(dims.innerWidth);
 }
 
-test.describe("Finance Workspace Core Ledger E2E (RFC-006)", () => {
+test.describe("Finance Workspace, Safe-to-Spend & Privacy Blur E2E (RFC-006 & RFC-007)", () => {
   test("manages wallets, transactions, transfers, custom category delete migration, and archive flow cleanly on desktop and mobile", async ({
     page,
   }, testInfo) => {

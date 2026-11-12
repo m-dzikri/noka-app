@@ -258,6 +258,7 @@ export interface FinanceDictionary {
     fromDate: string;
     toDate: string;
     reset: string;
+    cycleDefaultHint: string;
   };
   ledger: {
     sectionTitle: string;

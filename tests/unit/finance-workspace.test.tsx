@@ -419,4 +419,79 @@ describe("FinanceWorkspace Component & noka:finance-updated Sync", () => {
       );
     });
   });
+
+  it("displays active cycle hint and auto-syncs paired date bound when single-sided from/to crosses cycle bounds", async () => {
+    const requestedSummaryUrls: string[] = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.startsWith("/api/finance/summary")) {
+        requestedSummaryUrls.push(url);
+        return new Response(
+          JSON.stringify({ ok: true, data: createSummaryFixture() }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      if (url.startsWith("/api/categories")) {
+        return new Response(
+          JSON.stringify({ ok: true, data: { categories: sampleCategories } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response(JSON.stringify({ ok: true, data: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderWorkspace();
+
+    expect(screen.getByTestId("ledger-filter-cycle-hint")).toHaveTextContent(
+      "2026-11-01",
+    );
+    expect(screen.getByTestId("ledger-filter-cycle-hint")).toHaveTextContent(
+      "2026-11-30",
+    );
+
+    const fromInput = screen.getByLabelText("Dari") as HTMLInputElement;
+    const toInput = screen.getByLabelText("Sampai") as HTMLInputElement;
+
+    // Choosing `from` after `cycle.endDate` auto-syncs blank `to` to avoid 422 `from > to`
+    fireEvent.change(fromInput, { target: { value: "2026-12-05" } });
+    await waitFor(() => {
+      expect(toInput.value).toBe("2026-12-05");
+      const lastUrl = requestedSummaryUrls.at(-1) ?? "";
+      expect(lastUrl).toContain("from=2026-12-05");
+      expect(lastUrl).toContain("to=2026-12-05");
+    });
+    expect(
+      screen.queryByTestId("ledger-filter-cycle-hint"),
+    ).not.toBeInTheDocument();
+
+    // Resetting clears both dates and choosing `to` before `cycle.startDate` auto-syncs blank `from`
+    fireEvent.click(screen.getByRole("button", { name: "Reset Filter" }));
+    await waitFor(() => {
+      expect(fromInput.value).toBe("");
+      expect(toInput.value).toBe("");
+    });
+
+    fireEvent.change(toInput, { target: { value: "2026-10-15" } });
+    await waitFor(() => {
+      expect(fromInput.value).toBe("2026-10-15");
+      const lastUrl = requestedSummaryUrls.at(-1) ?? "";
+      expect(lastUrl).toContain("from=2026-10-15");
+      expect(lastUrl).toContain("to=2026-10-15");
+    });
+
+    // Choosing within-cycle `from` leaves `to` blank for API cycle.endDate fallback
+    fireEvent.click(screen.getByRole("button", { name: "Reset Filter" }));
+    fireEvent.change(fromInput, { target: { value: "2026-11-10" } });
+    await waitFor(() => {
+      expect(fromInput.value).toBe("2026-11-10");
+      expect(toInput.value).toBe("");
+      const lastUrl = requestedSummaryUrls.at(-1) ?? "";
+      expect(lastUrl).toContain("from=2026-11-10");
+      expect(lastUrl).not.toContain("to=");
+    });
+  });
 });

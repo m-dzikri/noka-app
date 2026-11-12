@@ -52,6 +52,36 @@ const DEFAULT_FILTERS: LedgerFiltersState = {
 };
 
 /**
+ * Prevents single-sided or inverted `from`/`to` edits from falling outside active cycle defaults and causing 422 `from > to`.
+ */
+function normalizeLedgerDateBounds(
+  patch: Pick<Partial<LedgerFiltersState>, "from" | "to">,
+  current: Pick<LedgerFiltersState, "from" | "to">,
+  cycle: { startDate: string; endDate: string },
+): { from: string; to: string } {
+  let from = patch.from ?? current.from;
+  let to = patch.to ?? current.to;
+
+  if (patch.from !== undefined) {
+    if (!from && to && to < cycle.startDate) {
+      to = "";
+    } else if (from && ((to && from > to) || (!to && from > cycle.endDate))) {
+      to = from;
+    }
+  }
+
+  if (patch.to !== undefined) {
+    if (!to && from && from > cycle.endDate) {
+      from = "";
+    } else if (to && ((from && to < from) || (!from && to < cycle.startDate))) {
+      from = to;
+    }
+  }
+
+  return { from, to };
+}
+
+/**
  * Interactive bilingual Finance Dashboard integrating Safe-to-Spend, Cashflow Summary, Wallet balances, Unified Ledger, and Privacy Blur (`F10`–`F13`, `F16`, `F17`).
  */
 export function FinanceWorkspace({
@@ -184,12 +214,14 @@ export function FinanceWorkspace({
       }
     }
 
+    const { from, to } = normalizeLedgerDateBounds(patch, filters, summary.cycle);
+
     const nextFilters: LedgerFiltersState = {
       walletId: patch.walletId ?? filters.walletId,
       type: nextType,
       categoryId: nextCategoryId,
-      from: patch.from ?? filters.from,
-      to: patch.to ?? filters.to,
+      from,
+      to,
     };
 
     setFilters(nextFilters);
@@ -393,6 +425,10 @@ export function FinanceWorkspace({
             filters={filters}
             wallets={summary.wallets}
             categories={categories}
+            cycle={{
+              startDate: summary.cycle.startDate,
+              endDate: summary.cycle.endDate,
+            }}
             onFilterChange={handleFilterChange}
             onReset={() => void handleResetFilters()}
           />

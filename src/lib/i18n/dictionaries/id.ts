@@ -455,6 +455,7 @@ export const idDictionary: Dictionary = {
       fromDate: "Dari",
       toDate: "Sampai",
       reset: "Reset Filter",
+      cycleDefaultHint: "Kosong = bawaan siklus aktif ({start} s.d. {end})",
     },
     ledger: {
       sectionTitle: "Buku Besar Ledger",
