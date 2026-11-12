@@ -20,9 +20,8 @@ export default async function NotesPage() {
 
   return (
     <NotesWorkspace
-      initialNotes={notesPage.notes}
+      initialNotes={notesPage.items}
       initialNextCursor={notesPage.nextCursor}
-      initialHasMore={notesPage.hasMore}
       initialFolders={foldersList}
       initialTags={tagsList}
     />

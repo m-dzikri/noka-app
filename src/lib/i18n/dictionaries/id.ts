@@ -54,6 +54,8 @@ export const idDictionary: Dictionary = {
     INVALID_OR_EXPIRED_TOKEN:
       "Tautan atur ulang kata sandi tidak valid atau sudah kedaluwarsa.",
     NOT_FOUND: "Sumber daya tidak ditemukan.",
+    NOTE_NOT_FOUND: "Catatan tidak ditemukan.",
+    FOLDER_NOT_FOUND: "Folder tidak ditemukan.",
     INVALID_CURSOR: "Kursor halaman catatan tidak valid.",
     FOLDER_NAME_EXISTS: "Nama folder sudah digunakan.",
     NOTE_ALREADY_EXISTS: "ID catatan sudah ada.",

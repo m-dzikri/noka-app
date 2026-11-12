@@ -15,9 +15,11 @@ const optionalIdempotencyKeySchema = z.string().trim().min(1).max(128).optional(
 const optionalUpdatedAtSchema = z.string().trim().min(1).max(64).optional();
 
 export const tagListSchema = z
-  .array(z.string().trim().min(1).max(TAG_NAME_MAX_LENGTH))
+  .array(z.string().trim().max(TAG_NAME_MAX_LENGTH))
   .transform((items) => normalizeTagNames(items))
-  .pipe(z.array(z.string()).max(NOTE_MAX_TAGS));
+  .pipe(
+    z.array(z.string().min(1).max(TAG_NAME_MAX_LENGTH)).max(NOTE_MAX_TAGS),
+  );
 
 export const createNoteSchema = z.object({
   id: uuidSchema.optional(),
@@ -73,7 +75,7 @@ export const noteListQuerySchema = z.object({
     .optional()
     .transform((value) => (value && value.length > 0 ? value : undefined)),
   folderId: z
-    .union([uuidSchema, z.literal("unfiled")])
+    .union([uuidSchema, z.literal("none")])
     .optional(),
   tagId: uuidSchema.optional(),
   tag: z

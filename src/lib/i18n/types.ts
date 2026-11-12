@@ -233,6 +233,8 @@ export interface Dictionary {
     MAIL_DELIVERY_UNAVAILABLE: string;
     INVALID_OR_EXPIRED_TOKEN: string;
     NOT_FOUND: string;
+    NOTE_NOT_FOUND: string;
+    FOLDER_NOT_FOUND: string;
     INVALID_CURSOR: string;
     FOLDER_NAME_EXISTS: string;
     NOTE_ALREADY_EXISTS: string;

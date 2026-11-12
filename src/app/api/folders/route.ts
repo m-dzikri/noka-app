@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       payload: input,
       handler: async (tx) => {
         const created = await createFolder(user.id, input, tx);
-        return { status: 201, body: created };
+        return { status: 201, body: { folder: created } };
       },
     });
   } catch (error) {

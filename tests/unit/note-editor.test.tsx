@@ -61,7 +61,7 @@ const sampleTags: TagDto[] = [
   },
 ];
 
-describe("NoteEditor & NotesWorkspace UI behavior (TS-004-03)", () => {
+describe("NoteEditor & NotesWorkspace UI behavior (TS-004-02)", () => {
   beforeEach(() => {
     routerPushMock.mockClear();
   });
@@ -81,10 +81,16 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-03)", () => {
     });
 
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, data: updatedDto }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
+      new Response(
+        JSON.stringify({
+          ok: true,
+          data: { note: updatedDto, conflictResolved: "applied" },
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
     );
     vi.stubGlobal("fetch", fetchMock);
 
@@ -164,28 +170,50 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-03)", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, data: toggledNote }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, data: pinnedNote }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true, data: taggedNote }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: { note: toggledNote, conflictResolved: "applied" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
       )
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
             ok: true,
-            data: { deleted: true, id: "11111111-1111-4111-8111-111111111111" },
+            data: { note: pinnedNote, conflictResolved: "applied" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: { note: taggedNote, conflictResolved: "applied" },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              deleted: true,
+              id: "11111111-1111-4111-8111-111111111111",
+              conflictResolved: "applied",
+            },
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         ),
@@ -281,7 +309,7 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-03)", () => {
           return new Response(
             JSON.stringify({
               ok: true,
-              data: { notes: [secondPageNote], nextCursor: null, hasMore: false },
+              data: { items: [secondPageNote], nextCursor: null },
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
@@ -289,7 +317,7 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-03)", () => {
         return new Response(
           JSON.stringify({
             ok: true,
-            data: { notes: [firstNote], nextCursor: null, hasMore: false },
+            data: { items: [firstNote], nextCursor: null },
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
@@ -297,7 +325,7 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-03)", () => {
 
       if (url === "/api/notes") {
         return new Response(
-          JSON.stringify({ ok: true, data: createdNote }),
+          JSON.stringify({ ok: true, data: { note: createdNote } }),
           { status: 201, headers: { "Content-Type": "application/json" } },
         );
       }
@@ -326,7 +354,6 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-03)", () => {
         <NotesWorkspace
           initialNotes={[firstNote]}
           initialNextCursor="cursor-1"
-          initialHasMore={true}
           initialFolders={sampleFolders}
           initialTags={sampleTags}
         />

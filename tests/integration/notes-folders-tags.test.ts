@@ -90,7 +90,7 @@ async function createRegisteredUser(label: string): Promise<{
   };
 }
 
-describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-004-02)", () => {
+describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-004-03)", () => {
   afterEach(async () => {
     const { clearRateLimitsForTest } = await import("@/lib/rate-limit");
     clearRateLimitsForTest();
@@ -120,9 +120,9 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     expect(createFolderRes.status).toBe(201);
     const folderJson = (await createFolderRes.json()) as {
       ok: true;
-      data: { id: string; name: string };
+      data: { folder: { id: string; name: string } };
     };
-    const folderId = folderJson.data.id;
+    const folderId = folderJson.data.folder.id;
 
     const dupFolderRes = await foldersPost(
       makeAuthedRequest(
@@ -144,6 +144,11 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
       ),
     );
     expect(crossFolderRes.status).toBe(404);
+    const crossFolderJson = (await crossFolderRes.json()) as {
+      ok: false;
+      error: { code: string };
+    };
+    expect(crossFolderJson.error.code).toBe("FOLDER_NOT_FOUND");
 
     // 3. Alice creates note with folder + tags + checklist + idempotency replay
     const idemKey = `n-${crypto.randomUUID()}`;
@@ -167,9 +172,11 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     const createdNote1 = (await createNoteRes1.json()) as {
       ok: true;
       data: {
-        id: string;
-        updatedAt: string;
-        tags: { id: string; name: string }[];
+        note: {
+          id: string;
+          updatedAt: string;
+          tags: { id: string; name: string }[];
+        };
       };
     };
 
@@ -186,22 +193,27 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     expect(createNoteRes2.status).toBe(201);
     const createdNote2 = (await createNoteRes2.json()) as {
       ok: true;
-      data: { id: string };
+      data: { note: { id: string } };
     };
-    expect(createdNote2.data.id).toBe(createdNote1.data.id);
+    expect(createdNote2.data.note.id).toBe(createdNote1.data.note.id);
 
-    const noteId = createdNote1.data.id;
-    expect(createdNote1.data.tags.map((item) => item.name)).toEqual([
+    const noteId = createdNote1.data.note.id;
+    expect(createdNote1.data.note.tags.map((item) => item.name)).toEqual([
       "Riset",
       "Skripsi",
     ]);
 
-    // 4. Bob cannot read, update, or delete Alice's note (404)
+    // 4. Bob cannot read, update, or delete Alice's note (404 NOTE_NOT_FOUND)
     const bobGet = await noteGet(
       makeAuthedRequest(`http://localhost:3000/api/notes/${noteId}`, "GET", bob.cookie),
       { params: Promise.resolve({ id: noteId }) },
     );
     expect(bobGet.status).toBe(404);
+    const bobGetJson = (await bobGet.json()) as {
+      ok: false;
+      error: { code: string };
+    };
+    expect(bobGetJson.error.code).toBe("NOTE_NOT_FOUND");
 
     const bobPatch = await notePatch(
       makeAuthedRequest(
@@ -213,6 +225,11 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
       { params: Promise.resolve({ id: noteId }) },
     );
     expect(bobPatch.status).toBe(404);
+    const bobPatchJson = (await bobPatch.json()) as {
+      ok: false;
+      error: { code: string };
+    };
+    expect(bobPatchJson.error.code).toBe("NOTE_NOT_FOUND");
 
     // 5. Server update advances updatedAt; stale client updatedAt loses under LWW
     const newerUpdateRes = await notePatch(
@@ -227,12 +244,16 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     expect(newerUpdateRes.status).toBe(200);
     const newerNoteJson = (await newerUpdateRes.json()) as {
       ok: true;
-      data: { title: string; updatedAt: string };
+      data: {
+        note: { title: string; updatedAt: string };
+        conflictResolved: string;
+      };
     };
-    expect(newerNoteJson.data.title).toBe("Bab 3 Final");
+    expect(newerNoteJson.data.conflictResolved).toBe("applied");
+    expect(newerNoteJson.data.note.title).toBe("Bab 3 Final");
 
     const staleTimestamp = new Date(
-      Date.parse(newerNoteJson.data.updatedAt) - 5_000,
+      Date.parse(newerNoteJson.data.note.updatedAt) - 5_000,
     ).toISOString();
     const stalePatchRes = await notePatch(
       makeAuthedRequest(
@@ -246,10 +267,13 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     expect(stalePatchRes.status).toBe(200);
     const staleJson = (await stalePatchRes.json()) as {
       ok: true;
-      data: { title: string; conflictResolved?: string };
+      data: {
+        note: { title: string };
+        conflictResolved: string;
+      };
     };
-    expect(staleJson.data.title).toBe("Bab 3 Final");
-    expect(staleJson.data.conflictResolved).toBe("server_wins");
+    expect(staleJson.data.note.title).toBe("Bab 3 Final");
+    expect(staleJson.data.conflictResolved).toBe("server_newer");
 
     // 6. Removing "Skripsi" and "Riset" soft-deletes orphan tags; reusing "Riset" reactivates cleanly
     const tagsBefore = await tagsGet(
@@ -279,7 +303,7 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
       activeTagsRows.filter((r) => r.deletedAt === null).map((r) => r.name),
     ).toContain("Riset");
 
-    // 7. Folder rename + delete moves active notes to Unfiled (folderId = NULL) without deleting notes
+    // 7. Folder rename + stale DELETE LWW preserves real noteCount + valid delete moves active notes to Unfiled (folderId = NULL)
     const renameRes = await folderPatch(
       makeAuthedRequest(
         `http://localhost:3000/api/folders/${folderId}`,
@@ -290,6 +314,44 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
       { params: Promise.resolve({ id: folderId }) },
     );
     expect(renameRes.status).toBe(200);
+    const renameJson = (await renameRes.json()) as {
+      ok: true;
+      data: {
+        folder: { id: string; name: string; noteCount: number; updatedAt: string };
+        conflictResolved: string;
+      };
+    };
+    expect(renameJson.data.conflictResolved).toBe("applied");
+    expect(renameJson.data.folder.name).toBe("Tesis");
+    expect(renameJson.data.folder.noteCount).toBe(1);
+
+    const staleFolderDeleteRes = await folderDelete(
+      makeAuthedRequest(
+        `http://localhost:3000/api/folders/${folderId}`,
+        "DELETE",
+        alice.cookie,
+        {
+          updatedAt: new Date(
+            Date.parse(renameJson.data.folder.updatedAt) - 5_000,
+          ).toISOString(),
+        },
+      ),
+      { params: Promise.resolve({ id: folderId }) },
+    );
+    expect(staleFolderDeleteRes.status).toBe(200);
+    const staleFolderDeleteJson = (await staleFolderDeleteRes.json()) as {
+      ok: true;
+      data: {
+        deleted: boolean;
+        id: string;
+        conflictResolved: string;
+        folder?: { name: string; noteCount: number };
+      };
+    };
+    expect(staleFolderDeleteJson.data.deleted).toBe(false);
+    expect(staleFolderDeleteJson.data.conflictResolved).toBe("server_newer");
+    expect(staleFolderDeleteJson.data.folder?.name).toBe("Tesis");
+    expect(staleFolderDeleteJson.data.folder?.noteCount).toBe(1);
 
     const deleteFolderRes = await folderDelete(
       makeAuthedRequest(
@@ -300,6 +362,21 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
       { params: Promise.resolve({ id: folderId }) },
     );
     expect(deleteFolderRes.status).toBe(200);
+    const deleteFolderJson = (await deleteFolderRes.json()) as {
+      ok: true;
+      data: {
+        deleted: boolean;
+        id: string;
+        movedNotesCount: number;
+        conflictResolved: string;
+      };
+    };
+    expect(deleteFolderJson.data).toEqual({
+      deleted: true,
+      id: folderId,
+      movedNotesCount: 1,
+      conflictResolved: "applied",
+    });
 
     const listFoldersAfter = await foldersGet(
       makeAuthedRequest("http://localhost:3000/api/folders", "GET", alice.cookie),
@@ -320,9 +397,9 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     );
     const noteAfterJson = (await noteAfterFolderDelete.json()) as {
       ok: true;
-      data: { id: string; folderId: string | null };
+      data: { note: { id: string; folderId: string | null } };
     };
-    expect(noteAfterJson.data.folderId).toBeNull();
+    expect(noteAfterJson.data.note.folderId).toBeNull();
   });
 
   it("toggles GFM checklist items via API and safely unlinks transactions + runs cleanup hook post-commit on empty DELETE", async () => {
@@ -342,8 +419,8 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
       ),
     );
     expect(noteRes.status).toBe(201);
-    const noteData = ((await noteRes.json()) as { ok: true; data: { id: string } })
-      .data;
+    const noteData = ((await noteRes.json()) as { ok: true; data: { note: { id: string } } })
+      .data.note;
 
     // Toggle index 1 ("Hotel", skipping fenced code item)
     const checkRes = await checklistPatch(
@@ -359,16 +436,20 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     const checkedJson = (await checkRes.json()) as {
       ok: true;
       data: {
-        content: string;
-        checklistTotal: number;
-        checklistCompleted: number;
+        note: {
+          content: string;
+          checklistTotal: number;
+          checklistCompleted: number;
+        };
+        conflictResolved: string;
       };
     };
-    expect(checkedJson.data.content).toBe(
+    expect(checkedJson.data.conflictResolved).toBe("applied");
+    expect(checkedJson.data.note.content).toBe(
       "- [ ] Tiket\n```md\n- [ ] Fenced\n```\n- [x] Hotel",
     );
-    expect(checkedJson.data.checklistTotal).toBe(2);
-    expect(checkedJson.data.checklistCompleted).toBe(1);
+    expect(checkedJson.data.note.checklistTotal).toBe(2);
+    expect(checkedJson.data.note.checklistCompleted).toBe(1);
 
     // Out-of-range index -> 422
     const invalidCheckRes = await checklistPatch(
@@ -435,6 +516,15 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
         { params: Promise.resolve({ id: noteData.id }) },
       );
       expect(delRes.status).toBe(200);
+      const delJson = (await delRes.json()) as {
+        ok: true;
+        data: { deleted: boolean; id: string; conflictResolved: string };
+      };
+      expect(delJson.data).toEqual({
+        deleted: true,
+        id: noteData.id,
+        conflictResolved: "applied",
+      });
       expect(cleanupSpy).toHaveBeenCalledTimes(1);
       expect(cleanupSpy).toHaveBeenCalledWith({
         userId: alice.userId,
@@ -463,8 +553,8 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
         { name: "Kuliah" },
       ),
     );
-    const folderId = ((await fRes.json()) as { ok: true; data: { id: string } })
-      .data.id;
+    const folderId = ((await fRes.json()) as { ok: true; data: { folder: { id: string } } })
+      .data.folder.id;
 
     // Create 3 notes: 1 pinned with wildcard char `%`, 2 unpinned in different folders/tags
     await notesPost(
@@ -517,9 +607,9 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     expect(pctSearchRes.status).toBe(200);
     const pctJson = (await pctSearchRes.json()) as {
       ok: true;
-      data: { notes: { title: string }[] };
+      data: { items: { title: string }[] };
     };
-    expect(pctJson.data.notes.map((n) => n.title)).toEqual([
+    expect(pctJson.data.items.map((n) => n.title)).toEqual([
       "Diskon 50% Promo",
     ]);
 
@@ -533,25 +623,25 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     );
     const tagSearchJson = (await tagSearchRes.json()) as {
       ok: true;
-      data: { notes: { title: string }[] };
+      data: { items: { title: string }[] };
     };
-    expect(tagSearchJson.data.notes.map((n) => n.title)).toEqual([
+    expect(tagSearchJson.data.items.map((n) => n.title)).toEqual([
       "Catatan Kos",
     ]);
 
-    // Filter folderId=unfiled excludes "Jadwal Ujian" (in folder)
+    // Filter folderId=none excludes "Jadwal Ujian" (in folder)
     const unfiledRes = await notesGet(
       makeAuthedRequest(
-        "http://localhost:3000/api/notes?folderId=unfiled",
+        "http://localhost:3000/api/notes?folderId=none",
         "GET",
         alice.cookie,
       ),
     );
     const unfiledJson = (await unfiledRes.json()) as {
       ok: true;
-      data: { notes: { title: string; isPinned: boolean }[] };
+      data: { items: { title: string; isPinned: boolean }[] };
     };
-    expect(unfiledJson.data.notes.map((n) => n.title)).toEqual([
+    expect(unfiledJson.data.items.map((n) => n.title)).toEqual([
       "Diskon 50% Promo",
       "Catatan Kos",
     ]);
@@ -567,14 +657,12 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     const page1 = (await page1Res.json()) as {
       ok: true;
       data: {
-        notes: { title: string }[];
-        hasMore: boolean;
+        items: { title: string }[];
         nextCursor: string | null;
       };
     };
-    expect(page1.data.notes).toHaveLength(2);
-    expect(page1.data.notes[0].title).toBe("Diskon 50% Promo");
-    expect(page1.data.hasMore).toBe(true);
+    expect(page1.data.items).toHaveLength(2);
+    expect(page1.data.items[0].title).toBe("Diskon 50% Promo");
     expect(page1.data.nextCursor).toBeTruthy();
 
     const page2Res = await notesGet(
@@ -586,10 +674,10 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     );
     const page2 = (await page2Res.json()) as {
       ok: true;
-      data: { notes: { title: string }[]; hasMore: boolean };
+      data: { items: { title: string }[]; nextCursor: string | null };
     };
-    expect(page2.data.notes).toHaveLength(1);
-    expect(page2.data.hasMore).toBe(false);
+    expect(page2.data.items).toHaveLength(1);
+    expect(page2.data.nextCursor).toBeNull();
 
     // Malformed cursor returns 400 INVALID_CURSOR; limit > 100 returns 422
     const badCursorRes = await notesGet(
@@ -621,11 +709,11 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     expect(byTagParamRes.status).toBe(200);
     const byTagJson = (await byTagParamRes.json()) as {
       ok: true;
-      data: { notes: { title: string }[] };
+      data: { items: { title: string }[] };
     };
-    expect(byTagJson.data.notes.map((n) => n.title)).toEqual(["Catatan Kos"]);
+    expect(byTagJson.data.items.map((n) => n.title)).toEqual(["Catatan Kos"]);
 
-    // Normalizes/deduplicates tags BEFORE max(20) ceiling (25 duplicates -> 2 unique passes; 21 distinct -> 422)
+    // Trims, drops empty tags, & deduplicates BEFORE max(20) ceiling (whitespace + 25 duplicates -> 2 unique passes; 21 distinct -> 422)
     const dedupTagsRes = await notesPost(
       makeAuthedRequest(
         "http://localhost:3000/api/notes",
@@ -635,7 +723,9 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
           title: "Many Dup Tags",
           content: "ok",
           tags: [
-            ...Array.from({ length: 15 }, () => "Work"),
+            "",
+            "   ",
+            ...Array.from({ length: 15 }, () => " Work "),
             ...Array.from({ length: 10 }, () => "work"),
             "finance",
           ],
@@ -645,9 +735,9 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
     expect(dedupTagsRes.status).toBe(201);
     const dedupJson = (await dedupTagsRes.json()) as {
       ok: true;
-      data: { tags: { name: string }[] };
+      data: { note: { tags: { name: string }[] } };
     };
-    expect(dedupJson.data.tags.map((item) => item.name)).toEqual([
+    expect(dedupJson.data.note.tags.map((item) => item.name)).toEqual([
       "finance",
       "Work",
     ]);

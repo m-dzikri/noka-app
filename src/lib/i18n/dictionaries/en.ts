@@ -54,6 +54,8 @@ export const enDictionary: Dictionary = {
     INVALID_OR_EXPIRED_TOKEN:
       "This password reset link is invalid or has expired.",
     NOT_FOUND: "Resource not found.",
+    NOTE_NOT_FOUND: "Note not found.",
+    FOLDER_NOT_FOUND: "Folder not found.",
     INVALID_CURSOR: "Invalid pagination cursor.",
     FOLDER_NAME_EXISTS: "A folder with this name already exists.",
     NOTE_ALREADY_EXISTS: "Note ID already exists.",

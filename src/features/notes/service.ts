@@ -57,6 +57,8 @@ export interface NoteTagItemDto {
   name: string;
 }
 
+export type ConflictResolution = "applied" | "server_newer";
+
 export interface NoteDto {
   id: string;
   folderId: string | null;
@@ -69,26 +71,35 @@ export interface NoteDto {
   checklistCompleted: number;
   createdAt: string;
   updatedAt: string;
-  conflictResolved?: "server_wins";
+}
+
+export interface NoteMutationResult {
+  note: NoteDto;
+  conflictResolved: ConflictResolution;
+}
+
+export interface FolderMutationResult {
+  folder: FolderDto;
+  conflictResolved: ConflictResolution;
 }
 
 export interface NoteListResult {
-  notes: NoteDto[];
+  items: NoteDto[];
   nextCursor: string | null;
-  hasMore: boolean;
 }
 
 export interface NoteDeleteResult {
   deleted: boolean;
   id: string;
-  conflictResolved?: "server_wins";
+  conflictResolved: ConflictResolution;
   note?: NoteDto;
 }
 
 export interface FolderDeleteResult {
   deleted: boolean;
   id: string;
-  conflictResolved?: "server_wins";
+  movedNotesCount?: number;
+  conflictResolved: ConflictResolution;
   folder?: FolderDto;
 }
 
@@ -222,7 +233,6 @@ function buildNoteDto(
     updatedAt: Date;
   },
   noteTagItems: NoteTagItemDto[],
-  conflictResolved?: "server_wins",
 ): NoteDto {
   const checklists = parseChecklists(row.content);
   let completed = 0;
@@ -244,7 +254,6 @@ function buildNoteDto(
     checklistCompleted: completed,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
-    ...(conflictResolved ? { conflictResolved } : {}),
   };
 }
 
@@ -266,10 +275,28 @@ async function assertOwnedActiveFolder(
     .limit(1);
 
   if (!rows[0]) {
-    throw new ApiError(404, "NOT_FOUND", "Folder not found");
+    throw new ApiError(404, "FOLDER_NOT_FOUND", "Folder not found");
   }
 
   return rows[0].name;
+}
+
+async function countActiveNotesInFolder(
+  tx: DbOrTx,
+  userId: string,
+  folderId: string,
+): Promise<number> {
+  const countRows = await tx
+    .select({ count: sql<number>`count(*)::int` })
+    .from(notes)
+    .where(
+      and(
+        eq(notes.userId, userId),
+        eq(notes.folderId, folderId),
+        isNull(notes.deletedAt),
+      ),
+    );
+  return Number(countRows[0]?.count ?? 0);
 }
 
 async function fetchTagsByNoteIds(
@@ -509,7 +536,7 @@ export async function listNotes(
   const limit = query.limit ?? NOTE_LIST_DEFAULT_LIMIT;
   const conditions = [eq(notes.userId, userId), isNull(notes.deletedAt)];
 
-  if (query.folderId === "unfiled") {
+  if (query.folderId === "none") {
     conditions.push(isNull(notes.folderId));
   } else if (query.folderId !== undefined) {
     conditions.push(eq(notes.folderId, query.folderId));
@@ -636,14 +663,13 @@ export async function listNotes(
     hasMore && lastRow ? encodeNotesCursor(lastRow) : null;
 
   return {
-    notes: items,
+    items,
     nextCursor,
-    hasMore,
   };
 }
 
 /**
- * Fetches a single active note owned by the user or throws 404 NOT_FOUND (SEC-1).
+ * Fetches a single active note owned by the user or throws 404 NOTE_NOT_FOUND (SEC-1).
  */
 export async function getNoteById(
   userId: string,
@@ -652,7 +678,7 @@ export async function getNoteById(
 ): Promise<NoteDto> {
   const row = await fetchHydratedNoteRow(dbOrTx, userId, noteId);
   if (!row) {
-    throw new ApiError(404, "NOT_FOUND", "Note not found");
+    throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
   }
 
   const tagMap = await fetchTagsByNoteIds(dbOrTx, userId, [row.id]);
@@ -733,21 +759,20 @@ export async function updateNote(
   noteId: string,
   input: UpdateNoteInput,
   txArg?: DbOrTx,
-): Promise<NoteDto> {
-  const run = async (tx: DbOrTx): Promise<NoteDto> => {
+): Promise<NoteMutationResult> {
+  const run = async (tx: DbOrTx): Promise<NoteMutationResult> => {
     const existing = await fetchHydratedNoteRow(tx, userId, noteId);
     if (!existing) {
-      throw new ApiError(404, "NOT_FOUND", "Note not found");
+      throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
     }
 
     const lww = resolveLwwTimestamp(existing.updatedAt, input.updatedAt);
     if (lww.serverNewer) {
       const existingTags = await fetchTagsByNoteIds(tx, userId, [noteId]);
-      return buildNoteDto(
-        existing,
-        existingTags.get(noteId) ?? [],
-        "server_wins",
-      );
+      return {
+        note: buildNoteDto(existing, existingTags.get(noteId) ?? []),
+        conflictResolved: "server_newer",
+      };
     }
 
     let nextFolderName = existing.folderName;
@@ -797,7 +822,7 @@ export async function updateNote(
 
     const updatedRow = updatedRows[0];
     if (!updatedRow) {
-      throw new ApiError(404, "NOT_FOUND", "Note not found");
+      throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
     }
 
     const nextTags =
@@ -805,13 +830,16 @@ export async function updateNote(
         ? await syncNoteTags(tx, userId, noteId, input.tags, lww.nextUpdatedAt)
         : ((await fetchTagsByNoteIds(tx, userId, [noteId])).get(noteId) ?? []);
 
-    return buildNoteDto(
-      {
-        ...updatedRow,
-        folderName: nextFolderName,
-      },
-      nextTags,
-    );
+    return {
+      note: buildNoteDto(
+        {
+          ...updatedRow,
+          folderName: nextFolderName,
+        },
+        nextTags,
+      ),
+      conflictResolved: "applied",
+    };
   };
 
   return txArg ? run(txArg) : getDb().transaction(run);
@@ -825,21 +853,20 @@ export async function toggleNoteChecklist(
   noteId: string,
   input: ToggleChecklistInput,
   txArg?: DbOrTx,
-): Promise<NoteDto> {
-  const run = async (tx: DbOrTx): Promise<NoteDto> => {
+): Promise<NoteMutationResult> {
+  const run = async (tx: DbOrTx): Promise<NoteMutationResult> => {
     const existing = await fetchHydratedNoteRow(tx, userId, noteId);
     if (!existing) {
-      throw new ApiError(404, "NOT_FOUND", "Note not found");
+      throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
     }
 
     const lww = resolveLwwTimestamp(existing.updatedAt, input.updatedAt);
     if (lww.serverNewer) {
       const existingTags = await fetchTagsByNoteIds(tx, userId, [noteId]);
-      return buildNoteDto(
-        existing,
-        existingTags.get(noteId) ?? [],
-        "server_wins",
-      );
+      return {
+        note: buildNoteDto(existing, existingTags.get(noteId) ?? []),
+        conflictResolved: "server_newer",
+      };
     }
 
     const nextContent = toggleChecklistInMarkdown(
@@ -873,19 +900,22 @@ export async function toggleNoteChecklist(
 
     const updatedRow = updatedRows[0];
     if (!updatedRow) {
-      throw new ApiError(404, "NOT_FOUND", "Note not found");
+      throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
     }
 
     const noteTagList =
       (await fetchTagsByNoteIds(tx, userId, [noteId])).get(noteId) ?? [];
 
-    return buildNoteDto(
-      {
-        ...updatedRow,
-        folderName: existing.folderName,
-      },
-      noteTagList,
-    );
+    return {
+      note: buildNoteDto(
+        {
+          ...updatedRow,
+          folderName: existing.folderName,
+        },
+        noteTagList,
+      ),
+      conflictResolved: "applied",
+    };
   };
 
   return txArg ? run(txArg) : getDb().transaction(run);
@@ -906,7 +936,7 @@ export async function deleteNoteInTx(
 }> {
   const existing = await fetchHydratedNoteRow(tx, userId, noteId);
   if (!existing) {
-    throw new ApiError(404, "NOT_FOUND", "Note not found");
+    throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
   }
 
   const lww = resolveLwwTimestamp(existing.updatedAt, input.updatedAt);
@@ -916,12 +946,8 @@ export async function deleteNoteInTx(
       result: {
         deleted: false,
         id: noteId,
-        conflictResolved: "server_wins",
-        note: buildNoteDto(
-          existing,
-          existingTags.get(noteId) ?? [],
-          "server_wins",
-        ),
+        conflictResolved: "server_newer",
+        note: buildNoteDto(existing, existingTags.get(noteId) ?? []),
       },
       cleanupPayload: null,
     };
@@ -969,6 +995,7 @@ export async function deleteNoteInTx(
     result: {
       deleted: true,
       id: noteId,
+      conflictResolved: "applied",
     },
     cleanupPayload: {
       userId,
@@ -1130,8 +1157,8 @@ export async function updateFolder(
   folderId: string,
   input: UpdateFolderInput,
   txArg?: DbOrTx,
-): Promise<FolderDto> {
-  const run = async (tx: DbOrTx): Promise<FolderDto> => {
+): Promise<FolderMutationResult> {
+  const run = async (tx: DbOrTx): Promise<FolderMutationResult> => {
     const existingRows = await tx
       .select()
       .from(folders)
@@ -1146,29 +1173,22 @@ export async function updateFolder(
 
     const existing = existingRows[0];
     if (!existing) {
-      throw new ApiError(404, "NOT_FOUND", "Folder not found");
+      throw new ApiError(404, "FOLDER_NOT_FOUND", "Folder not found");
     }
 
-    const countRows = await tx
-      .select({ count: sql<number>`count(*)::int` })
-      .from(notes)
-      .where(
-        and(
-          eq(notes.userId, userId),
-          eq(notes.folderId, folderId),
-          isNull(notes.deletedAt),
-        ),
-      );
-    const noteCount = Number(countRows[0]?.count ?? 0);
+    const noteCount = await countActiveNotesInFolder(tx, userId, folderId);
 
     const lww = resolveLwwTimestamp(existing.updatedAt, input.updatedAt);
     if (lww.serverNewer) {
       return {
-        id: existing.id,
-        name: existing.name,
-        noteCount,
-        createdAt: existing.createdAt.toISOString(),
-        updatedAt: existing.updatedAt.toISOString(),
+        folder: {
+          id: existing.id,
+          name: existing.name,
+          noteCount,
+          createdAt: existing.createdAt.toISOString(),
+          updatedAt: existing.updatedAt.toISOString(),
+        },
+        conflictResolved: "server_newer",
       };
     }
 
@@ -1215,15 +1235,18 @@ export async function updateFolder(
 
       const updated = updatedRows[0];
       if (!updated) {
-        throw new ApiError(404, "NOT_FOUND", "Folder not found");
+        throw new ApiError(404, "FOLDER_NOT_FOUND", "Folder not found");
       }
 
       return {
-        id: updated.id,
-        name: updated.name,
-        noteCount,
-        createdAt: updated.createdAt.toISOString(),
-        updatedAt: updated.updatedAt.toISOString(),
+        folder: {
+          id: updated.id,
+          name: updated.name,
+          noteCount,
+          createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
+        },
+        conflictResolved: "applied",
       };
     } catch (error) {
       if (isUniqueConstraintViolation(error)) {
@@ -1264,26 +1287,27 @@ export async function deleteFolder(
 
     const existing = existingRows[0];
     if (!existing) {
-      throw new ApiError(404, "NOT_FOUND", "Folder not found");
+      throw new ApiError(404, "FOLDER_NOT_FOUND", "Folder not found");
     }
 
     const lww = resolveLwwTimestamp(existing.updatedAt, input.updatedAt);
     if (lww.serverNewer) {
+      const noteCount = await countActiveNotesInFolder(tx, userId, folderId);
       return {
         deleted: false,
         id: folderId,
-        conflictResolved: "server_wins",
+        conflictResolved: "server_newer",
         folder: {
           id: existing.id,
           name: existing.name,
-          noteCount: 0,
+          noteCount,
           createdAt: existing.createdAt.toISOString(),
           updatedAt: existing.updatedAt.toISOString(),
         },
       };
     }
 
-    await tx
+    const movedRows = await tx
       .update(notes)
       .set({
         folderId: null,
@@ -1295,7 +1319,8 @@ export async function deleteFolder(
           eq(notes.folderId, folderId),
           isNull(notes.deletedAt),
         ),
-      );
+      )
+      .returning({ id: notes.id });
 
     await tx
       .update(folders)
@@ -1314,6 +1339,8 @@ export async function deleteFolder(
     return {
       deleted: true,
       id: folderId,
+      movedNotesCount: movedRows.length,
+      conflictResolved: "applied",
     };
   };
 

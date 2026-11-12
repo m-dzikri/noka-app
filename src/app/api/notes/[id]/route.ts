@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: NoteRouteContext) {
     const noteId = parseUuidRouteParam(id);
 
     const note = await getNoteById(user.id, noteId);
-    return apiOk(note);
+    return apiOk({ note });
   } catch (error) {
     return handleApiError(error);
   }

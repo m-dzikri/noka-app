@@ -28,7 +28,12 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { parseChecklists, toggleChecklistInMarkdown } from "@/features/notes/checklist";
 import { normalizeTagNames } from "@/features/notes/schemas";
-import type { FolderDto, NoteDto } from "@/features/notes/service";
+import type {
+  FolderDto,
+  NoteDeleteResult,
+  NoteDto,
+  NoteMutationResult,
+} from "@/features/notes/service";
 import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 import { cn } from "@/lib/cn";
@@ -107,6 +112,21 @@ export function NoteEditor({
     onSavedRef.current = onSaved;
   }, [onSaved]);
 
+  const applyServerNote = useCallback((serverNote: NoteDto, showConflict: boolean) => {
+    serverUpdatedAtRef.current = serverNote.updatedAt;
+    dirtyRef.current = false;
+    draftRef.current = toDraftSnapshot(serverNote);
+    setTitle(serverNote.title);
+    setContent(serverNote.content);
+    setFolderId(serverNote.folderId);
+    setIsPinned(serverNote.isPinned);
+    setTagNames(serverNote.tags.map((item) => item.name));
+    setSaveStatus("saved");
+    if (showConflict) {
+      setConflictNotice(true);
+    }
+  }, []);
+
   const clearPendingTimer = useCallback(() => {
     if (debounceTimerRef.current !== null) {
       clearTimeout(debounceTimerRef.current);
@@ -148,32 +168,24 @@ export function NoteEditor({
 
         const payload = (await response.json().catch(() => null)) as {
           ok?: boolean;
-          data?: NoteDto;
+          data?: NoteMutationResult;
         } | null;
 
-        if (!response.ok || payload?.ok !== true || !payload.data) {
+        if (!response.ok || payload?.ok !== true || !payload.data?.note) {
           if (activeNoteIdRef.current === targetNoteId) {
             setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
           }
           return null;
         }
 
-        const savedNote = payload.data;
+        const savedNote = payload.data.note;
         onSavedRef.current(savedNote);
 
         if (activeNoteIdRef.current === targetNoteId) {
-          serverUpdatedAtRef.current = savedNote.updatedAt;
-          if (savedNote.conflictResolved === "server_wins") {
-            dirtyRef.current = false;
-            draftRef.current = toDraftSnapshot(savedNote);
-            setTitle(savedNote.title);
-            setContent(savedNote.content);
-            setFolderId(savedNote.folderId);
-            setIsPinned(savedNote.isPinned);
-            setTagNames(savedNote.tags.map((item) => item.name));
-            setConflictNotice(true);
-            setSaveStatus("saved");
+          if (payload.data.conflictResolved === "server_newer") {
+            applyServerNote(savedNote, true);
           } else {
+            serverUpdatedAtRef.current = savedNote.updatedAt;
             const matchesCurrentDraft =
               draftRef.current.title === snapshot.title &&
               draftRef.current.content === snapshot.content &&
@@ -196,7 +208,7 @@ export function NoteEditor({
         return null;
       }
     },
-    [],
+    [applyServerNote],
   );
 
   // Flush pending edits when switching to another note, then load the newly selected note.
@@ -402,22 +414,23 @@ export function NoteEditor({
 
       const payload = (await response.json().catch(() => null)) as {
         ok?: boolean;
-        data?: NoteDto;
+        data?: NoteMutationResult;
       } | null;
 
-      if (!response.ok || payload?.ok !== true || !payload.data) {
+      if (!response.ok || payload?.ok !== true || !payload.data?.note) {
         setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
         return;
       }
 
-      const updatedNote = payload.data;
-      serverUpdatedAtRef.current = updatedNote.updatedAt;
-      dirtyRef.current = false;
-      draftRef.current = toDraftSnapshot(updatedNote);
-      setContent(updatedNote.content);
-      setSaveStatus("saved");
-      if (updatedNote.conflictResolved === "server_wins") {
-        setConflictNotice(true);
+      const updatedNote = payload.data.note;
+      if (payload.data.conflictResolved === "server_newer") {
+        applyServerNote(updatedNote, true);
+      } else {
+        serverUpdatedAtRef.current = updatedNote.updatedAt;
+        dirtyRef.current = false;
+        draftRef.current = toDraftSnapshot(updatedNote);
+        setContent(updatedNote.content);
+        setSaveStatus("saved");
       }
       onSavedRef.current(updatedNote);
     } catch {
@@ -458,8 +471,24 @@ export function NoteEditor({
         body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
       });
 
-      if (!response.ok) {
-        setSaveStatus("error");
+      const payload = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        data?: NoteDeleteResult;
+      } | null;
+
+      if (!response.ok || payload?.ok !== true || !payload.data) {
+        setSaveStatus(response.status >= 500 ? "pending_sync" : "error");
+        setDeleteModalOpen(false);
+        return;
+      }
+
+      if (!payload.data.deleted) {
+        if (payload.data.note) {
+          applyServerNote(payload.data.note, true);
+          onSavedRef.current(payload.data.note);
+        } else {
+          setSaveStatus("error");
+        }
         setDeleteModalOpen(false);
         return;
       }

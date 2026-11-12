@@ -5,7 +5,11 @@ import { FolderPlus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import type { FolderDto } from "@/features/notes/service";
+import type {
+  FolderDeleteResult,
+  FolderDto,
+  FolderMutationResult,
+} from "@/features/notes/service";
 import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -75,18 +79,24 @@ export function FolderManagerModal({
         }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { ok: true; data: FolderDto }
+        | { ok: true; data: { folder: FolderDto } }
         | ApiErrorPayload
         | null;
 
-      if (!response.ok || !payload || !("ok" in payload) || payload.ok !== true) {
+      if (
+        !response.ok ||
+        !payload ||
+        !("ok" in payload) ||
+        payload.ok !== true ||
+        !payload.data?.folder
+      ) {
         setErrorMsg(
           resolveFolderErrorMessage(t, payload as ApiErrorPayload | null),
         );
         return;
       }
 
-      const nextFolders = [...folders, payload.data].sort((a, b) =>
+      const nextFolders = [...folders, payload.data.folder].sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
       );
       setNewName("");
@@ -117,11 +127,17 @@ export function FolderManagerModal({
         }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { ok: true; data: FolderDto }
+        | { ok: true; data: FolderMutationResult }
         | ApiErrorPayload
         | null;
 
-      if (!response.ok || !payload || !("ok" in payload) || payload.ok !== true) {
+      if (
+        !response.ok ||
+        !payload ||
+        !("ok" in payload) ||
+        payload.ok !== true ||
+        !payload.data?.folder
+      ) {
         setErrorMsg(
           resolveFolderErrorMessage(t, payload as ApiErrorPayload | null),
         );
@@ -129,12 +145,15 @@ export function FolderManagerModal({
       }
 
       const nextFolders = folders
-        .map((item) => (item.id === folderId ? payload.data : item))
+        .map((item) => (item.id === folderId ? payload.data.folder : item))
         .sort((a, b) =>
           a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
         );
       setEditingId(null);
       setEditingName("");
+      if (payload.data.conflictResolved === "server_newer") {
+        setErrorMsg(t.notes.conflictServerWinsNotice);
+      }
       onFoldersChanged(nextFolders);
     } catch {
       setErrorMsg(t.errors.generic);
@@ -153,14 +172,33 @@ export function FolderManagerModal({
         body: JSON.stringify({ idempotencyKey: crypto.randomUUID() }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { ok: true; data: { deleted: boolean; id: string } }
+        | { ok: true; data: FolderDeleteResult }
         | ApiErrorPayload
         | null;
 
-      if (!response.ok || !payload || !("ok" in payload) || payload.ok !== true) {
+      if (
+        !response.ok ||
+        !payload ||
+        !("ok" in payload) ||
+        payload.ok !== true ||
+        !payload.data
+      ) {
         setErrorMsg(
           resolveFolderErrorMessage(t, payload as ApiErrorPayload | null),
         );
+        return;
+      }
+
+      if (!payload.data.deleted) {
+        if (payload.data.folder) {
+          const nextFolders = folders
+            .map((item) => (item.id === folderId ? payload.data.folder! : item))
+            .sort((a, b) =>
+              a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+            );
+          onFoldersChanged(nextFolders);
+        }
+        setErrorMsg(t.notes.conflictServerWinsNotice);
         return;
       }
 

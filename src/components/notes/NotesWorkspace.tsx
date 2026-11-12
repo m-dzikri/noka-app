@@ -34,7 +34,6 @@ import { cn } from "@/lib/cn";
 export interface NotesWorkspaceProps {
   initialNotes: NoteDto[];
   initialNextCursor: string | null;
-  initialHasMore?: boolean;
   initialFolders: FolderDto[];
   initialTags: TagDto[];
   renderAttachmentsSlot?: (note: NoteDto) => ReactNode;
@@ -43,7 +42,7 @@ export interface NotesWorkspaceProps {
 
 const SEARCH_DEBOUNCE_MS = 180;
 
-type FolderFilter = "all" | "unfiled" | string;
+type FolderFilter = "all" | "none" | string;
 
 function sortNotesPinnedFirst(list: NoteDto[]): NoteDto[] {
   return [...list].sort((a, b) => {
@@ -69,13 +68,13 @@ function noteMatchesActiveFilters(
     return false;
   }
 
-  if (folderFilter === "unfiled" && note.folderId !== null) {
+  if (folderFilter === "none" && note.folderId !== null) {
     return false;
   }
 
   if (
     folderFilter !== "all" &&
-    folderFilter !== "unfiled" &&
+    folderFilter !== "none" &&
     note.folderId !== folderFilter
   ) {
     return false;
@@ -111,7 +110,6 @@ function buildContentExcerpt(content: string): string {
 export function NotesWorkspace({
   initialNotes,
   initialNextCursor,
-  initialHasMore,
   initialFolders,
   initialTags,
   renderAttachmentsSlot,
@@ -122,9 +120,7 @@ export function NotesWorkspace({
 
   const [notesList, setNotesList] = useState<NoteDto[]>(initialNotes);
   const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
-  const [hasMore, setHasMore] = useState<boolean>(
-    initialHasMore ?? Boolean(initialNextCursor),
-  );
+  const hasMore = Boolean(nextCursor);
   const [foldersList, setFoldersList] = useState<FolderDto[]>(initialFolders);
   const [tagsList, setTagsList] = useState<TagDto[]>(initialTags);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
@@ -260,13 +256,12 @@ export function NotesWorkspace({
         }
 
         setErrorBanner(null);
-        setNotesList(payload.data.notes);
+        setNotesList(payload.data.items);
         setNextCursor(payload.data.nextCursor);
-        setHasMore(payload.data.hasMore);
         setSelectedNoteId((prev) =>
-          prev && payload.data!.notes.some((item) => item.id === prev)
+          prev && payload.data!.items.some((item) => item.id === prev)
             ? prev
-            : (payload.data!.notes[0]?.id ?? null),
+            : (payload.data!.items[0]?.id ?? null),
         );
       } catch {
         if (currentFetchId === fetchIdRef.current) {
@@ -284,7 +279,7 @@ export function NotesWorkspace({
 
     try {
       const targetFolderId =
-        folderFilter !== "all" && folderFilter !== "unfiled"
+        folderFilter !== "all" && folderFilter !== "none"
           ? folderFilter
           : null;
 
@@ -302,15 +297,15 @@ export function NotesWorkspace({
 
       const payload = (await response.json().catch(() => null)) as {
         ok?: boolean;
-        data?: NoteDto;
+        data?: { note?: NoteDto };
       } | null;
 
-      if (!response.ok || payload?.ok !== true || !payload.data) {
+      if (!response.ok || payload?.ok !== true || !payload.data?.note) {
         setErrorBanner(t.errors.generic);
         return;
       }
 
-      const created = payload.data;
+      const created = payload.data.note;
       setNotesList((prev) => sortNotesPinnedFirst([created, ...prev]));
       setSelectedNoteId(created.id);
       void refreshTagsAndFolders();
@@ -352,13 +347,12 @@ export function NotesWorkspace({
 
       setNotesList((prev) => {
         const seen = new Set(prev.map((item) => item.id));
-        const appended = payload.data!.notes.filter(
+        const appended = payload.data!.items.filter(
           (item) => !seen.has(item.id),
         );
         return [...prev, ...appended];
       });
       setNextCursor(payload.data.nextCursor);
-      setHasMore(payload.data.hasMore);
     } catch {
       setErrorBanner(t.errors.generic);
     } finally {
@@ -544,14 +538,14 @@ export function NotesWorkspace({
 
               <button
                 type="button"
-                aria-pressed={folderFilter === "unfiled"}
+                aria-pressed={folderFilter === "none"}
                 onClick={() => {
                   hasFilterInteractionRef.current = true;
-                  setFolderFilter("unfiled");
+                  setFolderFilter("none");
                 }}
                 className={cn(
                   "min-h-8 cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                  folderFilter === "unfiled"
+                  folderFilter === "none"
                     ? "bg-[var(--accent-primary)] text-[var(--accent-foreground)]"
                     : "border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
                 )}
