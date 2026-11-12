@@ -3,6 +3,12 @@ import { ApiError } from "@/lib/api-response";
 
 export const WALLET_TYPES = ["cash", "bank", "ewallet"] as const;
 export const CATEGORY_TYPES = ["income", "expense"] as const;
+export const FINANCE_SUMMARY_FILTER_TYPES = [
+  "all",
+  "income",
+  "expense",
+  "transfer",
+] as const;
 
 export const WALLET_NAME_MAX_LENGTH = 80;
 export const CATEGORY_NAME_MAX_LENGTH = 60;
@@ -15,6 +21,8 @@ export const DEFAULT_TZ_OFFSET_MINUTES = 420; // UTC+7 (WIB)
 
 export type WalletType = (typeof WALLET_TYPES)[number];
 export type FinanceEntryType = (typeof CATEGORY_TYPES)[number];
+export type FinanceSummaryFilterType =
+  (typeof FINANCE_SUMMARY_FILTER_TYPES)[number];
 
 export const uuidSchema = z.string().uuid();
 
@@ -350,6 +358,21 @@ export const transferListQuerySchema = z.object({
   cursor: cursorQuerySchema,
 });
 
+export const financeSummaryQuerySchema = z.object({
+  from: optionalDateFilterSchema,
+  to: optionalDateFilterSchema,
+  walletId: uuidSchema.optional(),
+  type: z.enum(FINANCE_SUMMARY_FILTER_TYPES).optional().default("all"),
+  categoryId: uuidSchema.optional(),
+  includeArchived: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) => value === "true"),
+  tzOffset: tzOffsetQuerySchema,
+  limit: limitQuerySchema,
+  cursor: cursorQuerySchema,
+});
+
 export type CreateWalletInput = z.infer<typeof createWalletSchema>;
 export type UpdateWalletInput = z.infer<typeof updateWalletSchema>;
 export type WalletListQueryInput = z.infer<typeof walletListQuerySchema>;
@@ -365,6 +388,7 @@ export type TransactionListQueryInput = z.infer<typeof transactionListQuerySchem
 export type CreateTransferInput = z.infer<typeof createTransferSchema>;
 export type UpdateTransferInput = z.infer<typeof updateTransferSchema>;
 export type TransferListQueryInput = z.infer<typeof transferListQuerySchema>;
+export type FinanceSummaryQueryInput = z.infer<typeof financeSummaryQuerySchema>;
 
 export type DeleteFinanceMutationBody = z.infer<typeof deleteFinanceMutationBodySchema>;
 

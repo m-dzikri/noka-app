@@ -450,6 +450,7 @@ export const idDictionary: Dictionary = {
       allTypes: "Semua Tipe",
       income: "Pemasukan",
       expense: "Pengeluaran",
+      transfer: "Transfer",
       allCategories: "Semua Kategori",
       fromDate: "Dari",
       toDate: "Sampai",
@@ -457,9 +458,12 @@ export const idDictionary: Dictionary = {
     },
     ledger: {
       sectionTitle: "Buku Besar Ledger",
+      allTab: "Semua",
       transactionsTab: "Transaksi",
       transfersTab: "Transfer Antar-Dompet",
       linkedBadge: "Tertaut Catatan",
+      transferBadge: "Transfer",
+      emptyCombined: "Belum ada transaksi atau transfer sesuai filter ini.",
       emptyTransactions: "Belum ada transaksi sesuai filter ini.",
       emptyTransfers: "Belum ada transfer antar-dompet sesuai filter ini.",
       loadMore: "Muat Lebih Banyak",
@@ -471,6 +475,29 @@ export const idDictionary: Dictionary = {
       confirmDeleteTransfer:
         "Hapus transfer ini? Saldo kedua dompet akan dikembalikan secara atomik.",
       transferArrowAria: "ke",
+    },
+    summary: {
+      sectionTitle: "Ringkasan Arus Kas",
+      totalIncome: "Pemasukan",
+      totalExpense: "Pengeluaran",
+      netCashflow: "Arus Kas Bersih",
+      categoryBreakdownTitle: "Rincian per Kategori",
+      emptyBreakdown: "Belum ada transaksi pada rentang filter ini.",
+      excludedTransferNote: "Transfer antar-dompet dikecualikan dari arus kas.",
+      shareLabel: "porsi",
+    },
+    safeToSpend: {
+      title: "Safe-to-Spend Harian",
+      perDaySuffix: "/ hari",
+      cycleRangeLabel: "Siklus aktif",
+      remainingDaysLabel: "{days} hari tersisa",
+      includedBalanceLabel: "Saldo dompet terpilih",
+      includedWalletsCount: "{count} dompet dihitung",
+      noWalletsHint:
+        "Aktifkan minimal satu dompet untuk Safe-to-Spend (secara default Tunai & E-Wallet aktif, Bank nonaktif) agar jatah harian dapat dihitung.",
+      nonPositiveHint:
+        "Total saldo dompet Safe-to-Spend saat ini Rp0 atau negatif, sehingga batas aman harian ditetapkan Rp0.",
+      activeHint: "Jatah aman harian sampai akhir siklus aktif (inklusif hari ini).",
     },
     walletModal: {
       title: "Kelola Dompet",
@@ -558,6 +585,14 @@ export const idDictionary: Dictionary = {
       sameWalletError: "Dompet asal dan tujuan tidak boleh sama.",
       invalidAmountError: "Nominal transfer harus bilangan bulat lebih dari 0.",
     },
+  },
+  privacy: {
+    hideLabel: "Sembunyikan Nominal (Privacy Blur)",
+    showLabel: "Tampilkan Nominal (Nonaktifkan Privacy Blur)",
+    shortLabel: "Privasi",
+    activeBadge: "Tersamar",
+    hiddenAriaLabel: "Nominal keuangan disembunyikan",
+    maskedValue: "Rp •••••",
   },
 };
 

@@ -218,6 +218,15 @@ export interface FoldersDictionary {
   deleteNotice: string;
 }
 
+export interface PrivacyDictionary {
+  hideLabel: string;
+  showLabel: string;
+  shortLabel: string;
+  activeBadge: string;
+  hiddenAriaLabel: string;
+  maskedValue: string;
+}
+
 export interface FinanceDictionary {
   pageTitle: string;
   pageSubtitle: string;
@@ -244,6 +253,7 @@ export interface FinanceDictionary {
     allTypes: string;
     income: string;
     expense: string;
+    transfer: string;
     allCategories: string;
     fromDate: string;
     toDate: string;
@@ -251,9 +261,12 @@ export interface FinanceDictionary {
   };
   ledger: {
     sectionTitle: string;
+    allTab: string;
     transactionsTab: string;
     transfersTab: string;
     linkedBadge: string;
+    transferBadge: string;
+    emptyCombined: string;
     emptyTransactions: string;
     emptyTransfers: string;
     loadMore: string;
@@ -264,6 +277,27 @@ export interface FinanceDictionary {
     confirmDeleteTransaction: string;
     confirmDeleteTransfer: string;
     transferArrowAria: string;
+  };
+  summary: {
+    sectionTitle: string;
+    totalIncome: string;
+    totalExpense: string;
+    netCashflow: string;
+    categoryBreakdownTitle: string;
+    emptyBreakdown: string;
+    excludedTransferNote: string;
+    shareLabel: string;
+  };
+  safeToSpend: {
+    title: string;
+    perDaySuffix: string;
+    cycleRangeLabel: string;
+    remainingDaysLabel: string;
+    includedBalanceLabel: string;
+    includedWalletsCount: string;
+    noWalletsHint: string;
+    nonPositiveHint: string;
+    activeHint: string;
   };
   walletModal: {
     title: string;
@@ -510,10 +544,10 @@ export interface Dictionary {
   // Strongly typed Notes & Folders namespaces populated in RFC-004.
   notes: NotesDictionary;
   folders: FoldersDictionary;
-  // Strongly typed Finance Core namespace populated in RFC-006.
+  // Strongly typed Finance Core & Dashboard namespaces populated in RFC-006 / RFC-007.
   finance: FinanceDictionary;
-  // Optional namespaces populated incrementally by RFC-007 through RFC-010 without stubs.
-  privacy?: Record<string, unknown>;
+  privacy: PrivacyDictionary;
+  // Optional namespaces populated incrementally by RFC-008 through RFC-010 without stubs.
   quickCapture?: Record<string, unknown>;
   linkedNotes?: Record<string, unknown>;
   sync?: Record<string, unknown>;

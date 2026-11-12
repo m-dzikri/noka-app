@@ -137,8 +137,13 @@ test.describe("Finance Workspace Core Ledger E2E (RFC-006)", () => {
       await expect(page.getByTestId("finance-total-balance")).toHaveText(
         "Rp1.450.000",
       );
+      await expect(page.getByTestId("safe-to-spend-card")).toBeVisible();
+      await expect(page.getByTestId("safe-to-spend-amount")).toContainText("Rp");
+      await expect(page.getByTestId("cashflow-total-expense")).toHaveText(
+        "-Rp50.000",
+      );
 
-      // Transfer 200.000 from Bank BCA to Kas Tunai -> total stays Rp1.450.000
+      // Transfer 200.000 from Bank BCA to Kas Tunai -> total & cashflow stay invariant
       await page.getByRole("button", { name: "Transfer Dompet" }).click();
       const transferDialog = page.getByRole("dialog");
       await transferDialog
@@ -151,10 +156,59 @@ test.describe("Finance Workspace Core Ledger E2E (RFC-006)", () => {
       await transferDialog.getByLabel("Catatan (opsional)").fill("Topup Tunai");
       await transferDialog.getByRole("button", { name: "Kirim Transfer" }).click();
 
-      await page.getByRole("tab", { name: "Transfer Antar-Dompet" }).click();
+      // Unified ledger shows Topup Tunai immediately while transfers remain excluded from expense cashflow
       await expect(page.getByText("Topup Tunai")).toBeVisible();
+      await expect(page.getByTestId("cashflow-total-expense")).toHaveText(
+        "-Rp50.000",
+      );
+      await page.getByLabel("Tipe transaksi").selectOption("transfer");
+      await expect(page.getByText("Topup Tunai")).toBeVisible();
+      await expect(page.getByText("Sarapan E2E")).toHaveCount(0);
       await expect(page.getByTestId("finance-total-balance")).toHaveText(
         "Rp1.450.000",
+      );
+      await expect(page.getByTestId("cashflow-total-expense")).toHaveText(
+        "Rp0",
+      );
+      await page.getByLabel("Tipe transaksi").selectOption("all");
+      await expect(page.getByText("Sarapan E2E")).toBeVisible();
+      await expect(page.getByTestId("cashflow-total-expense")).toHaveText(
+        "-Rp50.000",
+      );
+
+      // Privacy Blur Mode persists across SSR reload without flash and restores cleanly
+      const privacyToggle = page.getByTestId("privacy-blur-toggle");
+      await expect(privacyToggle).toHaveAttribute("aria-pressed", "false");
+      await privacyToggle.click();
+      await expect(privacyToggle).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByTestId("finance-total-balance")).toHaveText(
+        "Rp •••••",
+      );
+      await expect(page.getByTestId("safe-to-spend-amount")).toHaveText(
+        "Rp •••••",
+      );
+      await expect(page.getByTestId("cashflow-total-expense")).toHaveText(
+        "-Rp •••••",
+      );
+
+      await page.reload();
+      await expect(page.getByTestId("privacy-blur-toggle")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      await expect(page.getByTestId("finance-total-balance")).toHaveText(
+        "Rp •••••",
+      );
+      await expect(page.getByTestId("safe-to-spend-amount")).toHaveText(
+        "Rp •••••",
+      );
+
+      await page.getByTestId("privacy-blur-toggle").click();
+      await expect(page.getByTestId("finance-total-balance")).toHaveText(
+        "Rp1.450.000",
+      );
+      await expect(page.getByTestId("cashflow-total-expense")).toHaveText(
+        "-Rp50.000",
       );
 
       // Custom Category Create & Delete

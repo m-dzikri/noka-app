@@ -11,7 +11,8 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { formatIdr, parseIdrDigits } from "@/features/finance/format";
+import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
+import { parseIdrDigits } from "@/features/finance/format";
 import { WALLET_TYPES, type WalletType } from "@/features/finance/schemas";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import { apiFetch } from "@/lib/http-client";
@@ -356,7 +357,7 @@ function WalletManagerBody({
                   ) : null}
                 </div>
                 <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                  {formatIdr(wallet.currentBalance)}
+                  <PrivacyAmount amount={wallet.currentBalance} signMode="plain" />
                 </p>
               </div>
 
