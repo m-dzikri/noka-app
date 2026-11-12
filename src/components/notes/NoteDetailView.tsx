@@ -5,13 +5,17 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { ArrowLeft, FileWarning } from "lucide-react";
 import { FolderManagerModal } from "@/components/notes/FolderManagerModal";
+import { NoteAttachmentsPanel } from "@/components/notes/NoteAttachmentsPanel";
 import { NoteEditor } from "@/components/notes/NoteEditor";
+import type { NoteAttachmentDto } from "@/features/notes/attachments-service";
 import type { FolderDto, NoteDto } from "@/features/notes/service";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface NoteDetailViewProps {
   initialNote: NoteDto | null;
   initialFolders: FolderDto[];
+  enableAttachments?: boolean;
+  initialAttachments?: NoteAttachmentDto[];
   renderAttachmentsSlot?: (note: NoteDto) => ReactNode;
   renderLinkedTransactionsSlot?: (note: NoteDto) => ReactNode;
 }
@@ -22,6 +26,8 @@ export interface NoteDetailViewProps {
 export function NoteDetailView({
   initialNote,
   initialFolders,
+  enableAttachments = false,
+  initialAttachments,
   renderAttachmentsSlot,
   renderLinkedTransactionsSlot,
 }: NoteDetailViewProps) {
@@ -55,6 +61,32 @@ export function NoteDetailView({
     );
   }
 
+  const effectiveRenderAttachmentsSlot =
+    renderAttachmentsSlot ??
+    (enableAttachments
+      ? (currentNote: NoteDto) => (
+          <NoteAttachmentsPanel
+            key={currentNote.id}
+            noteId={currentNote.id}
+            initialAttachments={initialAttachments}
+            initialAttachmentsNoteId={initialNote?.id}
+            onNoteUpdatedAt={(targetNoteId, updatedAt) => {
+              const nextTime = Date.parse(updatedAt);
+              if (Number.isNaN(nextTime)) {
+                return;
+              }
+              setNote((prev) =>
+                prev &&
+                prev.id === targetNoteId &&
+                nextTime > Date.parse(prev.updatedAt)
+                  ? { ...prev, updatedAt }
+                  : prev,
+              );
+            }}
+          />
+        )
+      : undefined);
+
   return (
     <div className="flex flex-col gap-4">
       <NoteEditor
@@ -70,7 +102,7 @@ export function NoteDetailView({
           router.refresh();
         }}
         onOpenFolderManager={() => setFolderModalOpen(true)}
-        renderAttachmentsSlot={renderAttachmentsSlot}
+        renderAttachmentsSlot={effectiveRenderAttachmentsSlot}
         renderLinkedTransactionsSlot={renderLinkedTransactionsSlot}
       />
 

@@ -19,8 +19,10 @@ import {
   X,
 } from "lucide-react";
 import { FolderManagerModal } from "@/components/notes/FolderManagerModal";
+import { NoteAttachmentsPanel } from "@/components/notes/NoteAttachmentsPanel";
 import { NoteEditor } from "@/components/notes/NoteEditor";
 import { Button } from "@/components/ui/Button";
+import type { NoteAttachmentDto } from "@/features/notes/attachments-service";
 import type {
   FolderDto,
   NoteDto,
@@ -36,6 +38,8 @@ export interface NotesWorkspaceProps {
   initialNextCursor: string | null;
   initialFolders: FolderDto[];
   initialTags: TagDto[];
+  enableAttachments?: boolean;
+  initialSelectedAttachments?: NoteAttachmentDto[];
   renderAttachmentsSlot?: (note: NoteDto) => ReactNode;
   renderLinkedTransactionsSlot?: (note: NoteDto) => ReactNode;
 }
@@ -112,6 +116,8 @@ export function NotesWorkspace({
   initialNextCursor,
   initialFolders,
   initialTags,
+  enableAttachments = false,
+  initialSelectedAttachments,
   renderAttachmentsSlot,
   renderLinkedTransactionsSlot,
 }: NotesWorkspaceProps) {
@@ -123,11 +129,28 @@ export function NotesWorkspace({
   const hasMore = Boolean(nextCursor);
   const [foldersList, setFoldersList] = useState<FolderDto[]>(initialFolders);
   const [tagsList, setTagsList] = useState<TagDto[]>(initialTags);
+  const initialPrimaryNoteId = initialNotes[0]?.id ?? null;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(
-    initialNotes[0]?.id ?? null,
+    initialPrimaryNoteId,
   );
+  const [ssrAttachmentsAvailable, setSsrAttachmentsAvailable] =
+    useState<boolean>(() =>
+      Boolean(
+        initialPrimaryNoteId && initialSelectedAttachments !== undefined,
+      ),
+    );
   const [retainedSelectedNote, setRetainedSelectedNote] =
     useState<NoteDto | null>(null);
+
+  const selectNote = useCallback(
+    (nextNoteId: string | null) => {
+      setSelectedNoteId(nextNoteId);
+      if (nextNoteId !== initialPrimaryNoteId) {
+        setSsrAttachmentsAvailable(false);
+      }
+    },
+    [initialPrimaryNoteId],
+  );
 
   const [searchInput, setSearchInput] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -268,11 +291,13 @@ export function NotesWorkspace({
         setRetainedSelectedNote(null);
         setNotesList(payload.data.items);
         setNextCursor(payload.data.nextCursor);
-        setSelectedNoteId((prev) =>
-          prev && payload.data!.items.some((item) => item.id === prev)
-            ? prev
-            : (payload.data!.items[0]?.id ?? null),
-        );
+        const prevSelected = selectedNoteIdRef.current;
+        const nextSelected =
+          prevSelected &&
+          payload.data.items.some((item) => item.id === prevSelected)
+            ? prevSelected
+            : (payload.data.items[0]?.id ?? null);
+        selectNote(nextSelected);
       } catch {
         if (currentFetchId === fetchIdRef.current) {
           setErrorBanner(t.errors.generic);
@@ -281,7 +306,7 @@ export function NotesWorkspace({
     };
 
     void runFetch();
-  }, [buildNotesQueryString, t.errors.generic]);
+  }, [buildNotesQueryString, selectNote, t.errors.generic]);
 
   const handleCreateNote = async () => {
     setCreatingNote(true);
@@ -318,7 +343,7 @@ export function NotesWorkspace({
       const created = payload.data.note;
       setRetainedSelectedNote(null);
       setNotesList((prev) => sortNotesPinnedFirst([created, ...prev]));
-      setSelectedNoteId(created.id);
+      selectNote(created.id);
       void refreshTagsAndFolders();
 
       const isMobileViewport =
@@ -422,7 +447,7 @@ export function NotesWorkspace({
       setNotesList(remaining);
 
       if (selectedNoteIdRef.current === deletedId) {
-        setSelectedNoteId(remaining[0]?.id ?? null);
+        selectNote(remaining[0]?.id ?? null);
         setRetainedSelectedNote(null);
       } else {
         setRetainedSelectedNote((prev) =>
@@ -432,8 +457,63 @@ export function NotesWorkspace({
 
       void refreshTagsAndFolders();
     },
-    [refreshTagsAndFolders],
+    [refreshTagsAndFolders, selectNote],
   );
+
+  const handleNoteTimestampUpdated = useCallback(
+    (targetNoteId: string, updatedAt: string) => {
+      if (targetNoteId === initialPrimaryNoteId) {
+        setSsrAttachmentsAvailable(false);
+      }
+
+      const nextTime = Date.parse(updatedAt);
+      if (Number.isNaN(nextTime)) {
+        return;
+      }
+
+      setNotesList((prev) =>
+        sortNotesPinnedFirst(
+          prev.map((item) =>
+            item.id === targetNoteId && nextTime > Date.parse(item.updatedAt)
+              ? { ...item, updatedAt }
+              : item,
+          ),
+        ),
+      );
+      setRetainedSelectedNote((prev) =>
+        prev &&
+        prev.id === targetNoteId &&
+        nextTime > Date.parse(prev.updatedAt)
+          ? { ...prev, updatedAt }
+          : prev,
+      );
+    },
+    [initialPrimaryNoteId],
+  );
+
+  const effectiveRenderAttachmentsSlot =
+    renderAttachmentsSlot ??
+    (enableAttachments
+      ? (currentNote: NoteDto) => {
+          const useInitialSsrSnapshot =
+            ssrAttachmentsAvailable &&
+            initialPrimaryNoteId !== null &&
+            currentNote.id === initialPrimaryNoteId;
+          return (
+            <NoteAttachmentsPanel
+              key={currentNote.id}
+              noteId={currentNote.id}
+              initialAttachments={
+                useInitialSsrSnapshot ? initialSelectedAttachments : undefined
+              }
+              initialAttachmentsNoteId={
+                useInitialSsrSnapshot ? initialPrimaryNoteId : undefined
+              }
+              onNoteUpdatedAt={handleNoteTimestampUpdated}
+            />
+          );
+        }
+      : undefined);
 
   const handleFoldersChanged = useCallback(
     (nextFolders: FolderDto[], deletedFolderId?: string) => {
@@ -703,7 +783,7 @@ export function NotesWorkspace({
                         if (isDesktop) {
                           event.preventDefault();
                           setRetainedSelectedNote(null);
-                          setSelectedNoteId(note.id);
+                          selectNote(note.id);
                         }
                       }}
                       aria-current={isSelected ? "true" : undefined}
@@ -782,7 +862,7 @@ export function NotesWorkspace({
               onSaved={handleNoteSaved}
               onDeleted={handleNoteDeleted}
               onOpenFolderManager={() => setFolderModalOpen(true)}
-              renderAttachmentsSlot={renderAttachmentsSlot}
+              renderAttachmentsSlot={effectiveRenderAttachmentsSlot}
               renderLinkedTransactionsSlot={renderLinkedTransactionsSlot}
             />
           ) : (

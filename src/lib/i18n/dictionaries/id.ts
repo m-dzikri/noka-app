@@ -60,6 +60,15 @@ export const idDictionary: Dictionary = {
     FOLDER_NAME_EXISTS: "Nama folder sudah digunakan.",
     NOTE_ALREADY_EXISTS: "ID catatan sudah ada.",
     FOLDER_ALREADY_EXISTS: "ID folder sudah ada.",
+    INVALID_MULTIPART: "Format unggahan multipart tidak valid.",
+    PAYLOAD_TOO_LARGE: "Ukuran permintaan melebihi batas unggahan.",
+    EMPTY_FILE: "File gambar tidak boleh kosong.",
+    FILE_TOO_LARGE: "Ukuran file gambar melebihi batas maksimal 5 MB.",
+    UNSUPPORTED_IMAGE_TYPE: "Hanya gambar JPEG, PNG, dan WebP yang didukung.",
+    ATTACHMENT_LIMIT_REACHED: "Maksimal 5 lampiran gambar per catatan tercapai.",
+    ATTACHMENT_NOT_FOUND: "Lampiran tidak ditemukan.",
+    ATTACHMENT_OBJECT_MISSING: "Berkas gambar lampiran tidak ditemukan di penyimpanan.",
+    STORAGE_UNAVAILABLE: "Layanan penyimpanan lampiran sedang tidak tersedia.",
     generic: "Permintaan tidak dapat diproses.",
   },
   preferences: {
@@ -352,6 +361,36 @@ export const idDictionary: Dictionary = {
     deleteConfirmButton: "Ya, Hapus Catatan",
     deletingNote: "Menghapus...",
     noteCountSummary: "{count} catatan",
+    attachments: {
+      sectionTitle: "Lampiran Gambar",
+      countBadge: "{count}/5",
+      uploadButton: "Unggah Gambar",
+      uploadInputAria: "Pilih file gambar lampiran (JPEG, PNG, atau WebP)",
+      uploadingStatus: "Mengunggah gambar...",
+      limitReachedNotice: "Batas maksimal 5 gambar per catatan telah tercapai.",
+      offlineNotice:
+        "Mode offline: unggah & hapus lampiran dinonaktifkan sampai kembali online.",
+      offlinePlaceholder:
+        "Gambar belum tersedia saat offline. Coba lagi ketika online.",
+      retryLoadButton: "Muat Ulang",
+      emptyText:
+        "Belum ada lampiran gambar (maksimal 5 file JPEG, PNG, atau WebP hingga 5 MB).",
+      imageAlt: "Lampiran gambar catatan",
+      openPreviewAria: "Perbesar lampiran gambar",
+      deleteButton: "Hapus",
+      deleteButtonAria: "Hapus lampiran gambar",
+      deleteConfirmTitle: "Hapus Lampiran Gambar?",
+      deleteConfirmDescription:
+        "Gambar ini akan dihapus permanen dari catatan dan penyimpanan.",
+      deleteConfirmButton: "Ya, Hapus Gambar",
+      deletingButton: "Menghapus...",
+      lightboxTitle: "Pratinjau Lampiran",
+      closePreview: "Tutup Pratinjau",
+      unsupportedClientType:
+        "Format file tidak didukung. Pilih gambar JPEG, PNG, atau WebP.",
+      clientEmptyFile: "File gambar tidak boleh kosong.",
+      clientFileTooLarge: "Ukuran file melebihi batas maksimal 5 MB.",
+    },
   },
   folders: {
     manageButton: "Kelola Folder",
