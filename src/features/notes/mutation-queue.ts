@@ -80,6 +80,16 @@ export class NoteMutationCoordinator {
     return this.queues.has(noteId);
   }
 
+  async waitForIdle(noteId: string): Promise<void> {
+    while (true) {
+      const pending = this.queues.get(noteId);
+      if (!pending) {
+        return;
+      }
+      await pending;
+    }
+  }
+
   hasPendingOrInFlight(noteId: string): boolean {
     return this.queues.has(noteId) || this.pendingDrafts.has(noteId);
   }

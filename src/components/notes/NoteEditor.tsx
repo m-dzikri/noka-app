@@ -59,6 +59,11 @@ export interface NoteEditorProps {
 }
 
 const AUTO_SAVE_DEBOUNCE_MS = 600;
+const KEEPALIVE_MAX_BYTES = 60_000;
+
+interface PersistSnapshotOptions {
+  keepalive?: boolean;
+}
 
 function toDraftSnapshot(note: NoteDto): NoteDraftSnapshot {
   return {
@@ -118,6 +123,7 @@ export function NoteEditor({
   const [conflictNotice, setConflictNotice] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [returningBack, setReturningBack] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,6 +134,8 @@ export function NoteEditor({
   const onSavedRef = useRef(onSaved);
   const foldersRef = useRef(folders);
   const mountedRef = useRef(true);
+  const returningBackRef = useRef(false);
+  const flushOnUnloadRef = useRef<() => void>(() => {});
   const coordinatorRef = useRef<NoteMutationCoordinator | null>(null);
 
   const getCoordinator = useCallback(() => {
@@ -238,6 +246,7 @@ export function NoteEditor({
       snapshot: NoteDraftSnapshot,
       baseUpdatedAt: string,
       seq?: number,
+      options?: PersistSnapshotOptions,
     ): Promise<NoteDto | null> => {
       const coordinator = getCoordinator();
       const effectiveSeq =
@@ -295,18 +304,25 @@ export function NoteEditor({
           coordinator.getKnownUpdatedAt(targetNoteId) ?? baseUpdatedAt;
 
         try {
+          const bodyText = JSON.stringify({
+            title: effectiveSnapshot.title,
+            content: effectiveSnapshot.content,
+            folderId: effectiveSnapshot.folderId,
+            isPinned: effectiveSnapshot.isPinned,
+            tags: effectiveSnapshot.tags,
+            updatedAt: authoritativeUpdatedAt,
+            idempotencyKey: crypto.randomUUID(),
+          });
+          // Browser fetch keepalive caps payloads at ~64 KiB; omit keepalive for large bodies up to 200k chars.
+          const useKeepalive =
+            options?.keepalive === true &&
+            new TextEncoder().encode(bodyText).length <= KEEPALIVE_MAX_BYTES;
+
           const response = await apiFetch(`/api/notes/${targetNoteId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: effectiveSnapshot.title,
-              content: effectiveSnapshot.content,
-              folderId: effectiveSnapshot.folderId,
-              isPinned: effectiveSnapshot.isPinned,
-              tags: effectiveSnapshot.tags,
-              updatedAt: authoritativeUpdatedAt,
-              idempotencyKey: crypto.randomUUID(),
-            }),
+            body: bodyText,
+            ...(useKeepalive ? { keepalive: true } : {}),
           });
 
           const payload = (await response.json().catch(() => null)) as {
@@ -533,13 +549,100 @@ export function NoteEditor({
     };
   }, [clearPendingTimer, getCoordinator, persistSnapshot]);
 
+  const flushActiveDraftIfNeeded = useCallback(
+    (options?: PersistSnapshotOptions): boolean => {
+      const hadPendingTimer = debounceTimerRef.current !== null;
+      clearPendingTimer();
+
+      const targetNoteId = activeNoteIdRef.current;
+      const coordinator = getCoordinator();
+      if (
+        coordinator.isDeleted(targetNoteId) ||
+        (typeof navigator !== "undefined" && navigator.onLine === false)
+      ) {
+        return false;
+      }
+
+      const activePending = coordinator.getPendingDraft(targetNoteId);
+      const needsFlush =
+        dirtyRef.current &&
+        (hadPendingTimer || !coordinator.isLatestSeqQueued(targetNoteId));
+
+      if (!needsFlush) {
+        return false;
+      }
+
+      const seq =
+        activePending?.seq ??
+        coordinator.stagePendingDraft(
+          targetNoteId,
+          draftRef.current,
+          serverUpdatedAtRef.current,
+          "saving",
+        );
+      coordinator.updatePendingDraftStatus(targetNoteId, seq, "saving");
+      void persistSnapshot(
+        targetNoteId,
+        draftRef.current,
+        serverUpdatedAtRef.current,
+        seq,
+        options,
+      );
+      return true;
+    },
+    [clearPendingTimer, getCoordinator, persistSnapshot],
+  );
+
+  useEffect(() => {
+    flushOnUnloadRef.current = () => {
+      flushActiveDraftIfNeeded({ keepalive: true });
+    };
+  }, [flushActiveDraftIfNeeded]);
+
   useEffect(() => {
     mountedRef.current = true;
+    const handlePageHide = () => {
+      flushOnUnloadRef.current();
+    };
+    window.addEventListener("pagehide", handlePageHide);
     return () => {
       mountedRef.current = false;
-      clearPendingTimer();
+      window.removeEventListener("pagehide", handlePageHide);
+      flushOnUnloadRef.current();
     };
-  }, [clearPendingTimer]);
+  }, []);
+
+  const handleBackClick = () => {
+    if (!onBack || returningBackRef.current) {
+      return;
+    }
+
+    const targetNoteId = activeNoteIdRef.current;
+    const coordinator = getCoordinator();
+    const isOffline =
+      typeof navigator !== "undefined" && navigator.onLine === false;
+
+    if (!isOffline) {
+      const didFlush = flushActiveDraftIfNeeded();
+      if (didFlush || coordinator.hasInFlight(targetNoteId)) {
+        returningBackRef.current = true;
+        setReturningBack(true);
+        void coordinator.waitForIdle(targetNoteId).finally(() => {
+          returningBackRef.current = false;
+          if (!mountedRef.current) {
+            return;
+          }
+          setReturningBack(false);
+          onBack();
+        });
+        return;
+      }
+    } else {
+      clearPendingTimer();
+    }
+
+    onBack();
+  };
 
   const scheduleDebouncedSave = useCallback(
     (nextDraft: NoteDraftSnapshot) => {
@@ -910,7 +1013,8 @@ export function NoteEditor({
               size="sm"
               shape="pill"
               variant="secondary"
-              onClick={onBack}
+              disabled={returningBack || deleting}
+              onClick={handleBackClick}
             >
               <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               <span>{t.notes.backToNotes}</span>

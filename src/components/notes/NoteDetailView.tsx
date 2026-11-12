@@ -65,7 +65,10 @@ export function NoteDetailView({
           router.push("/app/notes");
           router.refresh();
         }}
-        onBack={() => router.push("/app/notes")}
+        onBack={() => {
+          router.push("/app/notes");
+          router.refresh();
+        }}
         onOpenFolderManager={() => setFolderModalOpen(true)}
         renderAttachmentsSlot={renderAttachmentsSlot}
         renderLinkedTransactionsSlot={renderLinkedTransactionsSlot}
