@@ -30,6 +30,7 @@ vi.mock("@/features/auth/session", () => ({
 }));
 
 import AppWorkspaceLayout from "@/app/(app)/app/layout";
+import AppEntryPage from "@/app/(app)/app/page";
 import LoginPage from "@/app/(auth)/login/page";
 import RegisterPage from "@/app/(auth)/register/page";
 import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
@@ -107,7 +108,50 @@ describe("auth forms, instant ID/EN + theme switching & logout wipe (AC-2.5)", (
     }
   });
 
-  it("validates RegisterForm password match/length and submits active locale/theme before redirecting to /app", async () => {
+  it("redirects LoginForm to /app/notes after successful 200 login", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: { user: { id: "u-1", name: "Dinda", email: "dinda@noka.test" } },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    try {
+      render(
+        <PreferencesProvider
+          initialLocale="en"
+          initialTheme="light"
+          hasCookieLocale={true}
+          hasCookieTheme={true}
+        >
+          <LoginForm />
+        </PreferencesProvider>,
+      );
+
+      fireEvent.change(screen.getByLabelText("Email Address"), {
+        target: { value: "dinda@noka.test" },
+      });
+      fireEvent.change(screen.getByLabelText("Password"), {
+        target: { value: "rahasia123" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
+
+      await waitFor(() => {
+        expect(routerPushMock).toHaveBeenCalledWith("/app/notes");
+        expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("validates RegisterForm password match/length and submits active locale/theme before redirecting to /app/notes", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -166,7 +210,7 @@ describe("auth forms, instant ID/EN + theme switching & logout wipe (AC-2.5)", (
 
       await waitFor(() => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(routerPushMock).toHaveBeenCalledWith("/app");
+        expect(routerPushMock).toHaveBeenCalledWith("/app/notes");
       });
 
       const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -403,13 +447,15 @@ describe("auth forms, instant ID/EN + theme switching & logout wipe (AC-2.5)", (
     expect(screen.getByRole("button", { name: "Keluar" })).toBeVisible();
     unmount();
 
-    // Authenticated /login and /register redirect to /app.
+    // Authenticated /login and /register (plus /app entry) redirect to /app/notes.
     getSessionUserMock.mockResolvedValueOnce(activeUser);
-    await expect(LoginPage()).rejects.toThrow("NEXT_REDIRECT:/app");
+    await expect(LoginPage()).rejects.toThrow("NEXT_REDIRECT:/app/notes");
 
     getSessionUserMock.mockResolvedValueOnce(activeUser);
-    await expect(RegisterPage()).rejects.toThrow("NEXT_REDIRECT:/app");
-    expect(redirectMock).toHaveBeenCalledWith("/app");
+    await expect(RegisterPage()).rejects.toThrow("NEXT_REDIRECT:/app/notes");
+    expect(redirectMock).toHaveBeenCalledWith("/app/notes");
+
+    expect(() => AppEntryPage()).toThrow("NEXT_REDIRECT:/app/notes");
 
     // Unauthenticated /login and /register render their forms cleanly.
     getSessionUserMock.mockResolvedValueOnce(null);

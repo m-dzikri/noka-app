@@ -1,6 +1,7 @@
-import { AppOverview } from "@/components/layout/AppOverview";
+import { redirect } from "next/navigation";
 
-export default function AppOverviewPage() {
-  return <AppOverview />;
+export default function AppEntryPage() {
+  redirect("/app/notes");
 }
+
 
