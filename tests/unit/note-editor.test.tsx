@@ -20,12 +20,13 @@ import {
 import type { FolderDto, NoteDto, TagDto } from "@/features/notes/service";
 
 const routerPushMock = vi.fn();
+const routerRefreshMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: routerPushMock,
     replace: vi.fn(),
-    refresh: vi.fn(),
+    refresh: routerRefreshMock,
   }),
   usePathname: () => "/app/notes",
 }));
@@ -70,6 +71,11 @@ const sampleTags: TagDto[] = [
 describe("NoteEditor & NotesWorkspace UI behavior (TS-004-02)", () => {
   beforeEach(() => {
     routerPushMock.mockClear();
+    routerRefreshMock.mockClear();
+    Object.defineProperty(window.navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
   });
 
   afterEach(() => {
@@ -1275,5 +1281,216 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-02)", () => {
     });
 
     unmount();
+  });
+
+  it("flushes debounced edits on Back navigation, pagehide, and unmount cleanly within 600ms window", async () => {
+    // 1. Coordinator waitForIdle awaits chained queue tasks cleanly (even after rejection) and resolves immediately if idle.
+    const coordinator = new NoteMutationCoordinator();
+    await coordinator.waitForIdle("idle-note");
+
+    let releaseTask2!: () => void;
+    let markTask2Started!: () => void;
+    const task2Started = new Promise<void>((resolve) => {
+      markTask2Started = resolve;
+    });
+    const finished: string[] = [];
+    void coordinator
+      .enqueue("busy-note", async () => {
+        throw new Error("transient failure");
+      })
+      .catch(() => {
+        finished.push("task1-caught");
+      });
+    void coordinator.enqueue("busy-note", async () => {
+      markTask2Started();
+      await new Promise<void>((resolve) => {
+        releaseTask2 = resolve;
+      });
+      finished.push("task2-done");
+    });
+
+    let waitSettled = false;
+    const waitPromise = coordinator.waitForIdle("busy-note").then(() => {
+      waitSettled = true;
+    });
+    await task2Started;
+    await Promise.resolve();
+    expect(waitSettled).toBe(false);
+    releaseTask2();
+    await waitPromise;
+    expect(waitSettled).toBe(true);
+    expect(finished).toEqual(["task1-caught", "task2-done"]);
+
+    // 2. Clean unmount (including StrictMode-like no-edit unmount) sends zero spurious PATCHes.
+    const fetchCalls: { url: string; init?: RequestInit }[] = [];
+    const immediateFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      fetchCalls.push({ url: String(input), init });
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: { note: makeNote({ updatedAt: "2026-11-12T05:00:00.000Z" }), conflictResolved: "applied" },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", immediateFetch);
+
+    const wrapEditor = (noteProp: NoteDto) => (
+      <PreferencesProvider
+        initialLocale="en"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        <NoteEditor
+          note={noteProp}
+          folders={sampleFolders}
+          onSaved={vi.fn()}
+          onDeleted={vi.fn()}
+        />
+      </PreferencesProvider>
+    );
+
+    const cleanRender = render(wrapEditor(makeNote()));
+    cleanRender.unmount();
+    expect(fetchCalls).toHaveLength(0);
+
+    // 3. Edit within 600ms debounce + unmount immediately -> best-effort PATCH with keepalive: true.
+    const smallRender = render(wrapEditor(makeNote()));
+    fireEvent.change(screen.getByLabelText("Note title"), {
+      target: { value: "Flushed On Unmount" },
+    });
+    smallRender.unmount();
+    await waitFor(() => {
+      expect(fetchCalls).toHaveLength(1);
+    });
+    expect(fetchCalls[0].url).toBe(`/api/notes/${makeNote().id}`);
+    expect(fetchCalls[0].init?.keepalive).toBe(true);
+    expect(JSON.parse(String(fetchCalls[0].init?.body)).title).toBe(
+      "Flushed On Unmount",
+    );
+
+    // 4. Large >60KB edit + pagehide -> sends once WITHOUT keepalive (exceeds 64KiB spec budget); unmount does not duplicate.
+    const largeRender = render(wrapEditor(makeNote()));
+    fireEvent.change(screen.getByLabelText("Note Markdown content"), {
+      target: { value: "a".repeat(62_000) },
+    });
+    window.dispatchEvent(new Event("pagehide"));
+    await waitFor(() => {
+      expect(fetchCalls).toHaveLength(2);
+    });
+    expect(fetchCalls[1].init?.keepalive).toBeUndefined();
+    largeRender.unmount();
+    await Promise.resolve();
+    expect(fetchCalls).toHaveLength(2);
+
+    // 5. Offline edit + unmount -> keeps zero failed network calls.
+    Object.defineProperty(window.navigator, "onLine", {
+      value: false,
+      configurable: true,
+    });
+    const offlineRender = render(wrapEditor(makeNote()));
+    fireEvent.change(screen.getByLabelText("Note title"), {
+      target: { value: "Offline Unsaved Edit" },
+    });
+    offlineRender.unmount();
+    await Promise.resolve();
+    expect(fetchCalls).toHaveLength(2);
+
+    // 6. Online NoteDetailView Back click within 600ms awaits PATCH commit before calling router.push + router.refresh.
+    Object.defineProperty(window.navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
+    let resolveBackPatch!: (value: Response) => void;
+    const backRequests: { url: string; body: Record<string, unknown>; keepalive?: boolean }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        backRequests.push({
+          url: String(input),
+          body: JSON.parse(String(init?.body ?? "{}")),
+          keepalive: init?.keepalive,
+        });
+        return new Promise<Response>((resolve) => {
+          resolveBackPatch = resolve;
+        });
+      }),
+    );
+
+    const detailView = render(
+      <PreferencesProvider
+        initialLocale="en"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        <NoteDetailView initialNote={makeNote()} initialFolders={sampleFolders} />
+      </PreferencesProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Note title"), {
+      target: { value: "Quick Mobile Edit" },
+    });
+    const backBtn = screen.getByRole("button", { name: "Back to Notes" });
+    fireEvent.click(backBtn);
+
+    await waitFor(() => {
+      expect(backRequests).toHaveLength(1);
+    });
+    expect(backRequests[0].body.title).toBe("Quick Mobile Edit");
+    expect(backRequests[0].keepalive).toBeUndefined();
+    expect(backBtn).toBeDisabled();
+    expect(routerPushMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveBackPatch(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              note: makeNote({
+                title: "Quick Mobile Edit",
+                updatedAt: "2026-11-12T06:00:00.000Z",
+              }),
+              conflictResolved: "applied",
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(routerPushMock).toHaveBeenCalledWith("/app/notes");
+      expect(routerRefreshMock).toHaveBeenCalled();
+    });
+    detailView.unmount();
+
+    // 7. Offline Back click navigates immediately without blocking.
+    routerPushMock.mockClear();
+    routerRefreshMock.mockClear();
+    Object.defineProperty(window.navigator, "onLine", {
+      value: false,
+      configurable: true,
+    });
+    const offlineDetail = render(
+      <PreferencesProvider
+        initialLocale="en"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        <NoteDetailView initialNote={makeNote()} initialFolders={sampleFolders} />
+      </PreferencesProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("Note title"), {
+      target: { value: "Offline Mobile Draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Back to Notes" }));
+    expect(routerPushMock).toHaveBeenCalledWith("/app/notes");
+    expect(backRequests).toHaveLength(1);
+    offlineDetail.unmount();
   });
 });

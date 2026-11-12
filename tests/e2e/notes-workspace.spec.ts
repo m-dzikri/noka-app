@@ -135,10 +135,11 @@ test.describe("RFC-004: Notes Workspace E2E (TS-004-04)", () => {
         await expect(page.getByLabel("Judul catatan")).toHaveValue("Catatan Mobile");
         await expect(page.locator('input[data-checklist-index="0"]')).toBeChecked();
 
-        // Navigate back to list view cleanly.
+        // Edit inside 600ms debounce window and tap Back immediately -> flushes before navigating back to /app/notes.
+        await page.getByLabel("Judul catatan").fill("Catatan Mobile Cepat");
         await page.getByRole("button", { name: "Kembali ke Catatan" }).click();
         await page.waitForURL("**/app/notes");
-        await expect(page.getByText("Catatan Mobile")).toBeVisible();
+        await expect(page.getByText("Catatan Mobile Cepat")).toBeVisible();
       } else {
         // Desktop 1280x800 & tablet 768x1024 overflow checks.
         await page.setViewportSize({ width: 1280, height: 800 });
