@@ -36,7 +36,7 @@ Mengacu pada `## Product Type` di `PRD.md` dan `RULES.md`:
 | [RFC-005](RFCs/RFC-005-Note-Image-Attachments.md) | Secure Note Image Attachments (Online-Only v1.0) | F9 | RFC-001, RFC-002, RFC-004 | Medium | Passed | Reviewed |
 | [RFC-006](RFCs/RFC-006-Finance-Core-Ledger.md) | Finance Core — Multi-Wallets, Categories, Ledger Transactions & Atomic Transfers | F10, F11, F12 | RFC-001, RFC-002 | High | Passed | Reviewed |
 | [RFC-007](RFCs/RFC-007-Finance-Dashboard-SafeToSpend-Privacy.md) | Finance Dashboard, Safe-to-Spend & Privacy Blur Mode | F13, F16, F17 | RFC-001, RFC-002, RFC-006 | Medium | Passed | Reviewed |
-| [RFC-008](RFCs/RFC-008-Smart-Quick-Capture-And-Linked-Notes.md) | Noka Synergy — Smart Quick Capture & Linked Notes ↔ Transactions | F14, F15 | RFC-004, RFC-006, RFC-007 | High | Passed | Implemented |
+| [RFC-008](RFCs/RFC-008-Smart-Quick-Capture-And-Linked-Notes.md) | Noka Synergy — Smart Quick Capture & Linked Notes ↔ Transactions | F14, F15 | RFC-004, RFC-006, RFC-007 | High | Passed | Reviewed |
 | [RFC-009](RFCs/RFC-009-PWA-And-Offline-First-Sync.md) | PWA Installability, IndexedDB Local Mirror & iOS-Safe Offline Sync | F18, F19 | RFC-001, RFC-002, RFC-003, RFC-004, RFC-005, RFC-006, RFC-007, RFC-008 | High | Passed | Not started |
 | [RFC-010](RFCs/RFC-010-Account-Settings-And-Deletion.md) | Account Settings, Cycle Configuration & Self-Service Account Deletion | F6 | RFC-001, RFC-002, RFC-005, RFC-007, RFC-009 | Medium | Passed | Not started |
 
