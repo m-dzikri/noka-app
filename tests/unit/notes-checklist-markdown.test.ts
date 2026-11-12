@@ -122,20 +122,76 @@ describe("GFM checklist engine & safe MarkdownPreview (TS-004-01)", () => {
       "- [ ] Ignored code task",
       "```",
       "1. [ ] Task C",
+      "",
+      "> - Quoted bullet",
+      "",
+      "    - [ ] Top-level code after blockquote exit",
+      "",
+      "10. [ ] Ignored non-1 ordered list immediately after indented code",
+      "",
+      "Section after code:",
+      "",
+      "10. Parent item",
+      "    continuation line inside 4-space ordered list",
+      "    - [ ] Nested ordered-list task D",
+      "",
+      "> - [ ] Quoted nested parent",
+      ">   - [x] Quoted child E",
+      ">   lazy continuation keeping child open",
+      ">",
+      ">       - [ ] Nested task inside quoted child E",
+      "",
+      "> - [ ] Quoted second parent",
+      ">   - [x] Quoted child F",
+      ">",
+      ">   continuation after blank closing child",
+      ">",
+      ">       - [ ] Indented code inside quoted parent",
+      "",
+      "- [ ] Item with unclosed fence",
+      "  ```",
+      "  - [ ] Ignored inside item fence",
+      "- [ ] Sibling closing unclosed item fence",
     ].join("\n");
 
     const parsed = parseChecklists(markdown);
+    expect(parsed.map((item) => item.text)).toEqual([
+      "Task A",
+      "Task B",
+      "Task C",
+      "Nested ordered-list task D",
+      "Quoted nested parent",
+      "Quoted child E",
+      "Nested task inside quoted child E",
+      "Quoted second parent",
+      "Quoted child F",
+      "Item with unclosed fence",
+      "Sibling closing unclosed item fence",
+    ]);
+
     const onToggle = vi.fn();
     renderPreview(markdown, onToggle);
 
     const checkboxes = screen.getAllByRole("checkbox");
     expect(checkboxes).toHaveLength(parsed.length);
-    expect(checkboxes[0]).not.toBeChecked();
-    expect(checkboxes[1]).toBeChecked();
-    expect(checkboxes[2]).not.toBeChecked();
+    for (const [idx, item] of parsed.entries()) {
+      expect(checkboxes[idx]).toHaveAttribute("data-checklist-index", String(idx));
+      if (item.checked) {
+        expect(checkboxes[idx]).toBeChecked();
+      } else {
+        expect(checkboxes[idx]).not.toBeChecked();
+      }
+    }
 
-    fireEvent.click(checkboxes[2]);
-    expect(onToggle).toHaveBeenCalledWith(2, true);
+    fireEvent.click(checkboxes[3]);
+    expect(onToggle).toHaveBeenCalledWith(3, true);
+    fireEvent.click(checkboxes[5]);
+    expect(onToggle).toHaveBeenCalledWith(5, false);
+    fireEvent.click(checkboxes[10]);
+    expect(onToggle).toHaveBeenCalledWith(10, true);
+
+    const toggled = toggleChecklistInMarkdown(markdown, 3, true);
+    expect(toggled).toContain("    - [x] Nested ordered-list task D");
   });
 
   it("strips raw HTML and blocks unsafe javascript:/data:/vbscript: links (SEC-7)", () => {
@@ -155,7 +211,9 @@ describe("GFM checklist engine & safe MarkdownPreview (TS-004-01)", () => {
 
     const malicious = [
       "<script>window.__xss=true</script>",
+      "<iframe src=\"https://evil.com\"></iframe>",
       "<img src=x onerror=alert(1)>",
+      "<u>raw html disabled</u>",
       "[Safe](https://noka.app)",
       "[Evil JS](javascript:alert(1))",
       "[Evil Data](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)",
@@ -165,7 +223,9 @@ describe("GFM checklist engine & safe MarkdownPreview (TS-004-01)", () => {
 
     const { container } = renderPreview(malicious);
     expect(container.querySelector("script")).toBeNull();
+    expect(container.querySelector("iframe")).toBeNull();
     expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("u")).toBeNull();
     expect(container.querySelector("svg")).toBeNull();
 
     const links = Array.from(container.querySelectorAll("a"));

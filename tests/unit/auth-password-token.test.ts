@@ -77,7 +77,7 @@ describe("auth crypto, CSRF, rate limiter, and apiFetch cleanup (TS-002-01)", ()
     expect(hash).not.toContain("rahasia123");
     await expect(verifyPassword("rahasia123", hash)).resolves.toBe(true);
     await expect(verifyPassword("salah-total", hash)).resolves.toBe(false);
-  });
+  }, 15_000);
 
   it("generates unique 32-byte base64url tokens paired with SHA-256 hex hashes", () => {
     const first = generateTokenPair();

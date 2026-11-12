@@ -57,6 +57,21 @@ function makeAuthedRequest(
   });
 }
 
+function makePlainRequest(
+  url: string,
+  method: string,
+  headers: Record<string, string> = {},
+  body?: unknown,
+): NextRequest {
+  return new NextRequest(url, {
+    method,
+    headers,
+    ...(body !== undefined
+      ? { body: typeof body === "string" ? body : JSON.stringify(body) }
+      : {}),
+  });
+}
+
 async function createRegisteredUser(label: string): Promise<{
   userId: string;
   cookie: string;
@@ -755,6 +770,424 @@ describe("Notes, folders, tags, GFM checklist & referential integrity API (TS-00
       ),
     );
     expect(tooManyDistinctTagsRes.status).toBe(422);
+  });
+
+  it("enforces 401/403/400/422/409 boundaries, cross-user DELETE/folders, non-executing cleanup on LWW/replay, and PERF-2 < 300ms", async () => {
+    const alice = await createRegisteredUser("BoundaryAlice");
+    const bob = await createRegisteredUser("BoundaryBob");
+    const dummyUuid = crypto.randomUUID();
+
+    // 1. Unauthenticated -> 401 across endpoints
+    const unauthResponses = await Promise.all([
+      notesGet(makePlainRequest("http://localhost:3000/api/notes", "GET")),
+      notesPost(
+        makePlainRequest("http://localhost:3000/api/notes", "POST", {
+          origin: "http://localhost:3000",
+          "content-type": "application/json",
+        }, "{}"),
+      ),
+      noteGet(
+        makePlainRequest(`http://localhost:3000/api/notes/${dummyUuid}`, "GET"),
+        { params: Promise.resolve({ id: dummyUuid }) },
+      ),
+      checklistPatch(
+        makePlainRequest(
+          `http://localhost:3000/api/notes/${dummyUuid}/checklist`,
+          "PATCH",
+          { origin: "http://localhost:3000", "content-type": "application/json" },
+          JSON.stringify({ index: 0, checked: true }),
+        ),
+        { params: Promise.resolve({ id: dummyUuid }) },
+      ),
+      foldersGet(makePlainRequest("http://localhost:3000/api/folders", "GET")),
+      tagsGet(makePlainRequest("http://localhost:3000/api/tags", "GET")),
+    ]);
+    for (const res of unauthResponses) {
+      expect(res.status).toBe(401);
+    }
+
+    // 2. CSRF origin mismatch -> 403 CSRF_ORIGIN_MISMATCH
+    const csrfRes = await notesPost(
+      makeAuthedRequest(
+        "http://localhost:3000/api/notes",
+        "POST",
+        alice.cookie,
+        { title: "CSRF" },
+        { origin: "https://evil.example" },
+      ),
+    );
+    expect(csrfRes.status).toBe(403);
+    const csrfJson = (await csrfRes.json()) as {
+      ok: false;
+      error: { code: string };
+    };
+    expect(csrfJson.error.code).toBe("CSRF_ORIGIN_MISMATCH");
+
+    // 3. Malformed JSON -> 400 INVALID_JSON; bad UUID route param -> 422; oversized content -> 422
+    const badJsonRes = await notesPost(
+      makeAuthedRequest(
+        "http://localhost:3000/api/notes",
+        "POST",
+        alice.cookie,
+        "{invalid-json",
+      ),
+    );
+    expect(badJsonRes.status).toBe(400);
+    expect(
+      ((await badJsonRes.json()) as { error: { code: string } }).error.code,
+    ).toBe("INVALID_JSON");
+
+    const badFolderJsonRes = await foldersPost(
+      makeAuthedRequest(
+        "http://localhost:3000/api/folders",
+        "POST",
+        alice.cookie,
+        "{broken",
+      ),
+    );
+    expect(badFolderJsonRes.status).toBe(400);
+
+    const badParamResponses = await Promise.all([
+      noteGet(
+        makeAuthedRequest("http://localhost:3000/api/notes/not-uuid", "GET", alice.cookie),
+        { params: Promise.resolve({ id: "not-uuid" }) },
+      ),
+      notePatch(
+        makeAuthedRequest("http://localhost:3000/api/notes/not-uuid", "PATCH", alice.cookie, {}),
+        { params: Promise.resolve({ id: "not-uuid" }) },
+      ),
+      noteDelete(
+        makeAuthedRequest("http://localhost:3000/api/notes/not-uuid", "DELETE", alice.cookie),
+        { params: Promise.resolve({ id: "not-uuid" }) },
+      ),
+      checklistPatch(
+        makeAuthedRequest(
+          "http://localhost:3000/api/notes/not-uuid/checklist",
+          "PATCH",
+          alice.cookie,
+          { index: 0, checked: true },
+        ),
+        { params: Promise.resolve({ id: "not-uuid" }) },
+      ),
+      folderPatch(
+        makeAuthedRequest(
+          "http://localhost:3000/api/folders/not-uuid",
+          "PATCH",
+          alice.cookie,
+          { name: "X" },
+        ),
+        { params: Promise.resolve({ id: "not-uuid" }) },
+      ),
+      folderDelete(
+        makeAuthedRequest(
+          "http://localhost:3000/api/folders/not-uuid",
+          "DELETE",
+          alice.cookie,
+        ),
+        { params: Promise.resolve({ id: "not-uuid" }) },
+      ),
+    ]);
+    for (const res of badParamResponses) {
+      expect(res.status).toBe(422);
+    }
+
+    const oversizedRes = await notesPost(
+      makeAuthedRequest(
+        "http://localhost:3000/api/notes",
+        "POST",
+        alice.cookie,
+        { title: "Big", content: "a".repeat(200_001) },
+      ),
+    );
+    expect(oversizedRes.status).toBe(422);
+
+    // 4. Folder self-rename (200), folder LWW server_newer, duplicate ID 409, and cross-user isolation
+    const folderId = crypto.randomUUID();
+    const fKey = `folder-${crypto.randomUUID()}`;
+    const createFolderRes = await foldersPost(
+      makeAuthedRequest(
+        "http://localhost:3000/api/folders",
+        "POST",
+        alice.cookie,
+        { id: folderId, name: "Skripsi", idempotencyKey: fKey },
+      ),
+    );
+    expect(createFolderRes.status).toBe(201);
+
+    // Same idempotency key with changed payload -> 409 IDEMPOTENCY_KEY_CONFLICT
+    const conflictIdemRes = await foldersPost(
+      makeAuthedRequest(
+        "http://localhost:3000/api/folders",
+        "POST",
+        alice.cookie,
+        { id: folderId, name: "Different", idempotencyKey: fKey },
+      ),
+    );
+    expect(conflictIdemRes.status).toBe(409);
+    expect(
+      ((await conflictIdemRes.json()) as { error: { code: string } }).error.code,
+    ).toBe("IDEMPOTENCY_KEY_CONFLICT");
+
+    // Different idempotency key with duplicate PK id -> 409 FOLDER_ALREADY_EXISTS
+    const dupFolderIdRes = await foldersPost(
+      makeAuthedRequest(
+        "http://localhost:3000/api/folders",
+        "POST",
+        alice.cookie,
+        { id: folderId, name: "Unique Name" },
+      ),
+    );
+    expect(dupFolderIdRes.status).toBe(409);
+    expect(
+      ((await dupFolderIdRes.json()) as { error: { code: string } }).error.code,
+    ).toBe("FOLDER_ALREADY_EXISTS");
+
+    // Case-insensitive self-rename -> 200
+    const selfRenameRes = await folderPatch(
+      makeAuthedRequest(
+        `http://localhost:3000/api/folders/${folderId}`,
+        "PATCH",
+        alice.cookie,
+        { name: "skripsi" },
+      ),
+      { params: Promise.resolve({ id: folderId }) },
+    );
+    expect(selfRenameRes.status).toBe(200);
+    const selfRenameJson = (await selfRenameRes.json()) as {
+      ok: true;
+      data: { folder: { name: string; updatedAt: string }; conflictResolved: string };
+    };
+    expect(selfRenameJson.data.folder.name).toBe("skripsi");
+
+    // Folder stale rename -> server_newer
+    const staleFolderRename = await folderPatch(
+      makeAuthedRequest(
+        `http://localhost:3000/api/folders/${folderId}`,
+        "PATCH",
+        alice.cookie,
+        {
+          name: "Stale Name",
+          updatedAt: new Date(
+            Date.parse(selfRenameJson.data.folder.updatedAt) - 5_000,
+          ).toISOString(),
+        },
+      ),
+      { params: Promise.resolve({ id: folderId }) },
+    );
+    expect(staleFolderRename.status).toBe(200);
+    expect(
+      ((await staleFolderRename.json()) as {
+        data: { conflictResolved: string; folder: { name: string } };
+      }).data,
+    ).toMatchObject({
+      conflictResolved: "server_newer",
+      folder: { name: "skripsi" },
+    });
+
+    // Bob sees 0 folders and gets 404 FOLDER_NOT_FOUND on Alice's folder
+    const bobFolders = await foldersGet(
+      makeAuthedRequest("http://localhost:3000/api/folders", "GET", bob.cookie),
+    );
+    expect(((await bobFolders.json()) as { data: { folders: unknown[] } }).data.folders).toHaveLength(0);
+
+    const bobPatchFolder = await folderPatch(
+      makeAuthedRequest(
+        `http://localhost:3000/api/folders/${folderId}`,
+        "PATCH",
+        bob.cookie,
+        { name: "Hijack" },
+      ),
+      { params: Promise.resolve({ id: folderId }) },
+    );
+    expect(bobPatchFolder.status).toBe(404);
+
+    const bobDeleteFolder = await folderDelete(
+      makeAuthedRequest(
+        `http://localhost:3000/api/folders/${folderId}`,
+        "DELETE",
+        bob.cookie,
+      ),
+      { params: Promise.resolve({ id: folderId }) },
+    );
+    expect(bobDeleteFolder.status).toBe(404);
+
+    // 5. Concurrent tag creation race + duplicate note PK 409 + cross-user DELETE/checklist + cleanup hook safety
+    const noteId = crypto.randomUUID();
+    const [race1, race2] = await Promise.all([
+      notesPost(
+        makeAuthedRequest(
+          "http://localhost:3000/api/notes",
+          "POST",
+          alice.cookie,
+          {
+            id: noteId,
+            folderId,
+            title: "Alpha_Spec\\v1",
+            content: "Details for foo_bar\\baz in body",
+            isPinned: true,
+            tags: ["SharedRace", "FilterTag"],
+          },
+        ),
+      ),
+      notesPost(
+        makeAuthedRequest(
+          "http://localhost:3000/api/notes",
+          "POST",
+          alice.cookie,
+          {
+            title: "Concurrent Peer",
+            content: "- [ ] Peer task",
+            tags: ["sharedrace"],
+          },
+        ),
+      ),
+    ]);
+    expect(race1.status).toBe(201);
+    expect(race2.status).toBe(201);
+
+    const race1Json = (await race1.json()) as {
+      data: { note: { id: string; updatedAt: string; tags: { id: string; name: string }[] } };
+    };
+    const filterTagId = race1Json.data.note.tags.find(
+      (item) => item.name === "FilterTag",
+    )!.id;
+
+    // Duplicate note PK UUID -> 409 NOTE_ALREADY_EXISTS
+    const dupNoteIdRes = await notesPost(
+      makeAuthedRequest(
+        "http://localhost:3000/api/notes",
+        "POST",
+        alice.cookie,
+        { id: noteId, title: "Dup ID" },
+      ),
+    );
+    expect(dupNoteIdRes.status).toBe(409);
+    expect(
+      ((await dupNoteIdRes.json()) as { error: { code: string } }).error.code,
+    ).toBe("NOTE_ALREADY_EXISTS");
+
+    // Cross-user checklist & delete -> 404 NOTE_NOT_FOUND
+    const bobChecklist = await checklistPatch(
+      makeAuthedRequest(
+        `http://localhost:3000/api/notes/${noteId}/checklist`,
+        "PATCH",
+        bob.cookie,
+        { index: 0, checked: true },
+      ),
+      { params: Promise.resolve({ id: noteId }) },
+    );
+    expect(bobChecklist.status).toBe(404);
+
+    const bobDeleteNote = await noteDelete(
+      makeAuthedRequest(
+        `http://localhost:3000/api/notes/${noteId}`,
+        "DELETE",
+        bob.cookie,
+      ),
+      { params: Promise.resolve({ id: noteId }) },
+    );
+    expect(bobDeleteNote.status).toBe(404);
+
+    // Search filters: content substring with `_` & `\`, folderId=<uuid>, tagId=<uuid>, pinned=true
+    const contentEscapedRes = await notesGet(
+      makeAuthedRequest(
+        `http://localhost:3000/api/notes?q=${encodeURIComponent("foo_bar\\baz")}&folderId=${folderId}&tagId=${filterTagId}&pinned=true`,
+        "GET",
+        alice.cookie,
+      ),
+    );
+    expect(contentEscapedRes.status).toBe(200);
+    const contentEscapedJson = (await contentEscapedRes.json()) as {
+      data: { items: { id: string }[] };
+    };
+    expect(contentEscapedJson.data.items.map((n) => n.id)).toEqual([noteId]);
+
+    // PERF-2: seed 25 additional notes cleanly and verify instant search stays < 300 ms
+    await Promise.all(
+      Array.from({ length: 25 }, (_, i) =>
+        notesPost(
+          makeAuthedRequest(
+            "http://localhost:3000/api/notes",
+            "POST",
+            alice.cookie,
+            {
+              title: `Bulk Note ${i + 1}`,
+              content: i === 24 ? "Target keyword perfNeedle inside content" : "Routine ledger entry",
+            },
+          ),
+        ),
+      ),
+    );
+
+    const tStart = performance.now();
+    const perfSearchRes = await notesGet(
+      makeAuthedRequest(
+        "http://localhost:3000/api/notes?q=perfNeedle",
+        "GET",
+        alice.cookie,
+      ),
+    );
+    const elapsedMs = performance.now() - tStart;
+    expect(perfSearchRes.status).toBe(200);
+    expect(
+      ((await perfSearchRes.json()) as { data: { items: { title: string }[] } })
+        .data.items.map((n) => n.title),
+    ).toEqual(["Bulk Note 25"]);
+    expect(elapsedMs).toBeLessThan(300);
+
+    // Post-commit cleanup hook must NOT fire on stale server_newer DELETE, rollback, or idempotency replay
+    const cleanupSpy = vi.fn();
+    const unregister = registerNoteDeleteCleanup(cleanupSpy);
+    try {
+      const staleDeleteRes = await noteDelete(
+        makeAuthedRequest(
+          `http://localhost:3000/api/notes/${noteId}`,
+          "DELETE",
+          alice.cookie,
+          {
+            updatedAt: new Date(
+              Date.parse(race1Json.data.note.updatedAt) - 5_000,
+            ).toISOString(),
+          },
+        ),
+        { params: Promise.resolve({ id: noteId }) },
+      );
+      expect(staleDeleteRes.status).toBe(200);
+      expect(
+        ((await staleDeleteRes.json()) as { data: { deleted: boolean } }).data.deleted,
+      ).toBe(false);
+      expect(cleanupSpy).not.toHaveBeenCalled();
+
+      const delIdemKey = `del-${crypto.randomUUID()}`;
+      const delOkRes = await noteDelete(
+        makeAuthedRequest(
+          `http://localhost:3000/api/notes/${noteId}`,
+          "DELETE",
+          alice.cookie,
+          undefined,
+          { "idempotency-key": delIdemKey },
+        ),
+        { params: Promise.resolve({ id: noteId }) },
+      );
+      expect(delOkRes.status).toBe(200);
+      expect(cleanupSpy).toHaveBeenCalledTimes(1);
+
+      // Replay must return cached result without invoking cleanupSpy a second time
+      const delReplayRes = await noteDelete(
+        makeAuthedRequest(
+          `http://localhost:3000/api/notes/${noteId}`,
+          "DELETE",
+          alice.cookie,
+          undefined,
+          { "idempotency-key": delIdemKey },
+        ),
+        { params: Promise.resolve({ id: noteId }) },
+      );
+      expect(delReplayRes.status).toBe(200);
+      expect(cleanupSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+    }
   });
 });
 

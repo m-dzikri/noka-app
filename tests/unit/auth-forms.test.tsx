@@ -108,6 +108,49 @@ describe("auth forms, instant ID/EN + theme switching & logout wipe (AC-2.5)", (
     }
   });
 
+  it("redirects LoginForm to /app/notes after successful 200 login", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: true,
+            data: { user: { id: "u-1", name: "Dinda", email: "dinda@noka.test" } },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    try {
+      render(
+        <PreferencesProvider
+          initialLocale="en"
+          initialTheme="light"
+          hasCookieLocale={true}
+          hasCookieTheme={true}
+        >
+          <LoginForm />
+        </PreferencesProvider>,
+      );
+
+      fireEvent.change(screen.getByLabelText("Email Address"), {
+        target: { value: "dinda@noka.test" },
+      });
+      fireEvent.change(screen.getByLabelText("Password"), {
+        target: { value: "rahasia123" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
+
+      await waitFor(() => {
+        expect(routerPushMock).toHaveBeenCalledWith("/app/notes");
+        expect(routerRefreshMock).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("validates RegisterForm password match/length and submits active locale/theme before redirecting to /app/notes", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
