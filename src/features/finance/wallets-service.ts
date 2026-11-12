@@ -168,7 +168,7 @@ async function promoteOldestRemainingActiveWallet(
   userId: string,
   excludedWalletId: string,
   updatedAt: Date,
-): Promise<void> {
+): Promise<boolean> {
   const candidates = await tx
     .select({ id: wallets.id })
     .from(wallets)
@@ -184,13 +184,14 @@ async function promoteOldestRemainingActiveWallet(
     .limit(1);
 
   if (candidates.length === 0) {
-    return;
+    return false;
   }
 
   await tx
     .update(wallets)
     .set({ isDefault: true, updatedAt })
     .where(and(eq(wallets.id, candidates[0].id), eq(wallets.userId, userId)));
+  return true;
 }
 
 /**
@@ -388,7 +389,17 @@ export async function updateWallet(
         );
       nextIsDefault = true;
     } else if (input.isDefault === false) {
-      nextIsDefault = false;
+      if (existing.isDefault && nextArchivedAt === null) {
+        const promoted = await promoteOldestRemainingActiveWallet(
+          tx,
+          userId,
+          walletId,
+          lww.nextUpdatedAt,
+        );
+        nextIsDefault = !promoted;
+      } else {
+        nextIsDefault = false;
+      }
     }
 
     await tx

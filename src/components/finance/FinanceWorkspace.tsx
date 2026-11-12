@@ -31,6 +31,7 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import { formatIdr } from "@/features/finance/format";
 import type { FinanceEntryType } from "@/features/finance/schemas";
@@ -88,6 +89,11 @@ export function FinanceWorkspace({
 
   const [loadingMore, setLoadingMore] = useState(false);
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    | { kind: "transaction"; item: TransactionDto }
+    | { kind: "transfer"; item: TransferDto }
+    | null
+  >(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [walletModalOpen, setWalletModalOpen] = useState(false);
@@ -140,6 +146,14 @@ export function FinanceWorkspace({
     [],
   );
 
+  const surfaceNonOkError = useCallback(
+    async (res: Response): Promise<void> => {
+      const errPayload = await readJsonSafe<ApiErrorPayload>(res);
+      setErrorMsg(resolveFinanceErrorMessage(t, errPayload));
+    },
+    [t],
+  );
+
   const fetchFinanceWithFilters = useCallback(
     async (nextFilters: {
       walletId: string;
@@ -171,6 +185,8 @@ export function FinanceWorkspace({
         if (payload?.data?.wallets) {
           setWallets(payload.data.wallets);
         }
+      } else {
+        await surfaceNonOkError(walletsRes);
       }
 
       if (catsRes.ok) {
@@ -180,6 +196,8 @@ export function FinanceWorkspace({
         if (payload?.data?.categories) {
           setCategories(payload.data.categories);
         }
+      } else {
+        await surfaceNonOkError(catsRes);
       }
 
       if (txsRes.ok) {
@@ -191,8 +209,7 @@ export function FinanceWorkspace({
           setTransactionsNextCursor(payload.data.nextCursor);
         }
       } else {
-        const errPayload = await readJsonSafe<ApiErrorPayload>(txsRes);
-        setErrorMsg(resolveFinanceErrorMessage(t, errPayload));
+        await surfaceNonOkError(txsRes);
       }
 
       if (transfersRes.ok) {
@@ -203,9 +220,11 @@ export function FinanceWorkspace({
           setTransfers(payload.data.items);
           setTransfersNextCursor(payload.data.nextCursor);
         }
+      } else {
+        await surfaceNonOkError(transfersRes);
       }
     },
-    [buildFilterQuery, t],
+    [buildFilterQuery, surfaceNonOkError],
   );
 
   const refreshAllFinanceData = useCallback(async () => {
@@ -234,17 +253,33 @@ export function FinanceWorkspace({
       to: string;
     }>,
   ): void {
+    const nextType = patch.type ?? filterType;
+    let nextCategoryId = patch.categoryId ?? filterCategoryId;
+    if (patch.type !== undefined && nextType !== "" && nextCategoryId) {
+      const selectedCategory = categories.find(
+        (cat) => cat.id === nextCategoryId,
+      );
+      if (!selectedCategory || selectedCategory.type !== nextType) {
+        nextCategoryId = "";
+      }
+    }
+
     const nextFilters = {
       walletId: patch.walletId ?? filterWalletId,
-      type: patch.type ?? filterType,
-      categoryId: patch.categoryId ?? filterCategoryId,
+      type: nextType,
+      categoryId: nextCategoryId,
       from: patch.from ?? filterFrom,
       to: patch.to ?? filterTo,
     };
 
     if (patch.walletId !== undefined) setFilterWalletId(patch.walletId);
     if (patch.type !== undefined) setFilterType(patch.type);
-    if (patch.categoryId !== undefined) setFilterCategoryId(patch.categoryId);
+    if (
+      patch.categoryId !== undefined ||
+      nextCategoryId !== filterCategoryId
+    ) {
+      setFilterCategoryId(nextCategoryId);
+    }
     if (patch.from !== undefined) setFilterFrom(patch.from);
     if (patch.to !== undefined) setFilterTo(patch.to);
 
@@ -282,6 +317,7 @@ export function FinanceWorkspace({
   async function handleLoadMore(): Promise<void> {
     if (loadingMore) return;
     setLoadingMore(true);
+    setErrorMsg(null);
 
     try {
       if (activeTab === "transactions" && transactionsNextCursor) {
@@ -300,6 +336,8 @@ export function FinanceWorkspace({
             setTransactions((prev) => [...prev, ...payload.data.items]);
             setTransactionsNextCursor(payload.data.nextCursor);
           }
+        } else {
+          await surfaceNonOkError(res);
         }
       } else if (activeTab === "transfers" && transfersNextCursor) {
         const params = buildFilterQuery(
@@ -315,6 +353,8 @@ export function FinanceWorkspace({
             setTransfers((prev) => [...prev, ...payload.data.items]);
             setTransfersNextCursor(payload.data.nextCursor);
           }
+        } else {
+          await surfaceNonOkError(res);
         }
       }
     } finally {
@@ -336,8 +376,7 @@ export function FinanceWorkspace({
       });
 
       if (!res.ok) {
-        const errPayload = await readJsonSafe<ApiErrorPayload>(res);
-        setErrorMsg(resolveFinanceErrorMessage(t, errPayload));
+        await surfaceNonOkError(res);
         return;
       }
 
@@ -362,8 +401,7 @@ export function FinanceWorkspace({
       });
 
       if (!res.ok) {
-        const errPayload = await readJsonSafe<ApiErrorPayload>(res);
-        setErrorMsg(resolveFinanceErrorMessage(t, errPayload));
+        await surfaceNonOkError(res);
         return;
       }
 
@@ -371,6 +409,20 @@ export function FinanceWorkspace({
       dispatchFinanceUpdated();
     } finally {
       setBusyDeleteId(null);
+    }
+  }
+
+  async function handleConfirmDelete(): Promise<void> {
+    if (!pendingDelete) return;
+    const target = pendingDelete;
+    try {
+      if (target.kind === "transaction") {
+        await handleDeleteTransaction(target.item);
+      } else {
+        await handleDeleteTransfer(target.item);
+      }
+    } finally {
+      setPendingDelete(null);
     }
   }
 
@@ -742,7 +794,9 @@ export function FinanceWorkspace({
                           size="sm"
                           variant="ghost"
                           loading={busyDeleteId === tx.id}
-                          onClick={() => void handleDeleteTransaction(tx)}
+                          onClick={() =>
+                            setPendingDelete({ kind: "transaction", item: tx })
+                          }
                           aria-label={`${t.finance.ledger.deleteButton} ${tx.categoryName}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -803,7 +857,9 @@ export function FinanceWorkspace({
                       size="sm"
                       variant="ghost"
                       loading={busyDeleteId === tr.id}
-                      onClick={() => void handleDeleteTransfer(tr)}
+                      onClick={() =>
+                        setPendingDelete({ kind: "transfer", item: tr })
+                      }
                       aria-label={`${t.finance.ledger.deleteButton} ${tr.fromWalletName}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -867,6 +923,40 @@ export function FinanceWorkspace({
         editingTransfer={editingTransfer}
         onMutated={refreshAllFinanceData}
       />
+
+      <Modal
+        open={pendingDelete !== null}
+        onClose={() => {
+          if (!busyDeleteId) setPendingDelete(null);
+        }}
+        title={t.finance.ledger.deleteButton}
+        description={
+          pendingDelete
+            ? pendingDelete.kind === "transfer"
+              ? t.finance.ledger.confirmDeleteTransfer
+              : t.finance.ledger.confirmDeleteTransaction
+            : undefined
+        }
+      >
+        <div className="flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={Boolean(busyDeleteId)}
+            onClick={() => setPendingDelete(null)}
+          >
+            {t.common.cancel}
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            loading={busyDeleteId === pendingDelete?.item.id}
+            onClick={() => void handleConfirmDelete()}
+          >
+            {t.finance.ledger.deleteButton}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

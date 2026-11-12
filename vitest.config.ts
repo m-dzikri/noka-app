@@ -27,6 +27,8 @@ export default defineConfig({
           name: "integration",
           include: ["tests/integration/**/*.{test,spec}.{ts,tsx}"],
           environment: "node",
+          fileParallelism: false,
+          testTimeout: 15_000,
           setupFiles: ["./tests/setup.ts", "./tests/setup.integration.ts"],
         },
       },

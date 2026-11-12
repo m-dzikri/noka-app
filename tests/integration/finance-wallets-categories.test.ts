@@ -281,6 +281,43 @@ describe("TS-006-02: Wallets & Categories API Lifecycle, Integrity, Idempotency 
     );
     expect(unarchiveRes.status).toBe(200);
 
+    // Unsetting isDefault: false on an active default wallet promotes another active wallet
+    const unsetDefaultRes = await walletPatch(
+      makeAuthedRequest(
+        `http://localhost:3000/api/wallets/${ewalletId}`,
+        "PATCH",
+        alice.cookie,
+        { isDefault: false },
+      ),
+      { params: Promise.resolve({ id: ewalletId }) },
+    );
+    expect(unsetDefaultRes.status).toBe(200);
+    const unsetDefaultJson = (await unsetDefaultRes.json()) as {
+      data: { wallet: { isDefault: boolean } };
+    };
+    expect(unsetDefaultJson.data.wallet.isDefault).toBe(false);
+
+    const afterUnsetList = (await (
+      await walletsGet(
+        makeAuthedRequest("http://localhost:3000/api/wallets", "GET", alice.cookie),
+      )
+    ).json()) as { data: { wallets: Array<{ id: string; isDefault: boolean }> } };
+    expect(
+      afterUnsetList.data.wallets.find((w) => w.id === bankId)?.isDefault,
+    ).toBe(true);
+
+    // Restore ewalletId as default so zero-history delete test below exercises promotion on delete
+    const restoreDefaultRes = await walletPatch(
+      makeAuthedRequest(
+        `http://localhost:3000/api/wallets/${ewalletId}`,
+        "PATCH",
+        alice.cookie,
+        { isDefault: true },
+      ),
+      { params: Promise.resolve({ id: ewalletId }) },
+    );
+    expect(restoreDefaultRes.status).toBe(200);
+
     // Cross-user isolation: Bob gets 404 on Alice's wallet
     expect(
       (
@@ -308,6 +345,22 @@ describe("TS-006-02: Wallets & Categories API Lifecycle, Integrity, Idempotency 
     expect(zeroHistoryDelete.status).toBe(200);
     expect(
       ((await zeroHistoryDelete.json()) as { data: { deleted: boolean } }).data.deleted,
+    ).toBe(true);
+
+    // Attempting isDefault: false on the sole remaining active wallet keeps it default
+    const soleUnsetRes = await walletPatch(
+      makeAuthedRequest(
+        `http://localhost:3000/api/wallets/${bankId}`,
+        "PATCH",
+        alice.cookie,
+        { isDefault: false },
+      ),
+      { params: Promise.resolve({ id: bankId }) },
+    );
+    expect(soleUnsetRes.status).toBe(200);
+    expect(
+      ((await soleUnsetRes.json()) as { data: { wallet: { isDefault: boolean } } }).data
+        .wallet.isDefault,
     ).toBe(true);
 
     // Record transaction & soft-delete it (creating a tombstone history!) on bankId
