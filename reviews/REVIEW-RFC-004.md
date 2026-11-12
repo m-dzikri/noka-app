@@ -150,3 +150,81 @@ Scope compliance (`MoSCoW`, `QUAL-1`): No v1.1 (`F20`–`F24`) or *Won't Have* (
 - Add `NOTE_MAX_TAGS` client guard in `NoteEditor.tsx:321`, move hardcoded English toolbar insertion defaults (`NoteEditor.tsx:708-780`) into `i18n` dictionaries (`I18N-1`), and add `flex-wrap` to nested `task-list-item` containers (`MarkdownPreview.tsx:187-198`).
 - Normalize keyset cursor timestamps via SQL-aligned microsecond precision or explicit JS `Date` enforcement across all note writers.
 
+---
+
+## Round 2 -- 2026-11-12
+
+- **RFC:** `RFC-004` ([`RFC-004-Notes-Workspace-And-Search.md`](../RFCs/RFC-004-Notes-Workspace-And-Search.md))
+- **Change Request Verified:** `CR-003` ([`CHANGE-REQUEST-003.md`](../changes/CHANGE-REQUEST-003.md))
+- **Branch & Commit:** `feat/rfc-004-notes-workspace` @ `687c623` (commits reviewed since Round 1 `4e52c5b`: `a1bfb70`, `2e61a09`, `a9bdd95`, `687c623`)
+- **Review Context:** Fresh review session (Round 2 re-review; none of the `RFC-004` application or test code was authored in this session)
+- **Reviewer Verdict:** **Approved** (**Overall Risk Level: Low**)
+
+### Step 0: Verification Run Output (Round 2)
+
+Executed directly against `feat/rfc-004-notes-workspace` @ `687c623` (`next-env.d.ts` regenerated cleanly by `next build`; only `RFCS.md` and `reviews/REVIEW-RFC-004.md` modified in the working tree):
+
+1. **Lint (`npm run lint` -> `eslint .`):**
+   - Result: `LINT_EXIT=0` (clean pass).
+2. **Typecheck (`npm run typecheck` -> `tsc --noEmit`):**
+   - Result: `TSC_EXIT=0` (clean pass).
+3. **Unit & Integration Test Suite (`npm test` -> `vitest run`, Vitest `5.1.0`):**
+   - Result: `Test Files 15 passed (15)`, `Tests 71 passed (71)`, `0` skipped, `Duration 7.93s`, `TEST_EXIT=0`.
+   - `RFC-004`-relevant suites observed:
+     - `tests/unit/notes-checklist-markdown.test.ts` — `5` tests passed.
+     - `tests/unit/note-editor.test.tsx` — `7` tests passed.
+     - `tests/integration/notes-folders-tags.test.ts` — `4` tests passed.
+     - `tests/unit/auth-forms.test.tsx` — `7` tests passed.
+4. **End-to-End Test Suite (`npx playwright test tests/e2e/notes-workspace.spec.ts`):**
+   - Result: `2 passed (29.9s)` (`EXIT=0`):
+     - `[mobile]` `RFC-004: Notes Workspace E2E (TS-004-04) > verifies auth redirect -> /app/notes, folder & note lifecycle, checklist reload persistence, pagination, and zero overflow across viewports` (`24.5s`).
+     - `[desktop]` `RFC-004: Notes Workspace E2E (TS-004-04) > verifies auth redirect -> /app/notes, folder & note lifecycle, checklist reload persistence, pagination, and zero overflow across viewports` (`28.0s`).
+5. **Production Build (`npm run build` -> `next build` `16.4.6` Turbopack):**
+   - Executed with `$env:DATABASE_URL=""; $env:SESSION_SECRET=""; $env:APP_URL="http://127.0.0.1:3114"`.
+   - Note: local `.env` on disk was loaded (`- Environments: .env`).
+   - Result: `BUILD_EXIT=0`. All app and API routes built as `ƒ (Dynamic)` (`/app`, `/app/notes`, `/app/notes/[id]`, `/api/notes`, `/api/notes/[id]`, `/api/notes/[id]/checklist`, `/api/folders`, `/api/folders/[id]`, `/api/tags`); `/icon.svg` built as static (`○`).
+6. **Traceability Check (`python .agents/skills/workflow-status/scripts/trace-check.py .`, pre-status-update):**
+   - Result: `33 requirements, 31 features, 61 rules, 10 RFCs`, `0 failure(s), 5 warning(s)` (`F20`–`F24` planned v1.1 features), `TRACE_EXIT=0` (and status subsequently updated to `Reviewed` in `RFCS.md`).
+7. **Hygiene Scan (`Get-ChildItem -Path src -Recurse -File | Select-String -Pattern 'TODO|FIXME|eslint-disable|process\.env|rehype-raw|\bany\b'`):**
+   - Result: Clean (`process.env` only in `src/lib/env.ts`; `rehype-raw` only in comment at `src/components/notes/MarkdownPreview.tsx:109`; `\bany\b` only English prose `"any"` in comments/copy).
+
+### Product Type Check Scope
+
+- **Product Type:** Web App (Next.js App Router + React client/server + PostgreSQL/Drizzle).
+- **Explicitly Skipped Checks (per `review-rfc` Web App scope):**
+  - *Binary Size* — Skipped (web application rather than native desktop/mobile binary; verified production Next.js route/bundle compilation via `npm run build`).
+  - *Public Third-Party API SLA & Versioning* — Skipped (all `/api/*` endpoints added in `RFC-004` are internal session-authenticated routes for Noka's own web frontend).
+
+### Round 1 Blocking Issues Resolution Verification
+
+1. **Issue #1 (Offline checklist multi-toggle / post-edit toggle failure) — RESOLVED:**
+   - `src/components/notes/NoteEditor.tsx:409-498` (`handleToggleChecklist`) now computes `optimisticContent`, updates `content`, `draftRef.current`, and `dirtyRef.current`, sets `pending_sync` status while offline (`lines 434-437`), flushes combined dirty draft edits via `persistSnapshot` when online (`lines 439-442`), and reconnect-flushes dirty drafts via the `online` event listener (`lines 268-285`).
+2. **Issue #2 (`NoteEditor` unmounts mid-typing when edited note leaves active filter + stale deleted `folderId`) — RESOLVED:**
+   - `src/components/notes/NotesWorkspace.tsx:129-130, 401-404, 478-480` keeps `retainedSelectedNote` mounted while actively edited even if edits exclude it from the current filter slice.
+   - `src/components/notes/NoteEditor.tsx:251-265` reconciles deleted folders by clearing `folderId` even when `dirtyRef.current === true`.
+3. **Issue #3 (Checklist index parser parity drift with `remark-gfm`) — RESOLVED:**
+   - `src/features/notes/checklist.ts:288-525` and `src/components/notes/MarkdownPreview.tsx:27-62, 188-195, 251-273` align blockquote exit resets, indented ordered-list continuation, list interruption rules, and unclosed fence handling with `rehypeChecklistIndex`.
+4. **Issue #4 (Silent `RFC-004` spec/API contract drift & schema mismatch) — RESOLVED:**
+   - Formally reconciled through approved `CR-003` (`changes/CHANGE-REQUEST-003.md`, commit `a1bfb70`), updating `RFCs/RFC-004-Notes-Workspace-And-Search.md` (`API Contracts Exposed`, `AC-4.1`–`AC-4.5`, and `Implementation Notes` at `lines 100-108`) and auth entry redirects (`/app/notes` across `src/app/(app)/app/page.tsx`, `src/app/(auth)/login/page.tsx:10`, `src/app/(auth)/register/page.tsx:10`, `LoginForm.tsx:106`, `RegisterForm.tsx:97`).
+   - `src/features/notes/schemas.ts:17-22, 78` normalizes tags via `normalizeTagNames` before array constraints and standardizes `folderId: "none"`.
+   - `src/features/notes/service.ts` (`lines 298, 754, 863, 922, 958, 1001, 1038, 1283, 1345, 1405` and `1410-1459`) returns domain codes `NOTE_NOT_FOUND` / `FOLDER_NOT_FOUND` matching downstream `RFC-005`/`RFC-008`, standardizes `conflictResolved: "applied" | "server_newer"`, and populates real `noteCount` + `movedNotesCount` in `deleteFolder`.
+5. **Issue #5 (Incomplete `AC-4.1`–`AC-4.5` & `TEST-STRATEGY.md` verification) — RESOLVED:**
+   - `TEST-STRATEGY.md:185-188` records `Passing` for `TS-004-01`–`TS-004-04`, Vitest suite increased to `71/71` passing tests, and `tests/e2e/notes-workspace.spec.ts` (`TS-004-04`) passes on both `[mobile]` and `[desktop]` viewports (`2 passed (29.9s)`).
+
+### Review Dimensions (Round 2)
+
+1. **RFC Adherence — PASS:** Scope matches `F7`, `F8`, `FR-4`, `FR-5`, `AC-4.1`–`AC-4.5`, and approved `CR-003`; downstream contracts for `RFC-005` and `RFC-008` (`NOTE_NOT_FOUND`, `{ note }`, `conflictResolved: "applied" | "server_newer"`, `NoteDeleteCleanupPayload`, preview/editor extension slots) align with spec.
+2. **Rules Compliance — PASS:** Verified Round 1 gaps in `UI-6`, `QUAL-1`/`QUAL-4`, `I18N-1` (`NoteEditor.tsx:809,821,833,845,857,869,881` now use `t.notes.toolDefault*`), and `TEST-1`/`TEST-3` are resolved; schema preserves `transactions.note_id` `ON DELETE SET NULL` (`src/db/schema/finance.ts:125-127`, `DATA-4`).
+3. **Security — PASS:** Auth/CSRF validation, strict `userId` isolation, parameterized `ESCAPE '\\'` `ILIKE` search, `rehype-raw`-free `ReactMarkdown` + URL sanitization, and post-commit cleanup execution all remain intact.
+4. **Performance — PASS:** Composite keyset index (`notes_user_pinned_updated_active_idx`), batched tag lookups, request limits, and debounced search/autosave remain intact.
+5. **Maintainability — PASS:** `lockActiveNoteRow` + `.for("update")` + `23505` handling + `tx.transaction` savepoints in `service.ts`, `NOTE_MAX_TAGS` client guard (`NoteEditor.tsx:376-379`), `flex-wrap` on `task-list-item` containers (`MarkdownPreview.tsx:188-195`), and clean state-updater separation in `NotesWorkspace.tsx:417-436` (`handleNoteDeleted`) resolve prior concurrency and UI ergonomics issues.
+
+### Overall Assessment (Round 2)
+
+- **Overall Risk Level:** **Low**
+- **Summary:** All 5 blocking issues and the Round 1 improvement items are cleanly resolved on `feat/rfc-004-notes-workspace` (`687c623`), `CR-003` reconciles the spec and implementation contracts for `RFC-005`/`RFC-008`, and `lint`, `typecheck`, `71/71` unit/integration tests, Playwright E2E `TS-004-04` (`mobile` + `desktop`), `next build`, and traceability checks all pass.
+- **Blocking Issues:** None.
+- **Improvement Suggestions (Non-Blocking):**
+  - Keep monitoring rapid back-and-forth note switching in `NoteEditor.tsx:218-226` (currently fire-and-forget async `persistSnapshot` safely suppresses stale UI status on another note, though queueing per-note in-flight flushes could tighten rapid same-note re-selection races).
+  - Consider scheduling a `pg_trgm` GIN index migration on `notes.title` / `notes.content` prior to high note-volume scale-up.
+
