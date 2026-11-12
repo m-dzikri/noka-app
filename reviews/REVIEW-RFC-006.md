@@ -125,3 +125,85 @@ However, **1 blocking test-suite stability regression (`npm test` failure)** blo
 5. **Downstream `RFC-007` Integration Reminder (`UI-4` / `F17`):**
    - When implementing `RFC-007` (`<PrivacyAmount />`), replace direct `formatIdr(...)` text renders in `FinanceWorkspace.tsx:406, 530, 726, 787` and `WalletManagerModal.tsx:359` so Privacy Blur masks all Finance workspace amounts consistently.
 
+
+
+## Round 2 -- 2026-11-12
+
+- **Target Commit**: `87d8db8` (`fix(rfc-006): address code review findings for test stability and finance UX`, branch `feat/rfc-006-finance-core-ledger`)
+- **Decision**: `Reviewed` (`PASS` across all 5 review dimensions)
+- **Overall Risk Level**: `Low`
+
+### Summary
+All findings from Round 1 (`8b4e793`)—including Blocking Issue #1 in `vitest.config.ts` and non-blocking Suggestions #1–#4 in `wallets-service.ts` and `FinanceWorkspace.tsx`—have been implemented cleanly, documented in `RFCs/RFC-006-Finance-Core-Ledger.md` (`## Implementation Notes`), and backed by new unit and integration assertions. Full verification (`eslint`, `tsc --noEmit`, 21/21 Vitest suites / 100 tests, Next.js production build, and 10/10 Playwright E2E desktop + mobile tests) passed with zero failures or workarounds.
+
+### Step 0: Command & Verification Output (`87d8db8`)
+
+- **Lint, Typecheck & Full Vitest Suite** (`npm run lint; npm run typecheck; npm test`): exited `0`
+```text
+Test Files  21 passed (21)
+Tests  100 passed (100)
+Duration  37.47s
+```
+  (Includes `tests/unit/finance-workspace.test.tsx` `4/4`, `tests/integration/finance-ledger.test.ts` `5/5`, `tests/integration/finance-wallets-categories.test.ts` `2/2`, and `tests/integration/finance-transfers.test.ts` `2/2`, executed cleanly without `--no-file-parallelism` workarounds.)
+
+- **Production Build** (`$env:DATABASE_URL=""; $env:SESSION_SECRET=""; $env:APP_URL="http://127.0.0.1:3114"; npm run build`): exited `0`
+```text
+Compiled successfully in 1588ms
+Finished TypeScript in 9.5s
+Generating static pages using 15 workers (10/10) in 847ms
+```
+
+- **Playwright E2E Suite** (`npm run test:e2e -- --workers=2`): exited `0`
+```text
+10 passed (58.7s)
+```
+  (All `[desktop]` and `[mobile]` specs passed: `landing-seo.spec.ts`, `finance-workspace.spec.ts`, `note-attachments.spec.ts`, `notes-workspace.spec.ts`.)
+
+- **Code Hygiene Scan** (`Select-String` on `src/` & `tests/`): `0` `TODO`/`FIXME`, `0` `console.log|debug|info`, `0` explicit `: any` annotations; `process.env.*` isolated to `src/lib/env.ts`.
+- **Artifact Traceability** (`python .agents/skills/workflow-status/scripts/trace-check.py .`): exited `0` (`33 requirements, 31 features, 61 rules, 10 RFCs`, `0 failure(s), 5 warning(s)` for deferred `F20`–`F24`).
+
+### Product Type & Skipped Checks
+Per `PRD.md`, Noka is a **Web App** (Next.js App Router PWA):
+- **Skipped — Binary Size**: Not applicable to a server-rendered Next.js web workspace (no native mobile/desktop binary output).
+- **Skipped — Public Third-Party API SLA & Versioning**: RFC-006 implements first-party authenticated routes only; no external third-party API client or SLA contract is introduced.
+
+### Round 1 Finding Resolution Verification
+1. **Blocking Issue #1 (`vitest.config.ts`) — Resolved**: `integration` project now specifies `fileParallelism: false` and `testTimeout: 15_000`; `npm test` ran all `21` files (`100` tests) to completion with zero contention flakes.
+2. **Suggestion #1 (`src/components/finance/FinanceWorkspace.tsx`) — Resolved**: `handleFilterChange` resets incompatible `filterCategoryId` when `filterType` switches (`INCOME`/`EXPENSE`/`TRANSFER`); verified in `tests/unit/finance-workspace.test.tsx`.
+3. **Suggestion #2 (`src/components/finance/FinanceWorkspace.tsx`) — Resolved**: Row deletes now require `<Modal>` confirmation (`pendingDelete` + `handleConfirmDelete`) wired to `t.finance.ledger.confirmDeleteTransaction` / `confirmDeleteTransfer`; verified in `tests/unit/finance-workspace.test.tsx`.
+4. **Suggestion #3 (`src/features/finance/wallets-service.ts`) — Resolved**: `promoteOldestRemainingActiveWallet` returns `boolean`; unsetting `isDefault: false` on an active default wallet promotes the oldest remaining active wallet (falling back to `!promoted` when none exists); verified in `tests/integration/finance-wallets-categories.test.ts`.
+5. **Suggestion #4 (`src/components/finance/FinanceWorkspace.tsx`) — Resolved**: `surfaceNonOkError` surfaces non-2xx API responses across initial fetches and `handleLoadMore`; verified in `tests/unit/finance-workspace.test.tsx`.
+6. **RFC Implementation Notes (`RFCs/RFC-006-Finance-Core-Ledger.md`)**: Updated cleanly to record the post-review hardening.
+
+### Review Dimensions
+
+#### 1. RFC Adherence
+- **Verdict**: PASS
+- **Findings**: None. `F10` (Multi-Wallet & IDR BigInt Balances), `F11` (Categories & Migration to Other/Lainnya), and `F12` (Atomic Transfers & Wallet Exclusion Rules) satisfy `AC-6.1`–`AC-6.5` and `TS-006-01`–`TS-006-03`. All deviations/hardening notes are accurately captured in `RFCs/RFC-006-Finance-Core-Ledger.md` (`## Implementation Notes`).
+- **Suggestions**: None.
+
+#### 2. Rules Compliance
+- **Verdict**: PASS
+- **Findings**: None. `bigint` ledger math (`DATA-1`–`DATA-5`), referential integrity rules (`DATA-4`), UI state error handling (`UI-*`), i18n parity, and Drizzle/Zod schema standards (`STACK-*`) are adhered to without regressions.
+- **Suggestions**: None.
+
+#### 3. Security
+- **Verdict**: PASS
+- **Findings**: None. Strict `userId` ownership isolation across all wallet, category, transaction, and transfer queries/mutations; Zod input validation and integer bounds enforced; no sensitive payload logging.
+- **Suggestions**: None.
+
+#### 4. Performance
+- **Verdict**: PASS
+- **Findings**: None. Atomic database transactions with bounded ledger pagination and derived balances operate cleanly across integration and E2E suites without N+1 queries or unbounded reads.
+- **Suggestions**: None.
+
+#### 5. Maintainability
+- **Verdict**: PASS
+- **Findings**: None. Helpers (`promoteOldestRemainingActiveWallet`, `surfaceNonOkError`, `handleFilterChange`, `handleConfirmDelete`) are concise, well-tested at unit/integration/E2E boundaries, and free of lint/typecheck debt.
+- **Suggestions**: None.
+
+### Blocking Issues
+None.
+
+### Improvement Suggestions
+- **Downstream `RFC-007` (`F17` / `UI-4`)**: When implementing `RFCs/RFC-007-Finance-Dashboard-SafeToSpend-Privacy.md`, wrap monetary figures in `FinanceWorkspace.tsx` with `<PrivacyAmount />` per `UI-4` (`F17` is explicitly scoped to `RFC-007`).
