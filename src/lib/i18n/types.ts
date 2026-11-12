@@ -383,6 +383,87 @@ export interface FinanceDictionary {
   };
 }
 
+export interface QuickCaptureDictionary {
+  ariaLabel: string;
+  title: string;
+  placeholder: string;
+  shortcutHint: string;
+  modeNoteLabel: string;
+  modeTransactionLabel: string;
+  modeOverrideActive: string;
+  intentDetectedTransaction: string;
+  intentDetectedNote: string;
+  txTypeExpense: string;
+  txTypeIncome: string;
+  walletLabel: string;
+  categoryLabel: string;
+  descriptionLabel: string;
+  noteTitleLabel: string;
+  amountLabel: string;
+  submitTransaction: string;
+  submitNote: string;
+  submitting: string;
+  noWalletsTitle: string;
+  noWalletsAction: string;
+  fallbackAsNoteAction: string;
+  missingCategoryError: string;
+  invalidAmountError: string;
+  transactionSavedFeedback: string;
+  noteSavedFeedback: string;
+  openFinanceLink: string;
+  openNoteLink: string;
+  clearButton: string;
+  collapsePreview: string;
+  expandPreview: string;
+  noWalletSelected: string;
+}
+
+export interface LinkedNotesDictionary {
+  sectionTitle: string;
+  sectionSubtitle: string;
+  totalIncome: string;
+  totalExpense: string;
+  netAmount: string;
+  emptyTitle: string;
+  emptySubtitle: string;
+  createNewButton: string;
+  linkExistingButton: string;
+  unlinkButton: string;
+  unlinkingButton: string;
+  closeModalButton: string;
+  createTitle: string;
+  typeLabel: string;
+  expenseOption: string;
+  incomeOption: string;
+  walletLabel: string;
+  categoryLabel: string;
+  amountLabel: string;
+  amountPlaceholder: string;
+  descriptionLabel: string;
+  descriptionPlaceholder: string;
+  occurredAtLabel: string;
+  submitCreateButton: string;
+  submittingCreateButton: string;
+  noWalletsNotice: string;
+  pickerTitle: string;
+  pickerSearchPlaceholder: string;
+  pickerFilterUnlinkedOnly: string;
+  pickerLoading: string;
+  pickerEmpty: string;
+  pickerLoadMore: string;
+  pickerLoadingMore: string;
+  pickerAlreadyLinkedOther: string;
+  pickerAlreadyLinkedCurrent: string;
+  pickerLinkAction: string;
+  pickerLinkingAction: string;
+  unlinkSuccess: string;
+  linkedSuccess: string;
+  createdSuccess: string;
+  untitledNote: string;
+  ledgerOpenNotePrefix: string;
+  invalidAmountError: string;
+}
+
 export interface Dictionary {
   common: {
     appName: string;
@@ -548,9 +629,10 @@ export interface Dictionary {
   // Strongly typed Finance Core & Dashboard namespaces populated in RFC-006 / RFC-007.
   finance: FinanceDictionary;
   privacy: PrivacyDictionary;
-  // Optional namespaces populated incrementally by RFC-008 through RFC-010 without stubs.
-  quickCapture?: Record<string, unknown>;
-  linkedNotes?: Record<string, unknown>;
+  // Strongly typed Quick Capture & Linked Notes namespaces populated in RFC-008.
+  quickCapture: QuickCaptureDictionary;
+  linkedNotes: LinkedNotesDictionary;
+  // Optional namespaces populated incrementally by RFC-009 through RFC-010 without stubs.
   sync?: Record<string, unknown>;
   settings?: Record<string, unknown>;
 }

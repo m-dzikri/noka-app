@@ -26,8 +26,8 @@ export type FinanceSummaryFilterType =
 
 export const uuidSchema = z.string().uuid();
 
-const optionalIdempotencyKeySchema = z.string().trim().min(1).max(128).optional();
-const optionalUpdatedAtSchema = z.string().trim().min(1).max(64).optional();
+export const optionalIdempotencyKeySchema = z.string().trim().min(1).max(128).optional();
+export const optionalUpdatedAtSchema = z.string().trim().min(1).max(64).optional();
 
 export const initialBalanceSchema = z
   .number()

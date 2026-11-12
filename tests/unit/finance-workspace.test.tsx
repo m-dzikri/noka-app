@@ -55,6 +55,7 @@ const sampleLedgerItems: SummaryLedgerItem[] = [
     categoryId: sampleCategories[0]!.id,
     categoryName: "Makan & Minum",
     noteId: null,
+    noteTitle: null,
     type: "expense",
     amount: 25_000,
     description: "Bakso",

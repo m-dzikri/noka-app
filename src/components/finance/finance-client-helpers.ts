@@ -11,6 +11,13 @@ export interface ApiErrorPayload {
 }
 
 export const FINANCE_UPDATED_EVENT = "noka:finance-updated";
+export const WORKSPACE_UPDATED_EVENT = "noka:workspace-updated";
+
+export interface WorkspaceUpdatedDetail {
+  kind: "transaction" | "note";
+  id?: string;
+  source?: string;
+}
 
 /**
  * Resolves a backend API error envelope to a localized dictionary string.
@@ -44,6 +51,21 @@ export function dispatchFinanceUpdated(source = "finance-workspace"): void {
   if (typeof window !== "undefined") {
     window.dispatchEvent(
       new CustomEvent(FINANCE_UPDATED_EVENT, { detail: { source } }),
+    );
+  }
+}
+
+/**
+ * Dispatches the cross-workspace live update event (`RFC-008`, `AC-8.2`).
+ */
+export function dispatchWorkspaceUpdated(
+  detail: WorkspaceUpdatedDetail,
+): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent<WorkspaceUpdatedDetail>(WORKSPACE_UPDATED_EVENT, {
+        detail,
+      }),
     );
   }
 }
