@@ -7,9 +7,13 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { useI18n } from "@/lib/i18n/context";
+import { enDictionary } from "@/lib/i18n/dictionaries/en";
+import { idDictionary } from "@/lib/i18n/dictionaries/id";
 
 export function ChangePasswordForm() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const settings =
+    t?.settings ?? (locale === "en" ? enDictionary.settings : idDictionary.settings);
   const sync = useOptionalSync();
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -32,12 +36,12 @@ export function ChangePasswordForm() {
     setCurrentPasswordError(null);
 
     if (newPassword !== confirmPassword) {
-      setErrorMessage(t.settings.passwordMismatchError);
+      setErrorMessage(settings.passwordMismatchError);
       return;
     }
 
     if (newPassword.length < 8) {
-      setErrorMessage(t.settings.newPasswordHelp);
+      setErrorMessage(settings.newPasswordHelp);
       return;
     }
 
@@ -63,7 +67,7 @@ export function ChangePasswordForm() {
 
       if (!res.ok || !payload.ok) {
         if (payload.error?.code === "INVALID_CURRENT_PASSWORD") {
-          setCurrentPasswordError(t.settings.invalidCurrentPasswordError);
+          setCurrentPasswordError(settings.invalidCurrentPasswordError);
         } else {
           setErrorMessage(payload.error?.message ?? t.errors.VALIDATION_ERROR);
         }
@@ -74,7 +78,7 @@ export function ChangePasswordForm() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setSuccessMessage(t.settings.passwordChangedSuccess);
+      setSuccessMessage(settings.passwordChangedSuccess);
     } catch {
       setErrorMessage(t.errors.INTERNAL_ERROR);
     } finally {
@@ -85,8 +89,8 @@ export function ChangePasswordForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t.settings.passwordTitle}</CardTitle>
-        <CardDescription>{t.settings.passwordSubtitle}</CardDescription>
+        <CardTitle>{settings.passwordTitle}</CardTitle>
+        <CardDescription>{settings.passwordSubtitle}</CardDescription>
       </CardHeader>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -115,12 +119,12 @@ export function ChangePasswordForm() {
             className="flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-sm text-[var(--text-secondary)]"
           >
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>{t.settings.offlinePasswordNotice}</span>
+            <span>{settings.offlinePasswordNotice}</span>
           </div>
         ) : null}
 
         <Input
-          label={t.settings.currentPasswordLabel}
+          label={settings.currentPasswordLabel}
           type="password"
           value={currentPassword}
           onChange={(e) => {
@@ -128,13 +132,13 @@ export function ChangePasswordForm() {
             setCurrentPasswordError(null);
             setSuccessMessage(null);
           }}
-          placeholder={t.settings.currentPasswordPlaceholder}
+          placeholder={settings.currentPasswordPlaceholder}
           error={currentPasswordError ?? undefined}
           required
         />
 
         <Input
-          label={t.settings.newPasswordLabel}
+          label={settings.newPasswordLabel}
           type="password"
           value={newPassword}
           onChange={(e) => {
@@ -142,15 +146,15 @@ export function ChangePasswordForm() {
             setErrorMessage(null);
             setSuccessMessage(null);
           }}
-          placeholder={t.settings.newPasswordPlaceholder}
-          hint={t.settings.newPasswordHelp}
+          placeholder={settings.newPasswordPlaceholder}
+          hint={settings.newPasswordHelp}
           required
           minLength={8}
           maxLength={128}
         />
 
         <Input
-          label={t.settings.confirmPasswordLabel}
+          label={settings.confirmPasswordLabel}
           type="password"
           value={confirmPassword}
           onChange={(e) => {
@@ -158,7 +162,7 @@ export function ChangePasswordForm() {
             setErrorMessage(null);
             setSuccessMessage(null);
           }}
-          placeholder={t.settings.confirmPasswordPlaceholder}
+          placeholder={settings.confirmPasswordPlaceholder}
           required
           minLength={8}
           maxLength={128}
@@ -172,8 +176,8 @@ export function ChangePasswordForm() {
             className="w-full sm:w-auto"
           >
             {isSubmitting
-              ? t.settings.changingPasswordButton
-              : t.settings.changePasswordButton}
+              ? settings.changingPasswordButton
+              : settings.changePasswordButton}
           </Button>
         </div>
       </form>

@@ -37,7 +37,7 @@ export function Modal({
   className,
 }: ModalProps) {
   const i18n = useContext(I18nContext);
-  const resolvedCloseLabel = closeLabel ?? i18n?.t.common.close ?? "Close";
+  const resolvedCloseLabel = closeLabel ?? i18n?.t?.common?.close ?? "Close";
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement | null>(null);

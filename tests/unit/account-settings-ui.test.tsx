@@ -5,6 +5,7 @@ import { DeleteAccountSection } from "@/components/settings/DeleteAccountSection
 import { ProfileSettingsForm } from "@/components/settings/ProfileSettingsForm";
 import { SettingsWorkspace } from "@/components/settings/SettingsWorkspace";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
+import { I18nContext, PreferencesContext } from "@/lib/i18n/context";
 import type { AuthUser } from "@/features/auth/session";
 
 const { routerPushMock } = vi.hoisted(() => ({
@@ -198,5 +199,32 @@ describe("Account Settings UI Components (TS-010)", () => {
     // Should show success message immediately without calling fetch
     expect(await screen.findByText("Profil dan preferensi berhasil disimpan.")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("safely falls back to default settings strings when t.settings is undefined without crashing", () => {
+    // Simulate a stale or partial dictionary missing `settings`
+    const partialI18nValue = {
+      locale: "id" as const,
+      t: {} as unknown as import("@/lib/i18n/types").Dictionary, // missing settings entirely
+      setLocale: vi.fn(),
+    };
+    const mockPreferencesValue = {
+      locale: "id" as const,
+      theme: "light" as const,
+      updatePreferences: vi.fn(),
+      registerPersistHandler: vi.fn(() => vi.fn()),
+    };
+
+    expect(() => {
+      render(
+        <PreferencesContext.Provider value={mockPreferencesValue}>
+          <I18nContext.Provider value={partialI18nValue}>
+            <SettingsWorkspace initialUser={mockUser} />
+          </I18nContext.Provider>
+        </PreferencesContext.Provider>,
+      );
+    }).not.toThrow();
+
+    expect(screen.getByRole("heading", { level: 1, name: "Pengaturan Akun" })).toBeInTheDocument();
   });
 });

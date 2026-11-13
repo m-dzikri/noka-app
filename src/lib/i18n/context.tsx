@@ -46,6 +46,20 @@ export function useI18n(): I18nContextValue {
   if (!context) {
     throw new Error("useI18n must be used within PreferencesProvider");
   }
+
+  const baseDict = context.t ?? DICTIONARIES[context.locale] ?? idDictionary;
+  if (!baseDict.settings) {
+    const fallbackSettings =
+      context.locale === "en" ? enDictionary.settings : idDictionary.settings;
+    return {
+      ...context,
+      t: {
+        ...baseDict,
+        settings: fallbackSettings,
+      },
+    };
+  }
+
   return context;
 }
 

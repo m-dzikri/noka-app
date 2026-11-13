@@ -8,6 +8,8 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Ca
 import { Input } from "@/components/ui/Input";
 import type { AuthUser } from "@/features/auth/session";
 import { useI18n, usePreferences } from "@/lib/i18n/context";
+import { enDictionary } from "@/lib/i18n/dictionaries/en";
+import { idDictionary } from "@/lib/i18n/dictionaries/id";
 import type { Locale, Theme } from "@/lib/i18n/types";
 
 interface ProfileSettingsFormProps {
@@ -20,7 +22,9 @@ const CYCLE_DAYS = [
 ] as const;
 
 export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
-  const { t } = useI18n();
+  const { t, locale: currentAppLocale } = useI18n();
+  const settings =
+    t?.settings ?? (currentAppLocale === "en" ? enDictionary.settings : idDictionary.settings);
   const { updatePreferences } = usePreferences();
   const sync = useOptionalSync();
 
@@ -48,7 +52,7 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
     if (!isOnline) return;
 
     if (!isDirty) {
-      setSuccessMessage(t.settings.profileSavedSuccess);
+      setSuccessMessage(settings.profileSavedSuccess);
       return;
     }
 
@@ -97,7 +101,7 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
         void sync.updateUserMeta(updatedUser);
       }
 
-      setSuccessMessage(t.settings.profileSavedSuccess);
+      setSuccessMessage(settings.profileSavedSuccess);
     } catch {
       setErrorMessage(t.errors.INTERNAL_ERROR);
     } finally {
@@ -108,8 +112,8 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t.settings.profileTitle}</CardTitle>
-        <CardDescription>{t.settings.profileSubtitle}</CardDescription>
+        <CardTitle>{settings.profileTitle}</CardTitle>
+        <CardDescription>{settings.profileSubtitle}</CardDescription>
       </CardHeader>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -138,28 +142,28 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
             className="flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-sm text-[var(--text-secondary)]"
           >
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span>{t.settings.offlineProfileNotice}</span>
+            <span>{settings.offlineProfileNotice}</span>
           </div>
         ) : null}
 
         <Input
-          label={t.settings.emailLabel}
+          label={settings.emailLabel}
           value={currentUser.email}
           readOnly
           disabled
-          hint={t.settings.emailHelp}
+          hint={settings.emailHelp}
           className="cursor-not-allowed bg-[var(--bg-subtle)] opacity-75"
         />
 
         <Input
-          label={t.settings.nameLabel}
+          label={settings.nameLabel}
           name="name"
           value={name}
           onChange={(e) => {
             setName(e.target.value);
             setSuccessMessage(null);
           }}
-          placeholder={t.settings.namePlaceholder}
+          placeholder={settings.namePlaceholder}
           required
           maxLength={120}
         />
@@ -170,7 +174,7 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
               htmlFor="settings-locale"
               className="text-sm font-medium text-[var(--text-primary)]"
             >
-              {t.settings.localeLabel}
+              {settings.localeLabel}
             </label>
             <select
               id="settings-locale"
@@ -181,8 +185,8 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
               }}
               className="min-h-10 w-full rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-2 text-sm text-[var(--text-primary)] transition-colors focus:border-[var(--accent-primary)] focus:outline-none"
             >
-              <option value="id">{t.settings.localeOptionId}</option>
-              <option value="en">{t.settings.localeOptionEn}</option>
+              <option value="id">{settings.localeOptionId}</option>
+              <option value="en">{settings.localeOptionEn}</option>
             </select>
           </div>
 
@@ -191,7 +195,7 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
               htmlFor="settings-theme"
               className="text-sm font-medium text-[var(--text-primary)]"
             >
-              {t.settings.themeLabel}
+              {settings.themeLabel}
             </label>
             <select
               id="settings-theme"
@@ -202,8 +206,8 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
               }}
               className="min-h-10 w-full rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-3.5 py-2 text-sm text-[var(--text-primary)] transition-colors focus:border-[var(--accent-primary)] focus:outline-none"
             >
-              <option value="light">{t.settings.themeOptionLight}</option>
-              <option value="dark">{t.settings.themeOptionDark}</option>
+              <option value="light">{settings.themeOptionLight}</option>
+              <option value="dark">{settings.themeOptionDark}</option>
             </select>
           </div>
         </div>
@@ -213,7 +217,7 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
             htmlFor="settings-cycle-start-day"
             className="text-sm font-medium text-[var(--text-primary)]"
           >
-            {t.settings.cycleStartDayLabel}
+            {settings.cycleStartDayLabel}
           </label>
           <select
             id="settings-cycle-start-day"
@@ -227,13 +231,13 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
             {CYCLE_DAYS.map((day) => (
               <option key={day} value={day}>
                 {day === "end_of_month"
-                  ? t.settings.cycleEndOfMonth
-                  : `${t.settings.cycleDayPrefix} ${day}`}
+                  ? settings.cycleEndOfMonth
+                  : `${settings.cycleDayPrefix} ${day}`}
               </option>
             ))}
           </select>
           <p className="text-xs text-[var(--text-muted)]">
-            {t.settings.cycleStartDayHelp}
+            {settings.cycleStartDayHelp}
           </p>
         </div>
 
@@ -245,8 +249,8 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
             className="w-full sm:w-auto"
           >
             {isSubmitting
-              ? t.settings.savingProfileButton
-              : t.settings.saveProfileButton}
+              ? settings.savingProfileButton
+              : settings.saveProfileButton}
           </Button>
         </div>
       </form>

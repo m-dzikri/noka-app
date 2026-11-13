@@ -6,22 +6,26 @@ import { PrivacySummaryCard } from "@/components/settings/PrivacySummaryCard";
 import { ProfileSettingsForm } from "@/components/settings/ProfileSettingsForm";
 import type { AuthUser } from "@/features/auth/session";
 import { useI18n } from "@/lib/i18n/context";
+import { enDictionary } from "@/lib/i18n/dictionaries/en";
+import { idDictionary } from "@/lib/i18n/dictionaries/id";
 
 interface SettingsWorkspaceProps {
   initialUser: AuthUser;
 }
 
 export function SettingsWorkspace({ initialUser }: SettingsWorkspaceProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const settings =
+    t?.settings ?? (locale === "en" ? enDictionary.settings : idDictionary.settings);
 
   return (
     <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-          {t.settings.pageTitle}
+          {settings.pageTitle}
         </h1>
         <p className="text-sm text-[var(--text-secondary)] sm:text-base">
-          {t.settings.pageSubtitle}
+          {settings.pageSubtitle}
         </p>
       </header>
 

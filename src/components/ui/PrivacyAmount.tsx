@@ -97,9 +97,9 @@ export function PrivacyAmount({
 }: PrivacyAmountProps) {
   const { isBlurred } = usePrivacy();
   const i18n = useContext(I18nContext);
-  const maskedBase = i18n?.t.privacy.maskedValue ?? "Rp •••••";
+  const maskedBase = i18n?.t?.privacy?.maskedValue ?? "Rp •••••";
   const hiddenAriaLabel =
-    i18n?.t.privacy.hiddenAriaLabel ?? "Nominal keuangan disembunyikan";
+    i18n?.t?.privacy?.hiddenAriaLabel ?? "Nominal keuangan disembunyikan";
 
   const { unblurred, masked } = resolveDisplayValues(
     amount,

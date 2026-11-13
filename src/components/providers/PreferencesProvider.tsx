@@ -155,14 +155,20 @@ export function PreferencesProvider({
     [],
   );
 
-  const i18nValue = useMemo(
-    () => ({
+  const i18nValue = useMemo(() => {
+    const baseDict = DICTIONARIES[locale] ?? DICTIONARIES.id;
+    const settings =
+      baseDict.settings ??
+      (locale === "en" ? DICTIONARIES.en.settings : DICTIONARIES.id.settings);
+    return {
       locale,
-      t: DICTIONARIES[locale],
+      t: {
+        ...baseDict,
+        settings,
+      },
       setLocale,
-    }),
-    [locale, setLocale],
-  );
+    };
+  }, [locale, setLocale]);
 
   const preferencesValue = useMemo(
     () => ({

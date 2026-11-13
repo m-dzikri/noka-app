@@ -10,9 +10,13 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { runClientLogoutCleanup } from "@/features/auth/client-cleanup";
 import { useI18n } from "@/lib/i18n/context";
+import { enDictionary } from "@/lib/i18n/dictionaries/en";
+import { idDictionary } from "@/lib/i18n/dictionaries/id";
 
 export function DeleteAccountSection() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const settings =
+    t?.settings ?? (locale === "en" ? enDictionary.settings : idDictionary.settings);
   const sync = useOptionalSync();
   const router = useRouter();
 
@@ -25,7 +29,7 @@ export function DeleteAccountSection() {
 
   const isOnline = sync ? sync.isOnline : typeof navigator === "undefined" || navigator.onLine !== false;
 
-  const expectedConfirmWord = t.settings.deleteModalConfirmWord.toUpperCase();
+  const expectedConfirmWord = settings.deleteModalConfirmWord.toUpperCase();
   const isConfirmWordMatch =
     confirmWordInput.trim().toUpperCase() === expectedConfirmWord ||
     confirmWordInput.trim().toUpperCase() === "HAPUS" ||
@@ -72,10 +76,10 @@ export function DeleteAccountSection() {
 
       if (!res.ok || !payload.ok) {
         if (payload.error?.code === "INVALID_PASSWORD") {
-          setModalError(t.settings.invalidPasswordError);
+          setModalError(settings.invalidPasswordError);
         } else {
           setModalError(
-            payload.error?.message ?? t.settings.deleteAccountGenericError,
+            payload.error?.message ?? settings.deleteAccountGenericError,
           );
         }
         setIsSubmitting(false);
@@ -96,7 +100,7 @@ export function DeleteAccountSection() {
         }
       }
     } catch {
-      setModalError(t.settings.deleteAccountGenericError);
+      setModalError(settings.deleteAccountGenericError);
       setIsSubmitting(false);
     }
   };
@@ -108,19 +112,19 @@ export function DeleteAccountSection() {
           <div className="flex items-center gap-2 text-[var(--status-expense)]">
             <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden="true" />
             <CardTitle className="text-[var(--status-expense)]">
-              {t.settings.deleteAccountTitle}
+              {settings.deleteAccountTitle}
             </CardTitle>
           </div>
-          <CardDescription>{t.settings.deleteAccountSubtitle}</CardDescription>
+          <CardDescription>{settings.deleteAccountSubtitle}</CardDescription>
         </CardHeader>
 
         <div className="flex flex-col gap-4">
           <div className="rounded-xl border border-[var(--status-expense)]/20 bg-[var(--bg-surface)] p-4 text-sm text-[var(--text-secondary)]">
             <p className="font-semibold text-[var(--text-primary)]">
-              {t.settings.deleteAccountWarningHeading}
+              {settings.deleteAccountWarningHeading}
             </p>
             <p className="mt-1 leading-relaxed">
-              {t.settings.deleteAccountWarningBody}
+              {settings.deleteAccountWarningBody}
             </p>
           </div>
 
@@ -130,7 +134,7 @@ export function DeleteAccountSection() {
               className="flex items-center gap-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-subtle)] p-3 text-sm text-[var(--text-secondary)]"
             >
               <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{t.settings.offlineDeleteAccountNotice}</span>
+              <span>{settings.offlineDeleteAccountNotice}</span>
             </div>
           ) : null}
 
@@ -141,7 +145,7 @@ export function DeleteAccountSection() {
               disabled={!isOnline}
               className="w-full sm:w-auto"
             >
-              {t.settings.deleteAccountButton}
+              {settings.deleteAccountButton}
             </Button>
           </div>
         </div>
@@ -150,12 +154,12 @@ export function DeleteAccountSection() {
       <Modal
         open={isModalOpen}
         onClose={handleCloseModal}
-        title={t.settings.deleteModalTitle}
+        title={settings.deleteModalTitle}
         className="max-w-lg"
       >
         <form onSubmit={handleDeleteSubmit} className="flex flex-col gap-4">
           <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-            {t.settings.deleteModalBody}
+            {settings.deleteModalBody}
           </p>
 
           {modalError ? (
@@ -172,7 +176,7 @@ export function DeleteAccountSection() {
               htmlFor="delete-confirm-word"
               className="text-sm font-medium text-[var(--text-primary)]"
             >
-              {t.settings.deleteModalConfirmPrompt}
+              {settings.deleteModalConfirmPrompt}
             </label>
             <Input
               id="delete-confirm-word"
@@ -181,7 +185,7 @@ export function DeleteAccountSection() {
                 setConfirmWordInput(e.target.value);
                 setModalError(null);
               }}
-              placeholder={t.settings.deleteModalConfirmWord}
+              placeholder={settings.deleteModalConfirmWord}
               autoComplete="off"
               required
             />
@@ -190,14 +194,14 @@ export function DeleteAccountSection() {
           <div className="flex flex-col gap-1.5">
             <Input
               id="delete-account-password"
-              label={t.settings.deleteModalPasswordLabel}
+              label={settings.deleteModalPasswordLabel}
               type="password"
               value={password}
               onChange={(e) => {
                 setPassword(e.target.value);
                 setModalError(null);
               }}
-              placeholder={t.settings.deleteModalPasswordPlaceholder}
+              placeholder={settings.deleteModalPasswordPlaceholder}
               autoComplete="current-password"
               required
             />
@@ -210,7 +214,7 @@ export function DeleteAccountSection() {
               onClick={handleCloseModal}
               disabled={isSubmitting}
             >
-              {t.settings.deleteModalCancelButton}
+              {settings.deleteModalCancelButton}
             </Button>
             <Button
               type="submit"
@@ -219,8 +223,8 @@ export function DeleteAccountSection() {
               loading={isSubmitting}
             >
               {isSubmitting
-                ? t.settings.deleteModalDeletingButton
-                : t.settings.deleteModalConfirmButton}
+                ? settings.deleteModalDeletingButton
+                : settings.deleteModalConfirmButton}
             </Button>
           </div>
         </form>
