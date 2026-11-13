@@ -149,5 +149,36 @@ describe("Safe-to-Spend Pure Cycle & Allowance Calculator (TS-007-01)", () => {
       status: "ok",
     });
   });
+
+  it("handles non-string rawCycleStartDay inputs safely without raw.trim is not a function TypeError", () => {
+    const nov12 = new Date("2026-11-12T05:00:00.000Z");
+
+    // Numbers
+    const cycleFromNumber1 = resolveActiveCycleWindow(nov12, 1, 420);
+    expect(cycleFromNumber1.startDate).toBe("2026-11-01");
+    expect(cycleFromNumber1.cycleStartDay).toBe("1");
+
+    const cycleFromNumber25 = resolveActiveCycleWindow(nov12, 25, 420);
+    expect(cycleFromNumber25.startDate).toBe("2026-10-25");
+    expect(cycleFromNumber25.cycleStartDay).toBe("25");
+
+    // null, undefined, invalid types
+    const cycleFromNull = resolveActiveCycleWindow(nov12, null, 420);
+    expect(cycleFromNull.cycleStartDay).toBe("1");
+
+    const cycleFromUndefined = resolveActiveCycleWindow(nov12, undefined, 420);
+    expect(cycleFromUndefined.cycleStartDay).toBe("1");
+
+    const cycleFromObj = resolveActiveCycleWindow(nov12, {} as unknown as string, 420);
+    expect(cycleFromObj.cycleStartDay).toBe("1");
+
+    // calculateSafeToSpend with numeric cycleStartDay
+    const wallets: SafeToSpendWalletInput[] = [
+      { currentBalance: 110_000, includeInSafeToSpend: true, archivedAt: null },
+    ];
+    const res = calculateSafeToSpend(wallets, nov12, 1, 420);
+    expect(res.status).toBe("ok");
+    expect(res.safeToSpend).toBeGreaterThan(0);
+  });
 });
 

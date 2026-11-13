@@ -48,7 +48,19 @@ function formatYmd(parts: CalendarDateParts): string {
   return `${y}-${m}-${d}`;
 }
 
-function normalizeCycleStartDay(raw: string): string {
+function normalizeCycleStartDay(raw: unknown): string {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const num = Math.floor(raw);
+    if (num >= 1 && num <= 31) {
+      return String(num);
+    }
+    return "1";
+  }
+
+  if (typeof raw !== "string") {
+    return "1";
+  }
+
   const trimmed = raw.trim();
   if (trimmed === "end_of_month") {
     return "end_of_month";
@@ -101,7 +113,7 @@ function normalizeTzOffsetMinutes(raw: number): number {
  */
 export function resolveActiveCycleWindow(
   nowDate: Date,
-  rawCycleStartDay: string,
+  rawCycleStartDay?: string | number | null | undefined | unknown,
   tzOffsetMinutes = DEFAULT_TZ_OFFSET_MINUTES,
 ): CycleWindowInfo {
   const tzOffset = normalizeTzOffsetMinutes(tzOffsetMinutes);
@@ -188,8 +200,8 @@ export function resolveActiveCycleWindow(
  */
 export function calculateSafeToSpend(
   walletsWithBalance: readonly SafeToSpendWalletInput[],
-  nowDate: Date,
-  cycleStartDay: string,
+  nowDate: Date = new Date(),
+  cycleStartDay?: string | number | null | undefined | unknown,
   tzOffsetMinutes = DEFAULT_TZ_OFFSET_MINUTES,
 ): SafeToSpendResult {
   const cycle = resolveActiveCycleWindow(nowDate, cycleStartDay, tzOffsetMinutes);

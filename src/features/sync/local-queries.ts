@@ -120,7 +120,7 @@ export function computeLocalFinanceSummary(
   nowDate: Date = new Date(),
 ): FinanceSummaryDto {
   const tzOffset = filters.tzOffset ?? DEFAULT_TZ_OFFSET_MINUTES;
-  const cycleStartDay = state.userProfile?.cycleStartDay ?? "1";
+  const cycleStartDay = String(state.userProfile?.cycleStartDay ?? "1");
   const cycle = resolveActiveCycleWindow(nowDate, cycleStartDay, tzOffset);
 
   const range = resolveDateFilterRange(filters.from, filters.to, tzOffset);

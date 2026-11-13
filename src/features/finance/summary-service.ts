@@ -119,17 +119,22 @@ function compareLedgerSortDesc(
 async function resolveUserCycleStartDay(
   db: DbOrTx,
   userId: string,
-  override?: string,
+  override?: unknown,
 ): Promise<string> {
-  if (override) {
-    return override;
+  if (override !== undefined && override !== null) {
+    if (typeof override === "string" && override.trim()) {
+      return override.trim();
+    }
+    if (typeof override === "number" && Number.isFinite(override)) {
+      return String(Math.floor(override));
+    }
   }
   const rows = await db
     .select({ cycleStartDay: users.cycleStartDay })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  return rows[0]?.cycleStartDay ?? "1";
+  return rows[0]?.cycleStartDay ? String(rows[0].cycleStartDay) : "1";
 }
 
 async function queryCashflowAndBreakdown(
