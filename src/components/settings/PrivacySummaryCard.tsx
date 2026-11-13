@@ -2,11 +2,12 @@
 
 import { EyeOff, HardDrive, Lock, RefreshCw, ShieldCheck } from "lucide-react";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
-import { useI18n } from "@/lib/i18n/context";
+import { DICTIONARIES, useI18n } from "@/lib/i18n/context";
 
 export function PrivacySummaryCard() {
-  const { t } = useI18n();
-  const settings = t.settings;
+  const { t, locale } = useI18n();
+  const settings =
+    t?.settings ?? (locale === "en" ? DICTIONARIES.en.settings : DICTIONARIES.id.settings);
   const summary = settings.privacySummary;
 
   const points = [

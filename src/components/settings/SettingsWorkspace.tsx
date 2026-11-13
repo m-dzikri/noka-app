@@ -5,15 +5,16 @@ import { DeleteAccountSection } from "@/components/settings/DeleteAccountSection
 import { PrivacySummaryCard } from "@/components/settings/PrivacySummaryCard";
 import { ProfileSettingsForm } from "@/components/settings/ProfileSettingsForm";
 import type { AuthUser } from "@/features/auth/session";
-import { useI18n } from "@/lib/i18n/context";
+import { DICTIONARIES, useI18n } from "@/lib/i18n/context";
 
 interface SettingsWorkspaceProps {
   initialUser: AuthUser;
 }
 
 export function SettingsWorkspace({ initialUser }: SettingsWorkspaceProps) {
-  const { t } = useI18n();
-  const settings = t.settings;
+  const { t, locale } = useI18n();
+  const settings =
+    t?.settings ?? (locale === "en" ? DICTIONARIES.en.settings : DICTIONARIES.id.settings);
 
   return (
     <div className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">

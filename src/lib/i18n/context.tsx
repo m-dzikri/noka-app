@@ -29,8 +29,12 @@ export interface PreferencesContextValue {
 }
 
 export const DICTIONARIES: Record<Locale, Dictionary> = {
-  id: idDictionary,
-  en: enDictionary,
+  get id() {
+    return idDictionary;
+  },
+  get en() {
+    return enDictionary;
+  },
 };
 
 export const I18nContext = createContext<I18nContextValue | null>(null);
@@ -53,8 +57,14 @@ export function useI18n(): I18nContextValue {
   // without introducing a new dictionary import at the call site.
   const t = context.t;
   if (!t?.settings) {
-    const dict = DICTIONARIES[context.locale] ?? DICTIONARIES.id;
-    return { ...context, t: dict };
+    const fallbackDict = DICTIONARIES[context.locale] ?? DICTIONARIES.id;
+    return {
+      ...context,
+      t: {
+        ...(t ?? fallbackDict),
+        settings: fallbackDict.settings,
+      },
+    };
   }
 
   return context;

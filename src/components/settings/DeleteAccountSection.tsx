@@ -9,11 +9,12 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Ca
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { runClientLogoutCleanup } from "@/features/auth/client-cleanup";
-import { useI18n } from "@/lib/i18n/context";
+import { DICTIONARIES, useI18n } from "@/lib/i18n/context";
 
 export function DeleteAccountSection() {
-  const { t } = useI18n();
-  const settings = t.settings;
+  const { t, locale } = useI18n();
+  const settings =
+    t?.settings ?? (locale === "en" ? DICTIONARIES.en.settings : DICTIONARIES.id.settings);
   const sync = useOptionalSync();
   const router = useRouter();
 

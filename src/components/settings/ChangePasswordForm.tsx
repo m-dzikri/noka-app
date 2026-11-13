@@ -6,11 +6,12 @@ import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
-import { useI18n } from "@/lib/i18n/context";
+import { DICTIONARIES, useI18n } from "@/lib/i18n/context";
 
 export function ChangePasswordForm() {
-  const { t } = useI18n();
-  const settings = t.settings;
+  const { t, locale } = useI18n();
+  const settings =
+    t?.settings ?? (locale === "en" ? DICTIONARIES.en.settings : DICTIONARIES.id.settings);
   const sync = useOptionalSync();
 
   const [currentPassword, setCurrentPassword] = useState("");
