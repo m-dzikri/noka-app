@@ -70,14 +70,20 @@ export function SyncStatusBadge() {
           status === "sync_error"
             ? "border-[var(--status-expense)]/40 bg-[var(--status-expense)]/10 text-[var(--status-expense)]"
             : status === "offline"
-              ? "border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-secondary)]"
+              ? "border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] shadow-xs dark:border-[var(--border-strong,#52525b)] dark:bg-[var(--bg-surface)] dark:text-[var(--text-primary)]"
               : status === "syncing"
                 ? "border-[var(--accent-primary)]/40 bg-[var(--accent-primary)]/10 text-[var(--text-primary)]"
                 : "border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]",
         )}
       >
         {status === "offline" ? (
-          <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--text-muted)] dark:bg-[var(--text-secondary)]"
+              aria-hidden="true"
+            />
+            <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          </span>
         ) : status === "syncing" ? (
           <RefreshCw
             className="h-3.5 w-3.5 shrink-0 motion-safe:animate-spin"

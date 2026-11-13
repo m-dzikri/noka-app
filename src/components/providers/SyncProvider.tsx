@@ -80,6 +80,9 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
 
   const storageAvailableRef = useRef<boolean>(true);
   const unmountedRef = useRef<boolean>(false);
+  const isOnlineRef = useRef<boolean>(
+    typeof navigator === "undefined" || navigator.onLine !== false,
+  );
 
   const applyMirrorState = useCallback(
     (nextMirror: MirrorDataState | null, emitEvent = true) => {
@@ -117,6 +120,17 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
   }, [applyMirrorState, user.id]);
 
   const syncNow = useCallback(async () => {
+    if (
+      !isOnlineRef.current ||
+      (typeof navigator !== "undefined" && navigator.onLine === false)
+    ) {
+      if (!unmountedRef.current) {
+        setIsOnline(false);
+        setStatus("offline");
+      }
+      return;
+    }
+
     if (!storageAvailableRef.current) {
       const onlineNow =
         typeof navigator === "undefined" || navigator.onLine !== false;
@@ -132,13 +146,28 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
         onUnauthorized: handleUnauthorized,
         onStatusChange: (nextStatus) => {
           if (!unmountedRef.current) {
-            setStatus(nextStatus);
+            if (
+              !isOnlineRef.current ||
+              (typeof navigator !== "undefined" && navigator.onLine === false)
+            ) {
+              setStatus("offline");
+            } else {
+              setStatus(nextStatus);
+            }
           }
         },
       });
 
       if (!unmountedRef.current) {
-        setStatus(result.status);
+        if (
+          !isOnlineRef.current ||
+          (typeof navigator !== "undefined" && navigator.onLine === false)
+        ) {
+          setIsOnline(false);
+          setStatus("offline");
+        } else {
+          setStatus(result.status);
+        }
         if (result.mirror) {
           applyMirrorState(result.mirror);
         }
@@ -209,6 +238,7 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
     let cancelled = false;
     const bootstrap = async () => {
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        isOnlineRef.current = false;
         setIsOnline(false);
         setStatus("offline");
       }
@@ -251,9 +281,13 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
       }
 
       // Trigger #1: App open when online.
-      if (typeof navigator === "undefined" || navigator.onLine !== false) {
+      if (
+        isOnlineRef.current &&
+        (typeof navigator === "undefined" || navigator.onLine !== false)
+      ) {
         await syncNow();
       } else {
+        isOnlineRef.current = false;
         setIsOnline(false);
         setStatus("offline");
       }
@@ -272,11 +306,13 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
   // Triggers #2 & #3: iOS-safe network/visibility/focus triggers (zero Background Sync API).
   useEffect(() => {
     const onOnline = () => {
+      isOnlineRef.current = true;
       setIsOnline(true);
       void syncNow();
     };
 
     const onOffline = () => {
+      isOnlineRef.current = false;
       setIsOnline(false);
       setStatus("offline");
     };
@@ -285,7 +321,10 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") {
         return;
       }
-      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      if (
+        !isOnlineRef.current ||
+        (typeof navigator !== "undefined" && navigator.onLine === false)
+      ) {
         return;
       }
       setIsOnline(true);
@@ -297,7 +336,22 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
     document.addEventListener("visibilitychange", onVisibilityOrFocus);
     window.addEventListener("focus", onVisibilityOrFocus);
 
+    // Periodic in-app sync interval for long-lived active foreground tabs (every 5 minutes, guarded by visibility & online)
+    const periodicSyncInterval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
+      if (
+        !isOnlineRef.current ||
+        (typeof navigator !== "undefined" && navigator.onLine === false)
+      ) {
+        return;
+      }
+      void syncNow();
+    }, 5 * 60 * 1000);
+
     return () => {
+      clearInterval(periodicSyncInterval);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       document.removeEventListener("visibilitychange", onVisibilityOrFocus);
@@ -313,11 +367,13 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
   const showRestrictedBanner =
     (!storageAvailable || !swAvailable) && !bannerDismissed;
 
+  const effectiveStatus: SyncEngineStatus = !isOnline ? "offline" : status;
+
   const value = useMemo<SyncContextValue>(
     () => ({
       userId: user.id,
       userProfile,
-      status,
+      status: effectiveStatus,
       isOnline,
       storageAvailable,
       swAvailable,
@@ -334,7 +390,7 @@ export function SyncProvider({ user, children }: SyncProviderProps) {
     [
       user.id,
       userProfile,
-      status,
+      effectiveStatus,
       isOnline,
       storageAvailable,
       swAvailable,

@@ -114,3 +114,7 @@ Menjadikan Noka dapat dipasang sebagai **PWA (*Progressive Web App*)** dan beker
    - Perhitungan keuangan lokal offline via `computeWalletBalances` dan `calculateSafeToSpend` di `FinanceWorkspace.tsx`.
    - Guard online-only dengan notifikasi ID/EN yang jelas pada `NoteAttachmentsPanel.tsx` (unggah dan hapus lampiran), `WalletManagerModal.tsx`, dan `CategoryManagerModal.tsx`.
    - Badge status sinkronisasi terpadu (`SyncStatusBadge.tsx`) dengan indikator status (`synced`, `syncing`, `offline`, `sync_error`), hitungan antrean pending, dan modal penanganan kegagalan dengan opsi Buang dan Sinkron Sekarang.
+
+5. **Post-Review Refinements (Non-Blocking Improvements)**:
+   - Menambahkan timer sinkronisasi berkala (interval 5 menit) di `SyncProvider.tsx` khusus saat tab berstatus aktif/terlihat (`document.visibilityState === "visible"`) dan perangkat online (`navigator.onLine !== false`) guna menjamin pembaruan data antar-perangkat pada tab yang dibiarkan terbuka lama.
+   - Meningkatkan ketegasan kontras border dark mode dan menambahkan indikator dot status netral pada state `"offline"` di `SyncStatusBadge.tsx`.
