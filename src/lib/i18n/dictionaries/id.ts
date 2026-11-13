@@ -708,5 +708,90 @@ export const idDictionary: Dictionary = {
     offlineNoteFallbackHint:
       "Dimuat dari mirror offline lokal perangkat.",
   },
+  settings: {
+    pageTitle: "Pengaturan Akun",
+    pageSubtitle:
+      "Kelola profil, preferensi tema & bahasa, konfigurasi siklus anggaran Safe-to-Spend, kata sandi, dan data akun Anda.",
+    profileTitle: "Profil & Preferensi",
+    profileSubtitle:
+      "Atur identitas akun, bahasa aplikasi, tema tampilan, dan hari awal perhitungan siklus Safe-to-Spend.",
+    emailLabel: "Alamat Email",
+    emailHelp: "Email akun bersifat permanen dan tidak dapat diubah.",
+    nameLabel: "Nama Lengkap",
+    namePlaceholder: "Masukkan nama lengkap Anda",
+    localeLabel: "Bahasa Aplikasi",
+    localeOptionId: "Bahasa Indonesia (ID)",
+    localeOptionEn: "English (EN)",
+    themeLabel: "Tema Tampilan",
+    themeOptionLight: "Terang (Light)",
+    themeOptionDark: "Gelap (Dark)",
+    cycleStartDayLabel: "Awal Siklus Anggaran",
+    cycleStartDayHelp:
+      "Hari di mana periode Safe-to-Spend bulanan Anda dimulai kembali.",
+    cycleDayPrefix: "Tanggal",
+    cycleEndOfMonth: "Akhir Bulan (28–31)",
+    saveProfileButton: "Simpan Profil",
+    savingProfileButton: "Menyimpan...",
+    profileSavedSuccess: "Profil dan preferensi berhasil disimpan.",
+    offlineProfileNotice:
+      "Mode offline: pengaturan profil hanya dapat disimpan saat online.",
+    passwordTitle: "Ubah Kata Sandi",
+    passwordSubtitle:
+      "Perbarui kata sandi Anda. Mengubah kata sandi akan otomatis mencabut sesi di perangkat lain.",
+    currentPasswordLabel: "Kata Sandi Saat Ini",
+    currentPasswordPlaceholder: "Masukkan kata sandi saat ini",
+    newPasswordLabel: "Kata Sandi Baru",
+    newPasswordPlaceholder: "Minimal 8 karakter",
+    newPasswordHelp: "Gunakan minimal 8 karakter dengan kombinasi yang aman.",
+    confirmPasswordLabel: "Konfirmasi Kata Sandi Baru",
+    confirmPasswordPlaceholder: "Ketik ulang kata sandi baru",
+    passwordMismatchError: "Konfirmasi kata sandi baru tidak cocok.",
+    invalidCurrentPasswordError: "Kata sandi saat ini tidak sesuai.",
+    changePasswordButton: "Perbarui Kata Sandi",
+    changingPasswordButton: "Memperbarui...",
+    passwordChangedSuccess:
+      "Kata sandi berhasil diperbarui. Sesi di perangkat lain telah dicabut.",
+    offlinePasswordNotice:
+      "Mode offline: pengubahan kata sandi dinonaktifkan sampai kembali online.",
+    deleteAccountTitle: "Hapus Akun Mandiri",
+    deleteAccountSubtitle:
+      "Tindakan permanen untuk menghapus akun dan seluruh data catatan maupun keuangan Anda.",
+    deleteAccountWarningHeading: "Peringatan Penghapusan Akun",
+    deleteAccountWarningBody:
+      "Penghapusan akun bersifat permanen dan tidak dapat dibatalkan. Seluruh dompet, kategori, transaksi kas, transfer antar-dompet, catatan, gambar lampiran, dan data sinkronisasi offline di browser Anda akan dihapus 100% tanpa sisa.",
+    deleteAccountButton: "Hapus Akun Saya",
+    offlineDeleteAccountNotice:
+      "Mode offline: penghapusan akun dinonaktifkan sampai kembali online.",
+    deleteModalTitle: "Konfirmasi Penghapusan Akun",
+    deleteModalBody:
+      "Apakah Anda benar-benar yakin ingin menghapus akun Noka Anda secara permanen? Seluruh data catatan, gambar lampiran, dan riwayat keuangan akan dihapus tanpa dapat dipulihkan.",
+    deleteModalConfirmPrompt: "Ketik HAPUS untuk mengonfirmasi:",
+    deleteModalConfirmWord: "HAPUS",
+    deleteModalPasswordLabel: "Kata Sandi Akun",
+    deleteModalPasswordPlaceholder: "Masukkan kata sandi untuk verifikasi",
+    deleteModalCancelButton: "Batal, Pertahankan Akun",
+    deleteModalConfirmButton: "Hapus Akun Permanen",
+    deleteModalDeletingButton: "Menghapus Akun...",
+    invalidPasswordError: "Kata sandi konfirmasi salah.",
+    deleteAccountGenericError:
+      "Gagal menghapus akun. Pastikan kata sandi Anda benar dan coba lagi.",
+    privacySummary: {
+      heading: "Kebijakan Privasi & Kedaulatan Data Anda",
+      subheading:
+        "Noka dirancang dengan prinsip kedaulatan data penuh tanpa pelacak komersial.",
+      zeroLogsTitle: "Nol Catatan Plaintext & Bebas Pelacak",
+      zeroLogsDesc:
+        "Isi catatan, nominal rupiah, dan kata sandi Anda tidak pernah dicatat ke file log server. Kami tidak menggunakan script analitik pihak ketiga.",
+      userIsolationTitle: "Isolasi Data Antar-Pengguna yang Ketat",
+      userIsolationDesc:
+        "Seluruh transaksi, dompet, catatan, dan file lampiran diisolasi menggunakan identifier pengguna yang diverifikasi di level database dan storage adapter.",
+      localControlTitle: "Pembersihan Data Lokal Otomatis",
+      localControlDesc:
+        "Saat Anda logout atau menghapus akun, seluruh database IndexedDB dan cache Service Worker privat pada peramban Anda langsung dibersihkan 100%.",
+      noTrackingTitle: "Penyimpanan Lampiran Aman & Mandiri",
+      noTrackingDesc:
+        "Lampiran gambar catatan hanya dapat diakses melalui URL berotentikasi privat, dan langsung dihapus saat catatan atau akun Anda dihapus.",
+    },
+  },
 };
 

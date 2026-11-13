@@ -4,6 +4,7 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
 import { PrivacyBlurToggle } from "@/components/finance/PrivacyBlurToggle";
 import { SyncStatusBadge } from "@/components/layout/SyncStatusBadge";
 import { WorkspaceChrome } from "@/components/layout/WorkspaceChrome";
+import { PreferencesSyncBridge } from "@/components/providers/PreferencesSyncBridge";
 import { PrivacyProvider } from "@/components/providers/PrivacyProvider";
 import { SyncProvider } from "@/components/providers/SyncProvider";
 import { getDb } from "@/db";
@@ -33,6 +34,7 @@ export default async function AppWorkspaceLayout({
 
   return (
     <SyncProvider user={user}>
+      <PreferencesSyncBridge />
       <PrivacyProvider initialCookieBlurred={initialCookieBlurred}>
         <WorkspaceChrome
           user={{ id: user.id, name: user.name, email: user.email }}

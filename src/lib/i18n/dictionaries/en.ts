@@ -709,5 +709,91 @@ export const enDictionary: Dictionary = {
     offlineNoteFallbackHint:
       "Loaded from local offline device mirror.",
   },
+  settings: {
+    pageTitle: "Account Settings",
+    pageSubtitle:
+      "Manage your profile, theme & language preferences, Safe-to-Spend cycle configuration, password, and account data.",
+    profileTitle: "Profile & Preferences",
+    profileSubtitle:
+      "Configure your identity, app language, visual theme, and the start day of your monthly Safe-to-Spend cycle.",
+    emailLabel: "Email Address",
+    emailHelp: "Your account email is permanent and cannot be changed.",
+    nameLabel: "Full Name",
+    namePlaceholder: "Enter your full name",
+    localeLabel: "App Language",
+    localeOptionId: "Bahasa Indonesia (ID)",
+    localeOptionEn: "English (EN)",
+    themeLabel: "Visual Theme",
+    themeOptionLight: "Light",
+    themeOptionDark: "Dark",
+    cycleStartDayLabel: "Budget Cycle Start Day",
+    cycleStartDayHelp:
+      "The day of the month when your Safe-to-Spend cycle restarts.",
+    cycleDayPrefix: "Day",
+    cycleEndOfMonth: "End of Month (28–31)",
+    saveProfileButton: "Save Profile",
+    savingProfileButton: "Saving...",
+    profileSavedSuccess: "Profile and preferences saved successfully.",
+    offlineProfileNotice:
+      "Offline mode: profile settings can only be saved when online.",
+    passwordTitle: "Change Password",
+    passwordSubtitle:
+      "Update your password. Changing your password will automatically revoke sessions on other devices.",
+    currentPasswordLabel: "Current Password",
+    currentPasswordPlaceholder: "Enter your current password",
+    newPasswordLabel: "New Password",
+    newPasswordPlaceholder: "Minimum 8 characters",
+    newPasswordHelp:
+      "Use at least 8 characters with a secure combination.",
+    confirmPasswordLabel: "Confirm New Password",
+    confirmPasswordPlaceholder: "Retype your new password",
+    passwordMismatchError: "New password confirmation does not match.",
+    invalidCurrentPasswordError: "Current password does not match.",
+    changePasswordButton: "Update Password",
+    changingPasswordButton: "Updating...",
+    passwordChangedSuccess:
+      "Password updated successfully. Sessions on other devices have been revoked.",
+    offlinePasswordNotice:
+      "Offline mode: password changes are disabled until online.",
+    deleteAccountTitle: "Self-Service Account Deletion",
+    deleteAccountSubtitle:
+      "A permanent, irreversible action to delete your account and all associated data.",
+    deleteAccountWarningHeading: "Account Deletion Warning",
+    deleteAccountWarningBody:
+      "Account deletion is permanent and cannot be undone. All wallets, categories, cash transactions, transfers, notes, image attachments, and offline synced data in your browser will be purged 100%.",
+    deleteAccountButton: "Delete My Account",
+    offlineDeleteAccountNotice:
+      "Offline mode: account deletion is disabled until online.",
+    deleteModalTitle: "Confirm Account Deletion",
+    deleteModalBody:
+      "Are you absolutely sure you want to permanently delete your Noka account? All notes, image attachments, and financial history will be irreversibly erased.",
+    deleteModalConfirmPrompt: "Type DELETE to confirm:",
+    deleteModalConfirmWord: "DELETE",
+    deleteModalPasswordLabel: "Account Password",
+    deleteModalPasswordPlaceholder: "Enter your password to verify",
+    deleteModalCancelButton: "Cancel, Keep Account",
+    deleteModalConfirmButton: "Permanently Delete Account",
+    deleteModalDeletingButton: "Deleting Account...",
+    invalidPasswordError: "Incorrect account password.",
+    deleteAccountGenericError:
+      "Failed to delete account. Please verify your password and try again.",
+    privacySummary: {
+      heading: "Privacy Policy & Your Data Sovereignty",
+      subheading:
+        "Noka is built around strict data sovereignty principles with zero commercial tracking.",
+      zeroLogsTitle: "Zero Plaintext Logs & No Tracking",
+      zeroLogsDesc:
+        "Note contents, transaction amounts, and passwords are never written to server logs. We do not use third-party tracking scripts.",
+      userIsolationTitle: "Strict Multi-Tenant Isolation",
+      userIsolationDesc:
+        "All transactions, wallets, notes, and file attachments are strictly isolated by your user ID at the database and storage layers.",
+      localControlTitle: "Automatic Local Data Purge",
+      localControlDesc:
+        "When you log out or delete your account, all IndexedDB databases and private Service Worker caches in your browser are wiped 100%.",
+      noTrackingTitle: "Private Attachment Storage",
+      noTrackingDesc:
+        "Note image attachments are only accessible via authenticated private endpoints, and are deleted when notes or accounts are deleted.",
+    },
+  },
 };
 

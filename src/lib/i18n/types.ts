@@ -635,8 +635,79 @@ export interface Dictionary {
   linkedNotes: LinkedNotesDictionary;
   // Strongly typed Offline Sync & PWA namespace populated in RFC-009.
   sync: SyncDictionary;
-  // Optional namespaces populated incrementally by RFC-010 without stubs.
-  settings?: Record<string, unknown>;
+  // Strongly typed Account Settings & Deletion namespace populated in RFC-010.
+  settings: SettingsDictionary;
+}
+
+export interface SettingsPrivacySummaryDictionary {
+  heading: string;
+  subheading: string;
+  zeroLogsTitle: string;
+  zeroLogsDesc: string;
+  userIsolationTitle: string;
+  userIsolationDesc: string;
+  localControlTitle: string;
+  localControlDesc: string;
+  noTrackingTitle: string;
+  noTrackingDesc: string;
+}
+
+export interface SettingsDictionary {
+  pageTitle: string;
+  pageSubtitle: string;
+  profileTitle: string;
+  profileSubtitle: string;
+  emailLabel: string;
+  emailHelp: string;
+  nameLabel: string;
+  namePlaceholder: string;
+  localeLabel: string;
+  localeOptionId: string;
+  localeOptionEn: string;
+  themeLabel: string;
+  themeOptionLight: string;
+  themeOptionDark: string;
+  cycleStartDayLabel: string;
+  cycleStartDayHelp: string;
+  cycleDayPrefix: string;
+  cycleEndOfMonth: string;
+  saveProfileButton: string;
+  savingProfileButton: string;
+  profileSavedSuccess: string;
+  offlineProfileNotice: string;
+  passwordTitle: string;
+  passwordSubtitle: string;
+  currentPasswordLabel: string;
+  currentPasswordPlaceholder: string;
+  newPasswordLabel: string;
+  newPasswordPlaceholder: string;
+  newPasswordHelp: string;
+  confirmPasswordLabel: string;
+  confirmPasswordPlaceholder: string;
+  passwordMismatchError: string;
+  invalidCurrentPasswordError: string;
+  changePasswordButton: string;
+  changingPasswordButton: string;
+  passwordChangedSuccess: string;
+  offlinePasswordNotice: string;
+  deleteAccountTitle: string;
+  deleteAccountSubtitle: string;
+  deleteAccountWarningHeading: string;
+  deleteAccountWarningBody: string;
+  deleteAccountButton: string;
+  offlineDeleteAccountNotice: string;
+  deleteModalTitle: string;
+  deleteModalBody: string;
+  deleteModalConfirmPrompt: string;
+  deleteModalConfirmWord: string;
+  deleteModalPasswordLabel: string;
+  deleteModalPasswordPlaceholder: string;
+  deleteModalCancelButton: string;
+  deleteModalConfirmButton: string;
+  deleteModalDeletingButton: string;
+  invalidPasswordError: string;
+  deleteAccountGenericError: string;
+  privacySummary: SettingsPrivacySummaryDictionary;
 }
 
 export interface SyncDictionary {
