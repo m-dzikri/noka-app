@@ -7,13 +7,10 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { useI18n } from "@/lib/i18n/context";
-import { enDictionary } from "@/lib/i18n/dictionaries/en";
-import { idDictionary } from "@/lib/i18n/dictionaries/id";
 
 export function ChangePasswordForm() {
-  const { t, locale } = useI18n();
-  const settings =
-    t?.settings ?? (locale === "en" ? enDictionary.settings : idDictionary.settings);
+  const { t } = useI18n();
+  const settings = t.settings;
   const sync = useOptionalSync();
 
   const [currentPassword, setCurrentPassword] = useState("");

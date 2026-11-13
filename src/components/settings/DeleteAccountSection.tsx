@@ -10,13 +10,10 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { runClientLogoutCleanup } from "@/features/auth/client-cleanup";
 import { useI18n } from "@/lib/i18n/context";
-import { enDictionary } from "@/lib/i18n/dictionaries/en";
-import { idDictionary } from "@/lib/i18n/dictionaries/id";
 
 export function DeleteAccountSection() {
-  const { t, locale } = useI18n();
-  const settings =
-    t?.settings ?? (locale === "en" ? enDictionary.settings : idDictionary.settings);
+  const { t } = useI18n();
+  const settings = t.settings;
   const sync = useOptionalSync();
   const router = useRouter();
 

@@ -8,8 +8,6 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/Ca
 import { Input } from "@/components/ui/Input";
 import type { AuthUser } from "@/features/auth/session";
 import { useI18n, usePreferences } from "@/lib/i18n/context";
-import { enDictionary } from "@/lib/i18n/dictionaries/en";
-import { idDictionary } from "@/lib/i18n/dictionaries/id";
 import type { Locale, Theme } from "@/lib/i18n/types";
 
 interface ProfileSettingsFormProps {
@@ -22,9 +20,8 @@ const CYCLE_DAYS = [
 ] as const;
 
 export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
-  const { t, locale: currentAppLocale } = useI18n();
-  const settings =
-    t?.settings ?? (currentAppLocale === "en" ? enDictionary.settings : idDictionary.settings);
+  const { t } = useI18n();
+  const settings = t.settings;
   const { updatePreferences } = usePreferences();
   const sync = useOptionalSync();
 

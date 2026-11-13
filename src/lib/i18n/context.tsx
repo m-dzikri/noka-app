@@ -47,17 +47,14 @@ export function useI18n(): I18nContextValue {
     throw new Error("useI18n must be used within PreferencesProvider");
   }
 
-  const baseDict = context.t ?? DICTIONARIES[context.locale] ?? idDictionary;
-  if (!baseDict.settings) {
-    const fallbackSettings =
-      context.locale === "en" ? enDictionary.settings : idDictionary.settings;
-    return {
-      ...context,
-      t: {
-        ...baseDict,
-        settings: fallbackSettings,
-      },
-    };
+  // DICTIONARIES is always fully populated at module load time (both id and en
+  // include all namespaces including settings). Returning context directly is
+  // safe. The guard below is a last-resort safety net for stale HMR edge cases
+  // without introducing a new dictionary import at the call site.
+  const t = context.t;
+  if (!t?.settings) {
+    const dict = DICTIONARIES[context.locale] ?? DICTIONARIES.id;
+    return { ...context, t: dict };
   }
 
   return context;
