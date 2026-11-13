@@ -37,9 +37,20 @@ export function ProfileSettingsForm({ initialUser }: ProfileSettingsFormProps) {
 
   const isOnline = sync ? sync.isOnline : typeof navigator === "undefined" || navigator.onLine !== false;
 
+  const isDirty =
+    name.trim() !== currentUser.name ||
+    locale !== currentUser.locale ||
+    theme !== currentUser.theme ||
+    cycleStartDay !== currentUser.cycleStartDay;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!isOnline) return;
+
+    if (!isDirty) {
+      setSuccessMessage(t.settings.profileSavedSuccess);
+      return;
+    }
 
     setIsSubmitting(true);
     setSuccessMessage(null);

@@ -185,4 +185,18 @@ describe("Account Settings UI Components (TS-010)", () => {
     expect(screen.getByText("Change Password")).toBeInTheDocument();
     expect(screen.getByText("Self-Service Account Deletion")).toBeInTheDocument();
   });
+
+  it("skips fetch when ProfileSettingsForm is submitted without changes (dirty check)", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    renderWithProviders(<ProfileSettingsForm initialUser={mockUser} />);
+
+    // Submit without changing any field
+    const submitBtn = screen.getByRole("button", { name: "Simpan Profil" });
+    fireEvent.click(submitBtn);
+
+    // Should show success message immediately without calling fetch
+    expect(await screen.findByText("Profil dan preferensi berhasil disimpan.")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

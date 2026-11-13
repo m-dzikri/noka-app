@@ -125,5 +125,9 @@ Semua route memakai amplop `API-1` (`apiOk`/`apiError`/`handleApiError`), `requi
 
 5. **Test Coverage & Release Gate Verification (`TEST-1`, `TEST-3`, `TEST-5`, `QUAL-2`, `QUAL-3`)**:
    - Integration suite `tests/integration/account-settings-deletion.test.ts` (11 tes) mencakup validasi profile, penolakan cycleStartDay tidak valid, proteksi CSRF, sanitasi respons, penolakan password saat ini yang salah, pencabutan sesi lain, proteksi race deletion, dan penghapusan RESTRICT-safe beserta cleanup storage.
-   - Unit suite `tests/unit/account-settings-ui.test.tsx` (5 tes) memverifikasi rendering formulir pengaturan, mode offline guard, konfirmasi kata kunci modal hapus akun, dan aktivasi input.
+   - Unit suite `tests/unit/account-settings-ui.test.tsx` (6 tes) memverifikasi rendering formulir pengaturan, mode offline guard, konfirmasi kata kunci modal hapus akun, aktivasi input, dan dirty check tanpa network call.
    - E2E suite `tests/e2e/full-user-journey-and-a11y.spec.ts` bertindak sebagai release gate v1.0 penuh di Desktop & Mobile (Chrome & Mobile Chrome) menguji perjalanan pengguna lengkap dari registrasi hingga penghapusan akun mandiri beserta audit aksesibilitas dan zero horizontal overflow.
+
+6. **Post-Review Refinements (Non-Blocking Improvements)**:
+   - Menambahkan *dirty check* eksplisit pada `ProfileSettingsForm.tsx` yang membandingkan keempat field (`name`, `locale`, `theme`, `cycleStartDay`) terhadap nilai server aktual (`currentUser`), sehingga submit tanpa perubahan data langsung menampilkan pesan sukses tanpa memicu panggilan `PATCH /api/account/profile` yang redundan.
+   - Mengonfigurasi `playwright.config.ts` dengan default `workers: 1` (dapat di-override via `PLAYWRIGHT_WORKERS`) untuk menjamin eksekusi E2E yang deterministik pada skenario destruktif (logout, penghapusan akun, pembersihan IndexedDB/SW cache) tanpa risiko *timing contention* antar-sesi paralel.
