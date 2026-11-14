@@ -131,3 +131,38 @@ All automated checks were executed directly against commit `32b1125`:
   - In `ProfileSettingsForm.tsx`, consider adding an explicit dirty check before triggering `PATCH /api/account/profile` if the user submits without changing any field values.
   - In Playwright E2E tests, sequential execution (`--workers=1`) is recommended for suites testing full logout and storage wipe to prevent intermittent timing contention with parallel session tests.
 
+
+
+---
+
+## Round 2 -- 2026-11-14
+
+- **Review Target:** `RFC-010` ([`RFC-010-Account-Settings-And-Deletion.md`](../RFCs/RFC-010-Account-Settings-And-Deletion.md))
+- **Commit Range:** `32b1125`..`a872a9e` (HEAD at `a872a9e`)
+- **Reviewer Verdict:** **Reviewed** (**Overall Risk Level: Low**)
+- **Context:** Verification of non-blocking improvement suggestions implemented in commits `b9440e0`, `a140609`, `63cd018`, `1947242`, and `a872a9e`.
+
+### 1. Verification of Improvement Suggestions & Hardening
+1. **Profile Form Dirty Check (`b9440e0`):**
+   - [`src/components/settings/ProfileSettingsForm.tsx`](../src/components/settings/ProfileSettingsForm.tsx) now checks `isDirty`. When the user submits without modifying any field, the form immediately displays the success notice without dispatching redundant network `PATCH` requests.
+   - Verified by new unit test in [`tests/unit/account-settings-ui.test.tsx`](../tests/unit/account-settings-ui.test.tsx).
+2. **Playwright Serial Stability Configuration (`b9440e0`):**
+   - [`playwright.config.ts`](../playwright.config.ts) sets `workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : 1`. This completely eliminates timing contention and rate-limiting interference during offline sync, session revocation, and storage wipe tests.
+   - Result: All 16 E2E tests pass out-of-the-box via standard `npm run test:e2e` without manual flag overrides.
+3. **Resilient `cycleStartDay` Normalization (`a140609`):**
+   - [`src/features/finance/safe-to-spend.ts`](../src/features/finance/safe-to-spend.ts), [`summary-service.ts`](../src/features/finance/summary-service.ts), and [`local-queries.ts`](../src/features/sync/local-queries.ts) safely normalize numeric or non-string inputs via `String(value)`.
+   - Verified by unit tests in [`tests/unit/safe-to-spend.test.ts`](../tests/unit/safe-to-spend.test.ts).
+4. **i18n Settings Dictionary SSR & HMR Guard (`63cd018`, `1947242`, `a872a9e`):**
+   - [`src/lib/i18n/context.tsx`](../src/lib/i18n/context.tsx) and [`src/components/providers/PreferencesProvider.tsx`](../src/components/providers/PreferencesProvider.tsx) use dynamic dictionary getters and defensive fallback structures, ensuring `t.settings.*` never encounters undefined access during SSR or rapid client hydration.
+
+### 2. Step 0 Automated Verification Output (Round 2)
+1. **Lint (`npm run lint` -> `eslint .`):** Exit code `0` (clean).
+2. **Typecheck (`npm run typecheck` -> `tsc --noEmit`):** Exit code `0` (clean).
+3. **Unit & Integration Suite (`npm test` -> `vitest run`):** Exit code `0` — **`30 test files passed (30)`**, **`143 tests passed (143)`** in 32.87s.
+4. **Production Build (`npm run build` -> Next.js `16.4.6` Turbopack):** Exit code `0` (`Compiled successfully in 1576ms`, static pages generated in 262ms).
+5. **Playwright E2E (`npm run test:e2e`):** Exit code `0` — **`16 passed (2.6m)`** across all desktop and mobile specs with 0 failures.
+6. **Code Hygiene Scan:** `0` `TODO`/`FIXME`, `0` `: any`/`as any`, `0` unauthorized `process.env.*`, `0` `rehype-raw`, and `formatIdr` isolated in `PrivacyAmount.tsx`.
+7. **Traceability Check (`trace-check.py`):** `0 failure(s), 5 warning(s)` (only deferred v1.1 features `F20`–`F24`).
+
+### 3. Final Conclusion
+All suggestions have been implemented cleanly with corresponding regression tests. The code meets all requirements of `RULES.md`, `PRD.md`, and `RFC-010`. The RFC remains **Reviewed** and is ready for production.
