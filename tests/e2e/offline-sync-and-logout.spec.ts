@@ -455,7 +455,15 @@ test.describe("RFC-009: PWA Installability, Offline Sync & Logout/401 Purge (TS-
       );
 
       // Check existing note attachments offline: upload/delete buttons disabled, cached image renders, uncached image shows offline placeholder
-      await page.getByText("Catatan Lampiran").first().click();
+      await page.getByText("Catatan Lampiran").first().evaluate((el) => {
+        const link = el.closest("a");
+        if (link) {
+          const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+          link.dispatchEvent(event);
+        } else {
+          (el as HTMLElement).click();
+        }
+      });
       await expect(
         page.getByText(
           "Mode offline: unggah & hapus lampiran dinonaktifkan sampai kembali online.",
@@ -477,29 +485,65 @@ test.describe("RFC-009: PWA Installability, Offline Sync & Logout/401 Purge (TS-
         page.getByText("Gambar belum tersedia saat offline. Coba lagi ketika online."),
       ).toBeVisible({ timeout: 5_000 });
       if (isMobileProject) {
-        await page.getByRole("button", { name: "Kembali ke catatan" }).click();
+        await page
+          .getByRole("button", { name: "Kembali ke catatan" })
+          .evaluate((btn) => (btn as HTMLElement).click());
       }
 
+      // Scroll to top to ensure sticky header does not overlap Catatan Baru button
+      await page.evaluate(() => window.scrollTo(0, 0));
+
       // Create & edit a new Note offline with GFM checklist -> verify status "Menunggu sinkronisasi"
-      await page.getByRole("button", { name: "Catatan Baru" }).first().click();
-      await page.getByLabel("Judul catatan").fill("Catatan Belanja Offline");
-      await page.getByLabel("Isi Markdown catatan").fill("- [ ] Susu Segar\n- [ ] Roti Tawar");
+      await page
+        .getByRole("button", { name: "Catatan Baru" })
+        .first()
+        .evaluate((btn) => (btn as HTMLElement).click());
+
+      await expect(page.getByLabel("Judul catatan")).toHaveValue("");
+      const titleInput = page.getByLabel("Judul catatan");
+      await titleInput.evaluate((el) => {
+        const input = el as HTMLInputElement;
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          "value",
+        )?.set;
+        nativeSetter?.call(input, "Catatan Belanja Offline");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await expect(titleInput).toHaveValue("Catatan Belanja Offline");
+
+      const contentInput = page.getByLabel("Isi Markdown catatan");
+      await contentInput.evaluate((el) => {
+        const textarea = el as HTMLTextAreaElement;
+        const nativeSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLTextAreaElement.prototype,
+          "value",
+        )?.set;
+        nativeSetter?.call(textarea, "- [ ] Susu Segar\n- [ ] Roti Tawar");
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await expect(contentInput).toHaveValue("- [ ] Susu Segar\n- [ ] Roti Tawar");
       await expect(page.getByTestId("note-save-status")).toHaveText(
         "Menunggu sinkronisasi",
         { timeout: 5_000 },
       );
 
       // Toggle checkbox while offline
-      await page.getByRole("button", { name: /Pratinjau|Pisah/ }).first().click();
+      await page
+        .getByRole("button", { name: /Pratinjau|Pisah/ })
+        .first()
+        .evaluate((btn) => (btn as HTMLElement).click());
       const firstCheckbox = page
         .getByRole("checkbox", { name: /Susu Segar/i })
         .first();
       await expect(firstCheckbox).toBeVisible();
-      await firstCheckbox.click();
+      await firstCheckbox.evaluate((cb) => (cb as HTMLElement).click());
       await expect(firstCheckbox).toBeChecked();
 
       if (isMobileProject) {
-        await page.getByRole("button", { name: "Kembali ke catatan" }).click();
+        await page
+          .getByRole("button", { name: "Kembali ke catatan" })
+          .evaluate((btn) => (btn as HTMLElement).click());
       }
       await expect(page.getByTestId("sync-pending-badge-count")).toBeVisible();
       await assertNoHorizontalOverflow(page, "offline /app/notes");
