@@ -1,6 +1,14 @@
 "use client";
 
-import { useContext, useEffect, useId, useRef, type ReactNode } from "react";
+import {
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { I18nContext } from "@/lib/i18n/context";
@@ -112,11 +120,17 @@ export function Modal({
     };
   }, [open]);
 
-  if (!open) {
+  const isClient = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+
+  if (!open || !isClient || typeof document === "undefined" || !document.body) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       data-testid="modal-backdrop"
       className="fixed inset-0 z-50 flex items-center justify-center bg-[#161616]/60 p-4 backdrop-blur-[2px]"
@@ -166,7 +180,8 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

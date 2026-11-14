@@ -235,6 +235,30 @@ describe("UI primitives, AppShell & accessible Modal (TS-001-07)", () => {
     expect(document.activeElement).toBe(controlledInput);
   });
 
+  it("portals Modal directly to document.body avoiding CSS containment clipping", () => {
+    render(
+      <PreferencesProvider
+        initialLocale="id"
+        initialTheme="light"
+        hasCookieLocale={true}
+        hasCookieTheme={true}
+      >
+        <div data-testid="nested-pill-container" className="backdrop-blur-md">
+          <Modal open={true} onClose={() => {}} title="Portaled Dialog">
+            <p>Contained content</p>
+          </Modal>
+        </div>
+      </PreferencesProvider>,
+    );
+
+    const backdrop = screen.getByTestId("modal-backdrop");
+    const containerEl = screen.getByTestId("nested-pill-container");
+
+    // Backdrop is portaled directly into document.body, not contained within the backdrop-blur container
+    expect(backdrop.parentElement).toBe(document.body);
+    expect(containerEl.contains(backdrop)).toBe(false);
+  });
+
   it("renders accessible danger button tokens, AppOverview h1 heading, and boundary-safe mobile nav", () => {
     render(
       <PreferencesProvider
