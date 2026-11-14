@@ -8,7 +8,11 @@ export function PrivacySummaryCard() {
   const { t, locale } = useI18n();
   const settings =
     t?.settings ?? (locale === "en" ? DICTIONARIES.en.settings : DICTIONARIES.id.settings);
-  const summary = settings.privacySummary;
+  const summary =
+    settings?.privacySummary ??
+    (locale === "en"
+      ? DICTIONARIES.en.settings.privacySummary
+      : DICTIONARIES.id.settings.privacySummary);
 
   const points = [
     {
