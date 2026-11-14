@@ -879,7 +879,12 @@ export function NotesWorkspace({
         </div>
       ) : null}
 
-      <div className={cn("flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3.5 shadow-[var(--shadow-sm)] sm:px-5", mobileOfflineNote ? "hidden lg:flex" : "flex")}>
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3.5 shadow-[var(--shadow-sm)] sm:px-5",
+          mobileOfflineNote && "hidden lg:flex",
+        )}
+      >
         <div>
           <h1 className="text-xl font-bold tracking-tight text-[var(--text-primary)] sm:text-2xl">
             {t.notes.workspaceTitle}
@@ -923,7 +928,12 @@ export function NotesWorkspace({
         </div>
       ) : null}
 
-      <div className={cn("grid grid-cols-1 gap-5 lg:grid-cols-12", mobileOfflineNote ? "hidden lg:grid" : "grid")}>
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-5 lg:grid-cols-12",
+          mobileOfflineNote && "hidden lg:grid",
+        )}
+      >
         <aside className="flex flex-col gap-3 lg:col-span-5 xl:col-span-4">
           <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-sm)]">
             <div className="relative">

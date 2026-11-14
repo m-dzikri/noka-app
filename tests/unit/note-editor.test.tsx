@@ -372,6 +372,15 @@ describe("NoteEditor & NotesWorkspace UI behavior (TS-004-02)", () => {
       </PreferencesProvider>,
     );
 
+    // Verify deterministic layout class names to prevent SSR hydration mismatches.
+    const headerTitle = screen.getByRole("heading", { level: 1, name: "Notes" });
+    const headerContainer = headerTitle.closest("div")?.parentElement;
+    expect(headerContainer?.className).toBe(
+      "flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 py-3.5 shadow-[var(--shadow-sm)] sm:px-5",
+    );
+    const gridContainer = screen.getByLabelText("Search notes").closest("div.grid");
+    expect(gridContainer?.className).toBe("grid grid-cols-1 gap-5 lg:grid-cols-12");
+
     // Load more appends secondPageNote.
     fireEvent.click(screen.getByRole("button", { name: "Load More" }));
     expect(await screen.findByText("Grocery List")).toBeVisible();
