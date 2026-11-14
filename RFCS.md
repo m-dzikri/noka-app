@@ -39,6 +39,11 @@ Mengacu pada `## Product Type` di `PRD.md` dan `RULES.md`:
 | [RFC-008](RFCs/RFC-008-Smart-Quick-Capture-And-Linked-Notes.md) | Noka Synergy — Smart Quick Capture & Linked Notes ↔ Transactions | F14, F15 | RFC-004, RFC-006, RFC-007 | High | Passed | Reviewed |
 | [RFC-009](RFCs/RFC-009-PWA-And-Offline-First-Sync.md) | PWA Installability, IndexedDB Local Mirror & iOS-Safe Offline Sync | F18, F19 | RFC-001, RFC-002, RFC-003, RFC-004, RFC-005, RFC-006, RFC-007, RFC-008 | High | Passed | Reviewed |
 | [RFC-010](RFCs/RFC-010-Account-Settings-And-Deletion.md) | Account Settings, Cycle Configuration & Self-Service Account Deletion | F6 | RFC-001, RFC-002, RFC-005, RFC-007, RFC-009 | Medium | Passed | Reviewed |
+| [RFC-011](RFCs/RFC-011-Financial-Data-Export.md) | Financial Data Export & Reporting (CSV, Excel & Print/PDF) | F24 | RFC-001, RFC-002, RFC-006, RFC-007 | Medium | Passed | Not started |
+| [RFC-012](RFCs/RFC-012-Monthly-Category-Budgeting.md) | Monthly Category Budgeting & Overspending Alerts | F20 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-010 | Medium | Passed | Not started |
+| [RFC-013](RFCs/RFC-013-Recurring-Transactions-Scheduler.md) | Recurring Transactions Scheduler (Serverless-Safe On-Access) | F21 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-012 | High | Passed | Not started |
+| [RFC-014](RFCs/RFC-014-Debt-And-Receivables-Ledger.md) | Debt & Receivables Ledger (Buku Utang-Piutang & Pelunasan) | F22 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-013 | High | Passed | Not started |
+| [RFC-015](RFCs/RFC-015-PDF-Note-Attachments.md) | PDF Note Attachments & Secure Document Viewer | F23 | RFC-001, RFC-002, RFC-004, RFC-005, RFC-009, RFC-010 | Medium | Passed | Not started |
 
 ---
 
@@ -59,6 +64,13 @@ RFC-001 (Foundation, DB Schema, Design Tokens, i18n, AppShell)
                                                                                   ▼
                                                    RFC-009 (PWA + IndexedDB + Sync Engine)
                                                      └── RFC-010 (Settings, Cycle, Delete Account)
+                                                           │
+                                                           ▼ [Fase 2: v1.1 Post-Launch Extensions]
+                                                           ├── RFC-011 (Export: CSV, XLSX, Print/PDF)
+                                                           ├── RFC-015 (PDF Note Attachments & Viewer)
+                                                           └── RFC-012 (Category Budgeting & Alerts)
+                                                                 └── RFC-013 (Recurring Transactions Scheduler)
+                                                                       └── RFC-014 (Debt & Receivables Ledger)
 ```
 
 ### Predecessors & Successors Table
@@ -71,31 +83,27 @@ RFC-001 (Foundation, DB Schema, Design Tokens, i18n, AppShell)
 | **RFC-004** | RFC-001, RFC-002 | RFC-005, RFC-008, RFC-009 | RFC-003, RFC-006 |
 | **RFC-005** | RFC-001, RFC-002, RFC-004 | RFC-009, RFC-010 | RFC-003, RFC-006, RFC-007 |
 | **RFC-006** | RFC-001, RFC-002 | RFC-007, RFC-008, RFC-009 | RFC-003, RFC-004, RFC-005 |
-| **RFC-007** | RFC-001, RFC-002, RFC-006 | RFC-008, RFC-009, RFC-010 | RFC-003, RFC-004, RFC-005 |
+| **RFC-007** | RFC-001, RFC-002, RFC-006 | RFC-008, RFC-009, RFC-010, RFC-011, RFC-012, RFC-013, RFC-014 | RFC-003, RFC-004, RFC-005 |
 | **RFC-008** | RFC-004, RFC-006, RFC-007 | RFC-009 | RFC-003, RFC-005 |
-| **RFC-009** | RFC-001, RFC-002, RFC-003, RFC-004, RFC-005, RFC-006, RFC-007, RFC-008 | RFC-010 | — *(Integration Gate)* |
-| **RFC-010** | RFC-001, RFC-002, RFC-005, RFC-007, RFC-009 | none | — *(Public Readiness Finalizer)* |
+| **RFC-009** | RFC-001, RFC-002, RFC-003, RFC-004, RFC-005, RFC-006, RFC-007, RFC-008 | RFC-010, RFC-012, RFC-013, RFC-014, RFC-015 | — *(Integration Gate)* |
+| **RFC-010** | RFC-001, RFC-002, RFC-005, RFC-007, RFC-009 | RFC-012, RFC-015 | — *(Public Readiness Finalizer)* |
+| **RFC-011** | RFC-001, RFC-002, RFC-006, RFC-007 | none | RFC-012, RFC-013, RFC-014, RFC-015 |
+| **RFC-012** | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-010 | RFC-013 | RFC-011, RFC-014, RFC-015 |
+| **RFC-013** | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-012 | RFC-014 | RFC-011, RFC-015 |
+| **RFC-014** | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-013 | none | RFC-011, RFC-015 |
+| **RFC-015** | RFC-001, RFC-002, RFC-004, RFC-005, RFC-009, RFC-010 | none | RFC-011, RFC-012, RFC-013, RFC-014 |
 
 ---
 
 ## Feature Coverage & Deferred Scope (`FEATURES.md`)
 
-### Assigned Features (v1.0 — 19 Features)
+### Assigned Features (24 Features — v1.0 & v1.1)
 
 | Priority | Count | Feature IDs | RFC Mapping |
 |---|---:|---|---|
 | **Must Have** | 18 | F1–F5, F7–F19 | `F2,F3`→RFC-001; `F4,F5`→RFC-002; `F1`→RFC-003; `F7,F8`→RFC-004; `F9`→RFC-005; `F10,F11,F12`→RFC-006; `F13,F16,F17`→RFC-007; `F14,F15`→RFC-008; `F18,F19`→RFC-009 |
 | **Should Have** | 1 | F6 | `F6`→RFC-010 *(v1.0 Public Readiness)* |
-
-### Deferred Features (v1.1 Post-Launch — 5 Features)
-
-| Feature | Title | Priority | Status | Deferral Reason |
-|---|---|---|---|---|
-| **F20** | Monthly Category Budgeting | Could | Deferred (v1.1) | Ditunda ke pasca-launch sesuai `DEC-3` agar target rilis v1.0 dalam 7 hari tetap stabil. |
-| **F21** | Recurring Transactions Scheduler | Could | Deferred (v1.1) | Ditunda ke pasca-launch sesuai `DEC-3`. |
-| **F22** | Debt & Receivables Ledger (*Utang-Piutang*) | Could | Deferred (v1.1) | Ditunda ke pasca-launch sesuai `DEC-3`. |
-| **F23** | PDF Note Attachments | Could | Deferred (v1.1) | Lampiran v1.0 dibatasi gambar saja (`DEC-3`, `DEC-9`). |
-| **F24** | Financial Data Export (CSV / Excel / PDF) | Could | Deferred (v1.1) | Ditunda ke pasca-launch sesuai `DEC-3`. |
+| **Could Have** | 5 | F20–F24 | `F24`→RFC-011; `F20`→RFC-012; `F21`→RFC-013; `F22`→RFC-014; `F23`→RFC-015 *(v1.1 Post-Launch Scope)* |
 
 ### Explicitly Excluded (Out of Scope — 7 Features)
 
@@ -119,6 +127,8 @@ RFC-001 (Foundation, DB Schema, Design Tokens, i18n, AppShell)
 
 ## Implementation Roadmap (7-Day Target)
 
+### Fase 1: v1.0 Launch Baseline (Hari 1–7 — Selesai & Reviewed)
+
 1. **Hari 1:** `RFC-001` (Foundation, DB Schema, Design Tokens, i18n, AppShell) → `RFC-002` (Auth & Reset Password).
 2. **Hari 2:** `RFC-003` (Public SEO Landing Page) paralel dengan `RFC-004` (Notes Workspace).
 3. **Hari 3:** `RFC-005` (Note Image Attachments) paralel dengan `RFC-006` (Finance Core Ledger).
@@ -126,6 +136,18 @@ RFC-001 (Foundation, DB Schema, Design Tokens, i18n, AppShell)
 5. **Hari 5:** `RFC-008` (Smart Quick Capture & Linked Notes ↔ Transactions).
 6. **Hari 6:** `RFC-009` (PWA Manifest, Service Worker, IndexedDB Mirror & iOS-Safe Sync).
 7. **Hari 7:** `RFC-010` (Account Settings, Cycle Settings, Account Deletion, Full E2E & Lighthouse Deploy).
+
+### Fase 2: v1.1 Post-Launch Extensions (Minggu 2+)
+
+1. **Sprint 1 (Ekspor & Lampiran Dokumen):**
+   - `RFC-011` (Financial Data Export: CSV, XLSX, Print/PDF).
+   - `RFC-015` (PDF Note Attachments & Secure Document Viewer).
+2. **Sprint 2 (Peningkatan Kontrol Anggaran & Otomasi):**
+   - `RFC-012` (Monthly Category Budgeting & Overspending Alerts).
+   - `RFC-013` (Recurring Transactions Scheduler — Serverless On-Access).
+3. **Sprint 3 (Buku Utang-Piutang & Regresi Akhir v1.1):**
+   - `RFC-014` (Debt & Receivables Ledger — Buku Utang-Piutang & Pelunasan Kas).
+   - Full Regression Test Suite v1.1 (Vitest + Playwright Desktop & Mobile).
 
 ---
 

@@ -99,7 +99,13 @@ Aplikasi **Noka** diklasifikasikan sebagai **Web App** (*Multi-user Responsive W
 | **RFC-008** | Quick Capture & Linked Notes | `F14`, `F15` (*Must*) | 2 | 1 | 0 | **3** |
 | **RFC-009** | PWA, IndexedDB & Offline Sync | `F18`, `F19` (*Must*) | 1 | 0 | 1 | **2** |
 | **RFC-010** | Settings, Cycle & Account Delete | `F6` (*Should*) + Gate v1.0 | 0 | 1 | 1 | **2** |
-| **Total** | — | **18 Must + 1 Should (v1.0)** | **17** | **11** | **3** | **31** |
+| **Subtotal v1.0** | Baseline Launch Suite (Passing) | **18 Must + 1 Should** | **17** | **11** | **3** | **31** |
+| **RFC-011** | Financial Data Export & Report | `F24` (*Could*) | 1 | 1 | 0 | **2** |
+| **RFC-012** | Monthly Category Budgeting | `F20` (*Could*) | 1 | 1 | 0 | **2** |
+| **RFC-013** | Recurring Transactions Scheduler | `F21` (*Could*) | 1 | 1 | 0 | **2** |
+| **RFC-014** | Debt & Receivables Ledger | `F22` (*Could*) | 1 | 1 | 0 | **2** |
+| **RFC-015** | PDF Note Attachments & Viewer | `F23` (*Could*) | 1 | 1 | 0 | **2** |
+| **Total (v1.0 + v1.1)** | — | **18 Must + 1 Should + 5 Could** | **22** | **16** | **3** | **41** |
 
 > *(Cakupan tertunda/terkecuali `FEATURES.md`: `F20`–`F24` (*Could Have* v1.1) dan `F25`–`F31` (*Won't Have*) diverifikasi tidak diimplementasikan pada kode maupun rute API v1.0).*
 
@@ -273,6 +279,78 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 |---|---|---|---|---|---|---|
 | **TS-010-01** | Passing | `tests/integration/account-settings-deletion.test.ts` (Integration) | Should | Uji `PATCH /api/account/profile` (tolak `{}`, `cycleStartDay` `'1'`..`'28'`|`'end_of_month'` vs `422 INVALID_CYCLE_DAY`, CSRF `403`, update cookie `noka_locale`/`noka_theme`, `{ user }` tanpa `passwordHash`), `PATCH /api/account/password` (salah `currentPassword` -> `401 INVALID_CURRENT_PASSWORD`, berhasil mencabut sesi lain), serta `DELETE /api/account` (`401 INVALID_PASSWORD`, `FOR UPDATE` race konfirmasi concurrent deletion -> `401 UNAUTHORIZED`, urutan hapus `transfers -> transactions -> wallets -> categories -> users` mematahkan `RESTRICT` aman, hapus objek `LocalStorageAdapter` & uji mock gagal parsial `deleteUserAttachmentObjects` -> `logger.warn` `failedKeys` tanpa gagal `500`, hapus cookie `noka_session`). | PostgreSQL uji + storage uji (`HIGH-4`) | Akun & seluruh 13 tabel anak user terhapus 100% bersih tanpa melanggar `RESTRICT` atau gagal saat storage gagal parsial; salah password **tidak** memicu `UNAUTHORIZED` wipe. |
 | **TS-010-02** | Passing | `tests/e2e/full-user-journey-and-a11y.spec.ts` (E2E) | Should / v1.0 Gate | Alur lengkap rilis v1.0: register -> unggah & tampilkan lampiran gambar catatan -> Quick Capture & toggle `ID/EN` / `Light/Dark` di `PreferencesSyncBridge` (di dalam `<SyncProvider>`, cek nol loop PATCH & offline guard pada 3 form `/app/settings`) -> Linked Note + `LedgerList` backlink -> ubah `cycleStartDay` di `/app/settings` & cek pembaruan instan *Safe-to-Spend* (`updateUserMeta`) -> Privacy Blur -> cek `GET /api/health` (`200`) -> navigasi keyboard penuh & zero overflow (`360px`, `375×812`, `768px`, `1280×800`) -> hapus akun dengan konfirmasi ganda (`HAPUS`/`DELETE` + password) -> cek redirect `/`, login lama ditolak, dan DB + storage + IndexedDB + SW private cache bersih. | Playwright (`desktop` + `mobile`) + `npm run build` | Seluruh alur sukses tanpa console error; nol overflow horizontal; kontras/ARIA valid; sisa data akun **0** di server & browser. |
+
+---
+
+## RFC-011: Financial Data Export & Reporting (CSV, Excel & Print/PDF)
+
+- **Fitur & Prioritas:** `F24` — **Could Have** *(v1.1)*
+- **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-006`, `RFC-007`
+- **Aturan Terkait:** `ARCH-2`, `API-1`, `API-2`, `DATA-1`, `DATA-2`, `SEC-1`, `UI-1`, `UI-2`, `I18N-1`, `PERF-4`, `TEST-1`, `TEST-3`, `QUAL-2`
+- **File Suite (`Proposed`):** `tests/unit/finance-export.test.ts`, `tests/integration/finance-export-api.test.ts`
+
+| Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
+|---|---|---|---|---|---|---|
+| **TS-011-01** | Proposed | `tests/unit/finance-export.test.ts` (Unit) | Could | Uji generator CSV (RFC 4180 escaping koma, newline, quotes, integer IDR tanpa koma ribuan, UTF-8 BOM `\uFEFF`) dan struktur multi-sheet XLSX (Sheet Summary & Sheet Ledger) serta layout cetak `@media print`. | Pure unit / node | Format berkas valid; karakter UTF-8 BOM ada; nominal IDR integer murni; bebas injeksi formula spreadsheet (`=`, `+`, `-`, `@` ter-escape). |
+| **TS-011-02** | Proposed | `tests/integration/finance-export-api.test.ts` (Integration) | Could | Uji endpoint `GET /api/finance/export` (autentikasi `401`, format tidak didukung `422`, filter rentang tanggal `startDate`/`endDate`, filter `walletId`/`categoryId`, transfer handling, isolasi data tenant). | PostgreSQL uji | Binary stream response `200` dengan header `Content-Type` & `Content-Disposition` valid; hanya data user aktif yang diekspor. |
+
+---
+
+## RFC-012: Monthly Category Budgeting & Overspending Alerts
+
+- **Fitur & Prioritas:** `F20` — **Could Have** *(v1.1)*
+- **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-006`, `RFC-007`, `RFC-009`, `RFC-010`
+- **Aturan Terkait:** `ARCH-2`, `API-1`, `API-2`, `DATA-1`, `DATA-2`, `DATA-4`, `SEC-1`, `OFFLINE-2`, `OFFLINE-3`, `UI-1`, `UI-3`, `I18N-1`, `TEST-1`, `TEST-2`, `QUAL-2`
+- **File Suite (`Proposed`):** `tests/unit/category-budgets.test.ts`, `tests/integration/category-budgets-api.test.ts`
+
+| Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
+|---|---|---|---|---|---|---|
+| **TS-012-01** | Proposed | `tests/unit/category-budgets.test.ts` (Unit) | Could | Uji kalkulasi persentase pemakaian anggaran, sisa anggaran, penanganan overbudget (`percentage > 100%`), klasifikasi status ambang batas (`normal`, `warning` ≥ 80%, `exceeded` ≥ 100%), dan UI progress bar. | `jsdom` + fake timers | Persentase integer floor deterministik; warna bilah & badge status tepat; nominal IDR integer `bigint`. |
+| **TS-012-02** | Proposed | `tests/integration/category-budgets-api.test.ts` (Integration) | Could | Uji `GET /api/finance/budgets`, `POST /api/finance/budgets` (upsert atomik, constraint unik `(userId, categoryId, period)`, `idempotencyKey`), `DELETE /api/finance/budgets/[id]`, kaskade hapus kategori, dan isolasi tenant. | PostgreSQL uji | Upsert berhasil tanpa duplikasi; hapus kategori menghapus anggaran otomatis (*CASCADE*); tenant terisolasi ketat. |
+
+---
+
+## RFC-013: Recurring Transactions Scheduler (Serverless-Safe On-Access)
+
+- **Fitur & Prioritas:** `F21` — **Could Have** *(v1.1)*
+- **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-006`, `RFC-007`, `RFC-009`, `RFC-012`
+- **Aturan Terkait:** `ARCH-2`, `API-1`, `API-2`, `DATA-1`, `DATA-2`, `DATA-3`, `DATA-4`, `SEC-1`, `OFFLINE-2`, `OFFLINE-3`, `UI-1`, `UI-2`, `I18N-1`, `TEST-1`, `TEST-3`, `QUAL-2`
+- **File Suite (`Proposed`):** `tests/unit/recurring-scheduler.test.ts`, `tests/integration/recurring-api.test.ts`
+
+| Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
+|---|---|---|---|---|---|---|
+| **TS-013-01** | Proposed | `tests/unit/recurring-scheduler.test.ts` (Unit) | Could | Uji algoritma kalkulasi interval tanggal `next_run_at` (harian, mingguan, bulanan), edge cases akhir bulan (tanggal 31 pada Feb/Apr/Jun/Sep/Nov), dan penanganan batas akhir `end_date`. | Pure unit / node | Tanggal jatuh tempo terhitung akurat tanpa offset drift; template expired otomatis dinonaktifkan (`is_active = false`). |
+| **TS-013-02** | Proposed | `tests/integration/recurring-api.test.ts` (Integration) | Could | Uji endpoint `POST /api/finance/recurring/process` (auto-apply atomik dengan `FOR UPDATE`, pencegahan transaksi ganda saat dipanggil paralel), alur konfirmasi manual `confirm` (apply vs skip), mutasi saldo ledger, dan jeda template. | PostgreSQL uji | Transaksi baru tercatat di ledger dengan `recurring_template_id`; saldo dompet terpotong/bertambah akurat; zero duplicate execution. |
+
+---
+
+## RFC-014: Debt & Receivables Ledger (Buku Utang-Piutang & Pelunasan)
+
+- **Fitur & Prioritas:** `F22` — **Could Have** *(v1.1)*
+- **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-006`, `RFC-007`, `RFC-009`, `RFC-013`
+- **Aturan Terkait:** `ARCH-2`, `API-1`, `API-2`, `DATA-1`, `DATA-2`, `DATA-4`, `SEC-1`, `OFFLINE-2`, `OFFLINE-3`, `UI-1`, `UI-3`, `I18N-1`, `TEST-1`, `TEST-2`, `TEST-3`, `QUAL-2`
+- **File Suite (`Proposed`):** `tests/unit/debts-receivables.test.ts`, `tests/integration/debts-api.test.ts`
+
+| Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
+|---|---|---|---|---|---|---|
+| **TS-014-01** | Proposed | `tests/unit/debts-receivables.test.ts` (Unit) | Could | Uji kalkulasi sisa pokok utang/piutang, penolakan cicilan melebihi sisa pokok, transisi otomatis ke status `SETTLED`, kalkulasi ringkasan posisi bersih (*net position*), dan deteksi *overdue*. | `jsdom` + Testing Library | Status `SETTLED` aktif saat lunas; badge *overdue* terpicu tepat waktu; pemisahan dari pengeluaran bulanan konsumtif terverifikasi. |
+| **TS-014-02** | Proposed | `tests/integration/debts-api.test.ts` (Integration) | Could | Uji CRUD `GET/POST /api/finance/debts`, pencatatan cicilan dengan dompet (membuat `transactions` kas bertipe EXPENSE/INCOME atomik) vs tanpa dompet, penghapusan utang (`ON DELETE SET NULL` pada transaksi historis), dan isolasi tenant. | PostgreSQL uji | Cicilan kas terikat atomik ke ledger; transaksi kas lama tidak hilang saat catatan utang dihapus; tenant terisolasi 100%. |
+
+---
+
+## RFC-015: PDF Note Attachments & Secure Document Viewer
+
+- **Fitur & Prioritas:** `F23` — **Could Have** *(v1.1)*
+- **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-004`, `RFC-005`, `RFC-009`, `RFC-010`
+- **Aturan Terkait:** `STACK-3`, `ARCH-2`, `ARCH-6`, `API-1`, `API-2`, `SEC-1`, `SEC-4`, `SEC-5`, `SEC-6`, `OFFLINE-4`, `UI-3`, `UI-5`, `I18N-1`, `PERF-4`, `OBS-2`, `OBS-3`, `TEST-1`, `TEST-3`, `QUAL-2`
+- **File Suite (`Proposed`):** `tests/unit/pdf-attachments.test.ts`, `tests/integration/pdf-attachments-api.test.ts`
+
+| Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
+|---|---|---|---|---|---|---|
+| **TS-015-01** | Proposed | `tests/unit/pdf-attachments.test.ts` (Unit) | Could | Uji deteksi magic bytes `%PDF-` (`file-type`), penolakan file PDF palsu/corrupt, batas ukuran 5 MB, kuota gabungan 5 lampiran/catatan, rendering kartu PDF di UI, dan offline guard tombol upload/hapus. | `jsdom` + node buffer | Magic bytes tervalidasi ketat; file biner palsu ditolak `422`; UI menampilkan kartu dokumen PDF dengan ukuran dan tombol viewer; tombol dinonaktifkan saat offline (`OFFLINE-4`). |
+| **TS-015-02** | Proposed | `tests/integration/pdf-attachments-api.test.ts` (Integration) | Could | Uji `POST /api/notes/[id]/attachments` dengan PDF, penyajian privat `GET /api/attachments/[attachmentId]` dengan header CSP `sandbox allow-scripts` + `X-Content-Type-Options: nosniff`, penghapusan PDF dari storage, dan pembersihan akun (`DELETE /api/account`). | PostgreSQL uji + storage | Dokumen tersimpan aman di S3/local storage; header CSP terpasang untuk mencegah XSS; pembersihan storage 100% tuntas saat catatan/akun dihapus. |
+
+---
 
 ---
 
