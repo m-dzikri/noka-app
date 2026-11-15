@@ -82,7 +82,7 @@ export function buildPdfExport(dataset: ExportDataset): Buffer {
         `Periode: ${dataset.startDateFormatted} s.d. ${dataset.endDateFormatted}`,
       );
       const generatedText = escapePdfString(
-        `Waktu Cetak: ${dataset.startDateFormatted}`,
+        `Waktu Cetak: ${dataset.generatedAtFormatted}`,
       );
 
       currentCommands.push(

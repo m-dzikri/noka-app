@@ -16,6 +16,9 @@ import type {
   ExportWalletSummary,
 } from "./types";
 
+export const MAX_EXPORT_RANGE_DAYS = 731; // 2 years
+export const MAX_EXPORT_ROW_LIMIT = 20_000;
+
 export function formatExportDateTime(date: Date, tzOffsetMinutes = DEFAULT_TZ_OFFSET_MINUTES): string {
   const targetTime = date.getTime() + tzOffsetMinutes * 60_000;
   const d = new Date(targetTime);
@@ -116,6 +119,16 @@ export async function loadFinanceExportDataset(
     );
   }
 
+  const diffDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays > MAX_EXPORT_RANGE_DAYS) {
+    throw new ApiError(
+      422,
+      "VALIDATION_ERROR",
+      `Export date range cannot exceed ${MAX_EXPORT_RANGE_DAYS} days (2 years)`,
+      { field: "endDate" },
+    );
+  }
+
   // Fetch wallets with balances
   const allWallets = await loadWalletsWithBalances(db, userId, { includeArchived: true });
   const walletsSummary: ExportWalletSummary[] = allWallets.map((w) => ({
@@ -151,7 +164,8 @@ export async function loadFinanceExportDataset(
     .innerJoin(categories, eq(transactions.categoryId, categories.id))
     .leftJoin(notes, and(eq(transactions.noteId, notes.id), isNull(notes.deletedAt)))
     .where(and(...txPredicates))
-    .orderBy(desc(transactions.occurredAt), desc(transactions.createdAt), desc(transactions.id));
+    .orderBy(desc(transactions.occurredAt), desc(transactions.createdAt), desc(transactions.id))
+    .limit(MAX_EXPORT_ROW_LIMIT);
 
   // Build transfers query if categoryId is not specified
   const shouldIncludeTransfers = !params.categoryId;
@@ -192,7 +206,8 @@ export async function loadFinanceExportDataset(
       .innerJoin(fromWallets, eq(transfers.fromWalletId, fromWallets.id))
       .innerJoin(toWallets, eq(transfers.toWalletId, toWallets.id))
       .where(and(...trPredicates))
-      .orderBy(desc(transfers.occurredAt), desc(transfers.createdAt), desc(transfers.id));
+      .orderBy(desc(transfers.occurredAt), desc(transfers.createdAt), desc(transfers.id))
+      .limit(MAX_EXPORT_ROW_LIMIT);
   }
 
   // Combine rows
@@ -279,6 +294,7 @@ export async function loadFinanceExportDataset(
   return {
     userId,
     generatedAt: nowDate,
+    generatedAtFormatted: formatExportDateTime(nowDate, tzOffset),
     startDate,
     endDate,
     startDateFormatted: formatExportDateOnly(startDate, tzOffset),

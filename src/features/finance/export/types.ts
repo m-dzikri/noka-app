@@ -14,6 +14,16 @@ export const exportQuerySchema = z.object({
 
 export type ExportQueryParams = z.infer<typeof exportQuerySchema>;
 
+export const reportWebQuerySchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  walletId: z.string().uuid().optional(),
+  categoryId: z.string().uuid().optional(),
+  tzOffset: z.coerce.number().finite().optional(),
+});
+
+export type ReportWebQueryParams = z.infer<typeof reportWebQuerySchema>;
+
 export interface ExportLedgerRow {
   id: string;
   occurredAt: Date;
@@ -42,6 +52,7 @@ export interface ExportCategorySummary {
 export interface ExportDataset {
   userId: string;
   generatedAt: Date;
+  generatedAtFormatted: string;
   startDate: Date;
   endDate: Date;
   startDateFormatted: string;
@@ -66,6 +77,7 @@ export function serializeExportDataset(dataset: ExportDataset): ExportDatasetDto
   return {
     ...dataset,
     generatedAt: dataset.generatedAt.toISOString(),
+    generatedAtFormatted: dataset.generatedAtFormatted,
     startDate: dataset.startDate.toISOString(),
     endDate: dataset.endDate.toISOString(),
     rows: dataset.rows.map((row) => ({

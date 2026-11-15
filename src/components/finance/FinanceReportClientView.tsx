@@ -79,7 +79,7 @@ export function FinanceReportClientView({ dataset }: FinanceReportClientViewProp
             </strong>
           </span>
           <span>
-            {t.finance.reportPage.generatedAtLabel}: {dataset.startDateFormatted}
+            {t.finance.reportPage.generatedAtLabel}: {dataset.generatedAtFormatted}
           </span>
         </div>
       </div>

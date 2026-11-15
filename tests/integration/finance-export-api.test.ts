@@ -123,6 +123,21 @@ describe("TS-011-02: Financial Export API Integration (CSV, XLSX, PDF, Filtering
     expect(json2.error.code).toBe("VALIDATION_ERROR");
   });
 
+  it("rejects date range exceeding maximum 2-year safeguard (422)", async () => {
+    const user = await createRegisteredUser("exp-range");
+    const excessiveReq = makeAuthedRequest(
+      "http://localhost:3000/api/finance/export?format=csv&startDate=2020-01-01&endDate=2026-11-01",
+      "GET",
+      user.cookie,
+    );
+    const res = await exportGet(excessiveReq);
+    expect(res.status).toBe(422);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.message).toContain("731 days");
+  });
+
   it("exports valid CSV stream with UTF-8 BOM, headers, and strict tenant isolation", async () => {
     const userA = await createRegisteredUser("exp-a");
     const userB = await createRegisteredUser("exp-b");

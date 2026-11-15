@@ -11,7 +11,12 @@ import {
   sanitizeSpreadsheetFormula,
 } from "@/features/finance/export/excel-builder";
 import { buildPdfExport, escapePdfString } from "@/features/finance/export/pdf-builder";
-import { serializeExportDataset, type ExportDataset } from "@/features/finance/export/types";
+import { MAX_EXPORT_RANGE_DAYS } from "@/features/finance/export/export-query";
+import {
+  reportWebQuerySchema,
+  serializeExportDataset,
+  type ExportDataset,
+} from "@/features/finance/export/types";
 
 function createMockDataset(rowCount = 2): ExportDataset {
   const rows = [];
@@ -32,6 +37,7 @@ function createMockDataset(rowCount = 2): ExportDataset {
   return {
     userId: "user-uuid-123",
     generatedAt: new Date("2026-11-15T12:00:00.000Z"),
+    generatedAtFormatted: "2026-11-15 19:00",
     startDate: new Date("2026-11-01T00:00:00.000Z"),
     endDate: new Date("2026-11-30T23:59:59.999Z"),
     startDateFormatted: "2026-11-01",
@@ -243,6 +249,9 @@ describe("TS-011-01: Financial Export Generators (CSV, XLSX, PDF) & Formula Sani
       expect(screen.getByText("Total Pengeluaran")).toBeDefined();
       expect(screen.getByText("Arus Kas Bersih")).toBeDefined();
 
+      // Generation timestamp label displays actual generatedAtFormatted
+      expect(screen.getByText(/2026-11-15 19:00/)).toBeDefined();
+
       // Table rows
       expect(screen.getByText("Rincian Transaksi & Transfer (2)")).toBeDefined();
 
@@ -252,6 +261,34 @@ describe("TS-011-01: Financial Export Generators (CSV, XLSX, PDF) & Formula Sani
       expect(printSpy).toHaveBeenCalledTimes(1);
 
       printSpy.mockRestore();
+    });
+
+    it("validates report web query schema and enforces maximum export date range constant", () => {
+      expect(MAX_EXPORT_RANGE_DAYS).toBe(731);
+
+      // Valid report params
+      const valid = reportWebQuerySchema.safeParse({
+        startDate: "2026-01-01",
+        endDate: "2026-12-31",
+        walletId: "11111111-1111-4111-8111-111111111111",
+        tzOffset: "420",
+      });
+      expect(valid.success).toBe(true);
+      if (valid.success) {
+        expect(valid.data.tzOffset).toBe(420);
+      }
+
+      // Invalid wallet UUID
+      const invalidWallet = reportWebQuerySchema.safeParse({
+        walletId: "not-a-uuid",
+      });
+      expect(invalidWallet.success).toBe(false);
+
+      // Non-finite tzOffset
+      const invalidTz = reportWebQuerySchema.safeParse({
+        tzOffset: "Infinity",
+      });
+      expect(invalidTz.success).toBe(false);
     });
   });
 });

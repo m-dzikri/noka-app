@@ -9,7 +9,7 @@
  * - Zero reliance on `Background Sync API` (unsupported in iOS Safari).
  */
 
-const SHELL_CACHE = "noka-shell-v1";
+const SHELL_CACHE = "noka-shell-v2";
 const PRIVATE_CACHE = "noka-private-v1";
 const PRIVATE_CACHE_PREFIX = "noka-private-";
 const SHELL_PRECACHE_URLS = [
@@ -147,28 +147,50 @@ self.addEventListener("fetch", (event) => {
   if (isStaticShellAsset(url.pathname)) {
     event.respondWith(
       caches.open(SHELL_CACHE).then(async (cache) => {
-        const cached = await cache.match(request);
-        if (cached) {
-          return cached;
-        }
-        try {
-          const response = await fetch(request);
-          if (response && response.ok && !response.redirected && response.status === 200) {
-            await cache.put(request, response.clone());
-          }
-          return response;
-        } catch {
-          if (url.pathname === "/offline.html") {
-            const offlinePage = await cache.match("/offline.html");
-            if (offlinePage) {
-              return offlinePage;
+        const isLocalhost =
+          url.hostname === "localhost" ||
+          url.hostname === "127.0.0.1" ||
+          url.hostname === "::1";
+
+        if (isLocalhost) {
+          try {
+            const response = await fetch(request);
+            if (response && response.ok && !response.redirected && response.status === 200) {
+              await cache.put(request, response.clone());
+            }
+            return response;
+          } catch {
+            const cached = await cache.match(request);
+            if (cached) {
+              return cached;
             }
           }
-          return new Response("Offline asset unavailable", {
-            status: 503,
-            statusText: "Service Unavailable",
-          });
+        } else {
+          const cached = await cache.match(request);
+          if (cached) {
+            return cached;
+          }
+          try {
+            const response = await fetch(request);
+            if (response && response.ok && !response.redirected && response.status === 200) {
+              await cache.put(request, response.clone());
+            }
+            return response;
+          } catch {
+            // Falls through to offline asset handling below.
+          }
         }
+
+        if (url.pathname === "/offline.html") {
+          const offlinePage = await cache.match("/offline.html");
+          if (offlinePage) {
+            return offlinePage;
+          }
+        }
+        return new Response("Offline asset unavailable", {
+          status: 503,
+          statusText: "Service Unavailable",
+        });
       }),
     );
     return;
