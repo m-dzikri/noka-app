@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, FolderKanban, Plus, Wallet } from "lucide-react";
+import { ArrowLeftRight, Download, FolderKanban, Plus, Wallet } from "lucide-react";
 import { CashflowSummaryCards } from "@/components/finance/CashflowSummaryCards";
 import { CategoryManagerModal } from "@/components/finance/CategoryManagerModal";
+import { ExportDataModal } from "@/components/finance/ExportDataModal";
 import {
   dispatchFinanceUpdated,
   FINANCE_UPDATED_EVENT,
@@ -122,6 +123,7 @@ export function FinanceWorkspace({
   const [editingTransfer, setEditingTransfer] = useState<TransferDto | null>(
     null,
   );
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const activeWallets = useMemo(
     () => summary.wallets.filter((w) => w.archivedAt === null),
@@ -545,6 +547,15 @@ export function FinanceWorkspace({
             <FolderKanban className="h-4 w-4" aria-hidden="true" />
             <span>{t.finance.manageCategoriesButton}</span>
           </Button>
+
+          <Button
+            variant="secondary"
+            onClick={() => setExportModalOpen(true)}
+            data-testid="finance-export-button"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            <span>{t.finance.exportButton}</span>
+          </Button>
         </CardContent>
       </Card>
 
@@ -689,6 +700,14 @@ export function FinanceWorkspace({
           </Button>
         </div>
       </Modal>
+
+      <ExportDataModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        wallets={activeWallets}
+        categories={categories}
+        cycle={summary.cycle}
+      />
     </div>
   );
 }

@@ -287,12 +287,12 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 - **Fitur & Prioritas:** `F24` — **Could Have** *(v1.1)*
 - **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-006`, `RFC-007`
 - **Aturan Terkait:** `ARCH-2`, `API-1`, `API-2`, `DATA-1`, `DATA-2`, `SEC-1`, `UI-1`, `UI-2`, `I18N-1`, `PERF-4`, `TEST-1`, `TEST-3`, `QUAL-2`
-- **File Suite (`Proposed`):** `tests/unit/finance-export.test.ts`, `tests/integration/finance-export-api.test.ts`
+- **File Suite (`Passing`):** `tests/unit/finance-export.test.tsx`, `tests/integration/finance-export-api.test.ts`
 
 | Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
 |---|---|---|---|---|---|---|
-| **TS-011-01** | Proposed | `tests/unit/finance-export.test.ts` (Unit) | Could | Uji generator CSV (RFC 4180 escaping koma, newline, quotes, integer IDR tanpa koma ribuan, UTF-8 BOM `\uFEFF`) dan struktur multi-sheet XLSX (Sheet Summary & Sheet Ledger) serta layout cetak `@media print`. | Pure unit / node | Format berkas valid; karakter UTF-8 BOM ada; nominal IDR integer murni; bebas injeksi formula spreadsheet (`=`, `+`, `-`, `@` ter-escape). |
-| **TS-011-02** | Proposed | `tests/integration/finance-export-api.test.ts` (Integration) | Could | Uji endpoint `GET /api/finance/export` (autentikasi `401`, format tidak didukung `422`, filter rentang tanggal `startDate`/`endDate`, filter `walletId`/`categoryId`, transfer handling, isolasi data tenant). | PostgreSQL uji | Binary stream response `200` dengan header `Content-Type` & `Content-Disposition` valid; hanya data user aktif yang diekspor. |
+| **TS-011-01** | Passing | `tests/unit/finance-export.test.tsx` (Unit) | Could | Uji generator CSV (RFC 4180 escaping koma, newline, quotes, integer IDR tanpa koma ribuan, UTF-8 BOM `\uFEFF`) dan struktur multi-sheet XLSX (Sheet Summary & Sheet Ledger), layout cetak `@media print`, modal ekspor interaktif, dan format PDF. | Pure unit / jsdom | Format berkas valid; karakter UTF-8 BOM ada; nominal IDR integer murni; bebas injeksi formula spreadsheet (`=`, `+`, `-`, `@` ter-escape). |
+| **TS-011-02** | Passing | `tests/integration/finance-export-api.test.ts` (Integration) | Could | Uji endpoint `GET /api/finance/export` (autentikasi `401`, format tidak didukung `422`, filter rentang tanggal `startDate`/`endDate`, filter `walletId`/`categoryId`, transfer handling, isolasi data tenant). | PostgreSQL uji | Binary stream response `200` dengan header `Content-Type` & `Content-Disposition` valid; hanya data user aktif yang diekspor. |
 
 ---
 

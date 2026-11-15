@@ -94,19 +94,19 @@ Mengimplementasikan fitur ekspor data keuangan komprehensif (`F24`, `FR-21`) yan
 - `src/components/finance/ExportDataModal.tsx`: Modal konfigurasi ekspor & download trigger.
 - `src/app/(app)/app/finance/report/page.tsx`: Halaman tampilan cetak ramah `@media print` dan PDF.
 - `src/lib/i18n/types.ts`, `src/lib/i18n/dictionaries/{id,en}.ts`: Key terlokalisasi `finance.export.*`.
-- `tests/unit/finance-export.test.ts`: Uji format CSV, escaping koma/kutip, UTF-8 BOM, dan kalkulasi ringkasan.
+- `tests/unit/finance-export.test.tsx`: Uji format CSV, escaping koma/kutip, UTF-8 BOM, dan kalkulasi ringkasan.
 - `tests/integration/finance-export-api.test.ts`: Uji endpoint API, isolasi data, filter tanggal, dan header respons.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] **AC-11.1 (Validasi Parameter & Autentikasi — `F24`, `SEC-1`, `API-1`, `API-2`):** `GET /api/finance/export` menolak permintaan tanpa sesi valid (`401 UNAUTHORIZED`), menolak format di luar `csv`/`xlsx`/`pdf` (`422 VALIDATION_ERROR`), dan menerapkan isolasi `userId` ketat sehingga tidak ada transaksi milik akun lain yang bocor.
-- [ ] **AC-11.2 (Generasi CSV RFC 4180 & Excel BOM — `F24`, `DATA-1`):** Ekspor CSV menyertakan prefix byte `\uFEFF` (BOM UTF-8), meng-escape karakter koma, baris baru, dan tanda kutip ganda (`""`), serta menampilkan nominal IDR sebagai integer murni (`bigint` tanpa desimal).
-- [ ] **AC-11.3 (Pemfilteran Rentang & Dompet/Kategori — `F24`):** Data yang diekspor menghormati filter `startDate`, `endDate`, `walletId`, dan `categoryId`. Transaksi transfer ditampilkan dengan jelas menyertakan dompet asal dan dompet tujuan.
-- [ ] **AC-11.4 (Penyajian Multi-Sheet XLSX & Performa Bundel — `F24`, `PERF-4`):** Format Excel memuat Sheet Ringkasan dan Sheet Ledger terstruktur, dimuat secara dinamis di server tanpa membebani ukuran bundel JavaScript awal klien.
-- [ ] **AC-11.5 (Tampilan Cetak / PDF Print-Friendly — `F24`, `UI-1`):** Halaman `/app/finance/report` memuat CSS `@media print` yang menyembunyikan header pil navigasi dan menampilkan laporan keuangan rapi siap cetak atau disimpan sebagai PDF dengan tombol satu klik.
-- [ ] **AC-11.6 (UI Modal Ekspor Terlokalisasi — `F24`, `I18N-1`):** Modal `ExportDataModal` terintegrasi pada `/app/finance` di desktop dan mobile dengan pilihan format, rentang waktu, status loading interaktif, dan teks dwibahasa ID/EN.
+- [x] **AC-11.1 (Validasi Parameter & Autentikasi — `F24`, `SEC-1`, `API-1`, `API-2`):** `GET /api/finance/export` menolak permintaan tanpa sesi valid (`401 UNAUTHORIZED`), menolak format di luar `csv`/`xlsx`/`pdf` (`422 VALIDATION_ERROR`), dan menerapkan isolasi `userId` ketat sehingga tidak ada transaksi milik akun lain yang bocor.
+- [x] **AC-11.2 (Generasi CSV RFC 4180 & Excel BOM — `F24`, `DATA-1`):** Ekspor CSV menyertakan prefix byte `\uFEFF` (BOM UTF-8), meng-escape karakter koma, baris baru, dan tanda kutip ganda (`""`), serta menampilkan nominal IDR sebagai integer murni (`bigint` tanpa desimal).
+- [x] **AC-11.3 (Pemfilteran Rentang & Dompet/Kategori — `F24`):** Data yang diekspor menghormati filter `startDate`, `endDate`, `walletId`, dan `categoryId`. Transaksi transfer ditampilkan dengan jelas menyertakan dompet asal dan dompet tujuan.
+- [x] **AC-11.4 (Penyajian Multi-Sheet XLSX & Performa Bundel — `F24`, `PERF-4`):** Format Excel memuat Sheet Ringkasan dan Sheet Ledger terstruktur, dimuat secara dinamis di server tanpa membebani ukuran bundel JavaScript awal klien.
+- [x] **AC-11.5 (Tampilan Cetak / PDF Print-Friendly — `F24`, `UI-1`):** Halaman `/app/finance/report` memuat CSS `@media print` yang menyembunyikan header pil navigasi dan menampilkan laporan keuangan rapi siap cetak atau disimpan sebagai PDF dengan tombol satu klik.
+- [x] **AC-11.6 (UI Modal Ekspor Terlokalisasi — `F24`, `I18N-1`):** Modal `ExportDataModal` terintegrasi pada `/app/finance` di desktop dan mobile dengan pilihan format, rentang waktu, status loading interaktif, dan teks dwibahasa ID/EN.
 
 ---
 
@@ -114,3 +114,13 @@ Mengimplementasikan fitur ekspor data keuangan komprehensif (`F24`, `FR-21`) yan
 
 - **Karakter Delimiter:** Nilai nominal IDR menggunakan pemisah koma pada CSV standar, namun nilai numerik tidak boleh menggunakan tanda baca ribuan di dalam sel CSV agar dapat langsung dihitung rumus `=SUM()` di spreadsheet.
 - **Handling Data Kosong:** Jika rentang tanggal tidak memiliki transaksi, file CSV/Excel tetap digenerasi dengan baris header lengkap dan keterangan ringkasan bernilai Rp 0.
+
+---
+
+## Implementation Notes
+
+- **Zero-Dependency OpenXML & PDF Engine (`PERF-4`, `STACK-1`):** Generator XLSX dan biner PDF diimplementasikan menggunakan modul bawaan Node.js `node:zlib` tanpa menambah pustaka runtime eksternal baru ke `package.json`, menjaga bundle klien tetap bebas dependensi berat.
+- **Spreadsheet Formula Injection Mitigation (`SEC-1`):** Seluruh sel teks (catatan, nama dompet, nama kategori) yang diawali karakter eksekusi formula spreadsheet (`=`, `+`, `-`, `@`) di-escape dengan tanda petik tunggal (`'`).
+- **File Test Rename:** Berkas unit test dinamai `tests/unit/finance-export.test.tsx` (bukan `.ts`) agar mendukung rendering komponen React Testing Library (`ExportDataModal` dan `FinanceReportClientView`) di lingkungan `jsdom`.
+
+

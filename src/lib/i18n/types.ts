@@ -381,6 +381,58 @@ export interface FinanceDictionary {
     sameWalletError: string;
     invalidAmountError: string;
   };
+  exportButton: string;
+  exportModal: FinanceExportModalDictionary;
+  reportPage: FinanceReportPageDictionary;
+}
+
+export interface FinanceExportModalDictionary {
+  title: string;
+  description: string;
+  formatLabel: string;
+  formatCsv: string;
+  formatCsvDesc: string;
+  formatXlsx: string;
+  formatXlsxDesc: string;
+  formatPdf: string;
+  formatPdfDesc: string;
+  periodLabel: string;
+  periodCurrentCycle: string;
+  periodLastMonth: string;
+  periodCustom: string;
+  startDateLabel: string;
+  endDateLabel: string;
+  walletFilterLabel: string;
+  allWalletsOption: string;
+  categoryFilterLabel: string;
+  allCategoriesOption: string;
+  downloadButton: string;
+  downloadingButton: string;
+  openReportButton: string;
+  closeButton: string;
+  errorMessage: string;
+  invalidDateRangeError: string;
+}
+
+export interface FinanceReportPageDictionary {
+  pageTitle: string;
+  printButton: string;
+  backButton: string;
+  executiveSummary: string;
+  periodLabel: string;
+  generatedAtLabel: string;
+  totalIncome: string;
+  totalExpense: string;
+  netCashflow: string;
+  transactionsTableTitle: string;
+  colDate: string;
+  colType: string;
+  colWallet: string;
+  colCategory: string;
+  colAmount: string;
+  colNote: string;
+  emptyNotice: string;
+  footerNotice: string;
 }
 
 export interface QuickCaptureDictionary {
