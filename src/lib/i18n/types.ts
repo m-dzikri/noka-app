@@ -386,6 +386,7 @@ export interface FinanceDictionary {
   reportPage: FinanceReportPageDictionary;
   budgets: FinanceBudgetsDictionary;
   recurring: FinanceRecurringDictionary;
+  debts: FinanceDebtsDictionary;
 }
 
 export interface FinanceBudgetsDictionary {
@@ -507,6 +508,95 @@ export interface FinanceRecurringDictionary {
   annualPreset: string;
   quickCardActiveCount: string;
   quickCardNextDue: string;
+}
+
+export interface FinanceDebtsDictionary {
+  pageTitle: string;
+  pageSubtitle: string;
+  backToFinance: string;
+  manageDebtsButton: string;
+  totalReceivablesLabel: string;
+  totalDebtsLabel: string;
+  netPositionLabel: string;
+  netAssetSurplus: string;
+  netLiabilityDeficit: string;
+  tabAll: string;
+  tabReceivables: string;
+  tabDebts: string;
+  filterStatusAll: string;
+  filterStatusActive: string;
+  filterStatusSettled: string;
+  searchPlaceholder: string;
+  newDebtCta: string;
+  newReceivableCta: string;
+  addNewButton: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  createFirstDebtCta: string;
+  createFirstReceivableCta: string;
+  // Card
+  debtTypeLabel: string;
+  receivableTypeLabel: string;
+  statusActive: string;
+  statusSettled: string;
+  overdueBadge: string;
+  dueSoonBadge: string;
+  dueOnLabel: string;
+  noDueDate: string;
+  totalAmountLabel: string;
+  settledAmountLabel: string;
+  remainingAmountLabel: string;
+  recordSettlementCta: string;
+  settlementHistoryCta: string;
+  editCta: string;
+  deleteCta: string;
+  // Modal: Add / Edit
+  modalTitleNew: string;
+  modalTitleEdit: string;
+  modalDescription: string;
+  personNameLabel: string;
+  personNamePlaceholder: string;
+  personNameHint: string;
+  typeLabel: string;
+  typeDebtLabel: string;
+  typeReceivableLabel: string;
+  amountLabel: string;
+  amountPlaceholder: string;
+  dueDateLabel: string;
+  dueDateOptional: string;
+  notesLabel: string;
+  notesPlaceholder: string;
+  saveButton: string;
+  savingButton: string;
+  cancelButton: string;
+  // Modal: Record Settlement
+  settlementModalTitle: string;
+  settlementModalDescription: string;
+  settleAmountLabel: string;
+  settleAmountPlaceholder: string;
+  walletSelectLabel: string;
+  walletSelectPlaceholder: string;
+  noWalletOption: string;
+  settleDateLabel: string;
+  settleNotesLabel: string;
+  settleNotesPlaceholder: string;
+  settleSubmitButton: string;
+  settlingButton: string;
+  overSettlementWarning: string;
+  // History & Detail
+  historyModalTitle: string;
+  historyEmpty: string;
+  settlementAmountColumn: string;
+  settlementWalletColumn: string;
+  settlementDateColumn: string;
+  settlementNotesColumn: string;
+  // Delete confirm
+  deleteConfirmTitle: string;
+  deleteConfirmDescription: string;
+  deleteSuccess: string;
+  createSuccess: string;
+  updateSuccess: string;
+  settleSuccess: string;
 }
 
 export interface FinanceExportModalDictionary {

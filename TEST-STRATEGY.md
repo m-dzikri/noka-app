@@ -329,12 +329,12 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 - **Fitur & Prioritas:** `F22` — **Could Have** *(v1.1)*
 - **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-006`, `RFC-007`, `RFC-009`, `RFC-013`
 - **Aturan Terkait:** `ARCH-2`, `API-1`, `API-2`, `DATA-1`, `DATA-2`, `DATA-4`, `SEC-1`, `OFFLINE-2`, `OFFLINE-3`, `UI-1`, `UI-3`, `I18N-1`, `TEST-1`, `TEST-2`, `TEST-3`, `QUAL-2`
-- **File Suite (`Proposed`):** `tests/unit/debts-receivables.test.ts`, `tests/integration/debts-api.test.ts`
+- **File Suite (`Implemented`):** `tests/unit/debts-receivables.test.tsx`, `tests/integration/debts-api.test.ts`
 
 | Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
 |---|---|---|---|---|---|---|
-| **TS-014-01** | Proposed | `tests/unit/debts-receivables.test.ts` (Unit) | Could | Uji kalkulasi sisa pokok utang/piutang, penolakan cicilan melebihi sisa pokok, transisi otomatis ke status `SETTLED`, kalkulasi ringkasan posisi bersih (*net position*), dan deteksi *overdue*. | `jsdom` + Testing Library | Status `SETTLED` aktif saat lunas; badge *overdue* terpicu tepat waktu; pemisahan dari pengeluaran bulanan konsumtif terverifikasi. |
-| **TS-014-02** | Proposed | `tests/integration/debts-api.test.ts` (Integration) | Could | Uji CRUD `GET/POST /api/finance/debts`, pencatatan cicilan dengan dompet (membuat `transactions` kas bertipe EXPENSE/INCOME atomik) vs tanpa dompet, penghapusan utang (`ON DELETE SET NULL` pada transaksi historis), dan isolasi tenant. | PostgreSQL uji | Cicilan kas terikat atomik ke ledger; transaksi kas lama tidak hilang saat catatan utang dihapus; tenant terisolasi 100%. |
+| **TS-014-01** | Implemented | `tests/unit/debts-receivables.test.tsx` (Unit) | Could | Uji kalkulasi sisa pokok utang/piutang, penolakan cicilan melebihi sisa pokok, transisi otomatis ke status `SETTLED`, kalkulasi ringkasan posisi bersih (*net position*), dan deteksi *overdue*. | `jsdom` + Testing Library | Status `SETTLED` aktif saat lunas; badge *overdue* terpicu tepat waktu; pemisahan dari pengeluaran bulanan konsumtif terverifikasi. |
+| **TS-014-02** | Implemented | `tests/integration/debts-api.test.ts` (Integration) | Could | Uji CRUD `GET/POST /api/finance/debts`, pencatatan cicilan dengan dompet (membuat `transactions` kas bertipe EXPENSE/INCOME atomik) vs tanpa dompet, penghapusan utang (`ON DELETE SET NULL` pada transaksi historis), dan isolasi tenant. | PostgreSQL uji | Cicilan kas terikat atomik ke ledger; transaksi kas lama tidak hilang saat catatan utang dihapus; tenant terisolasi 100%. |
 
 ---
 

@@ -4,6 +4,7 @@ import { sessions, users } from "@/db/schema/auth";
 import {
   categories,
   categoryBudgets,
+  debtsReceivables,
   recurringTemplates,
   transactions,
   transfers,
@@ -180,6 +181,7 @@ export async function deleteAccount(
 
     // 4. Delete in RESTRICT-safe FK order.
     await tx.delete(recurringTemplates).where(eq(recurringTemplates.userId, userId));
+    await tx.delete(debtsReceivables).where(eq(debtsReceivables.userId, userId));
     await tx.delete(transfers).where(eq(transfers.userId, userId));
     await tx.delete(transactions).where(eq(transactions.userId, userId));
     await tx.delete(wallets).where(eq(wallets.userId, userId));

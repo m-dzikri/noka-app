@@ -6,6 +6,7 @@ import {
   index,
   integer,
   pgTable,
+  text,
   timestamp,
   uniqueIndex,
   uuid,
@@ -248,5 +249,75 @@ export const categoryBudgets = pgTable(
     check("category_budgets_amount_positive", sql`${table.amount} > 0`),
   ],
 );
+
+export const debtsReceivables = pgTable(
+  "debts_receivables",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 16 }).notNull(), // 'debt' | 'receivable'
+    personName: varchar("person_name", { length: 100 }).notNull(),
+    totalAmount: bigint("total_amount", { mode: "number" }).notNull(),
+    settledAmount: bigint("settled_amount", { mode: "number" })
+      .notNull()
+      .default(0),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    notes: text("notes"),
+    status: varchar("status", { length: 16 }).notNull().default("active"), // 'active' | 'settled'
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("debts_receivables_user_status_idx").on(table.userId, table.status),
+    index("debts_receivables_user_type_idx").on(table.userId, table.type),
+    index("debts_receivables_user_due_date_idx").on(table.userId, table.dueDate),
+    check(
+      "debts_receivables_total_amount_positive",
+      sql`${table.totalAmount} > 0`,
+    ),
+    check(
+      "debts_receivables_settled_amount_non_negative",
+      sql`${table.settledAmount} >= 0`,
+    ),
+  ],
+);
+
+export const debtSettlements = pgTable(
+  "debt_settlements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    debtId: uuid("debt_id")
+      .notNull()
+      .references(() => debtsReceivables.id, { onDelete: "cascade" }),
+    walletId: uuid("wallet_id").references(() => wallets.id, {
+      onDelete: "set null",
+    }),
+    transactionId: uuid("transaction_id").references(() => transactions.id, {
+      onDelete: "set null",
+    }),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    notes: varchar("notes", { length: 255 }),
+    settledAt: timestamp("settled_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("debt_settlements_debt_id_idx").on(table.debtId),
+    index("debt_settlements_wallet_id_idx").on(table.walletId),
+    index("debt_settlements_transaction_id_idx").on(table.transactionId),
+    check("debt_settlements_amount_positive", sql`${table.amount} > 0`),
+  ],
+);
+
 
 

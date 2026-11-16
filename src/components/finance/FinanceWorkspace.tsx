@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   AlertCircle,
   ArrowLeftRight,
@@ -8,6 +9,7 @@ import {
   FolderKanban,
   Plus,
   Repeat,
+  Scale,
   Target,
   Wallet,
   X,
@@ -746,6 +748,17 @@ export function FinanceWorkspace({
               </span>
             ) : null}
           </Button>
+
+          <Link
+            href="/app/finance/debts"
+            data-testid="finance-debts-button"
+            className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-primary)]"
+          >
+            <Scale className="h-4 w-4" aria-hidden="true" />
+            <span>
+              {t.finance?.debts?.manageDebtsButton ?? "Buku Utang-Piutang"}
+            </span>
+          </Link>
 
           <Button
             variant="secondary"

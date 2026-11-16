@@ -2,6 +2,7 @@ import { openDB, deleteDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { AuthUser } from "@/features/auth/session";
 import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
+import type { DebtReceivableDto } from "@/features/finance/debt-schemas";
 import { bigintToSafeNumber, computeWalletBalances } from "@/features/finance/ledger";
 import type { RecurringTemplateDto } from "@/features/finance/recurring-schemas";
 import type { TransactionDto } from "@/features/finance/transactions-service";
@@ -17,7 +18,7 @@ import type {
 } from "@/features/sync/types";
 
 export const OFFLINE_DB_PREFIX = "noka-offline-";
-export const OFFLINE_DB_VERSION = 3;
+export const OFFLINE_DB_VERSION = 4;
 
 export function getOfflineDbName(userId: string): string {
   return `${OFFLINE_DB_PREFIX}${userId}`;
@@ -60,6 +61,11 @@ export interface NokaOfflineDbSchema extends DBSchema {
     value: RecurringTemplateDto;
     indexes: { "by-nextRunAt": string };
   };
+  debtsReceivables: {
+    key: string;
+    value: DebtReceivableDto;
+    indexes: { "by-status": string; "by-type": string };
+  };
   transactions: {
     key: string;
     value: TransactionDto;
@@ -96,6 +102,7 @@ export interface MirrorDataState {
   categories: CategoryDto[];
   categoryBudgets: CategoryBudgetDto[];
   recurringTemplates: RecurringTemplateDto[];
+  debtsReceivables: DebtReceivableDto[];
   transactions: TransactionDto[];
   transfers: TransferDto[];
   outbox: OutboxItemRecord[];
@@ -171,6 +178,13 @@ export async function getOfflineDb(
             keyPath: "id",
           });
           recStore.createIndex("by-nextRunAt", "nextRunAt");
+        }
+        if (!db.objectStoreNames.contains("debtsReceivables")) {
+          const debtStore = db.createObjectStore("debtsReceivables", {
+            keyPath: "id",
+          });
+          debtStore.createIndex("by-status", "status");
+          debtStore.createIndex("by-type", "type");
         }
         if (!db.objectStoreNames.contains("transactions")) {
           const txStore = db.createObjectStore("transactions", {
@@ -420,6 +434,7 @@ export function applyOptimisticPayloadInMemory(
     categories: [...state.categories],
     categoryBudgets: [...(state.categoryBudgets ?? [])],
     recurringTemplates: [...(state.recurringTemplates ?? [])],
+    debtsReceivables: [...(state.debtsReceivables ?? [])],
     transactions: [...state.transactions],
     transfers: [...state.transfers],
     outbox: [...state.outbox],
@@ -556,6 +571,34 @@ export function applyOptimisticPayloadInMemory(
       );
       break;
     }
+    case "debt_upsert": {
+      const idx = next.debtsReceivables.findIndex(
+        (d) => d.id === payload.debt.id,
+      );
+      if (idx >= 0) {
+        next.debtsReceivables[idx] = payload.debt;
+      } else {
+        next.debtsReceivables.unshift(payload.debt);
+      }
+      break;
+    }
+    case "debt_delete": {
+      next.debtsReceivables = next.debtsReceivables.filter(
+        (d) => d.id !== payload.id,
+      );
+      break;
+    }
+    case "debt_settlement": {
+      if (payload.updatedDebt) {
+        const idx = next.debtsReceivables.findIndex(
+          (d) => d.id === payload.updatedDebt!.id,
+        );
+        if (idx >= 0) {
+          next.debtsReceivables[idx] = payload.updatedDebt;
+        }
+      }
+      break;
+    }
   }
 
   recomputeNoteRelationsAndBalances(next);
@@ -576,6 +619,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     categories,
     categoryBudgets,
     recurringTemplates,
+    debtsReceivables,
     transactions,
     transfers,
     metaRows,
@@ -589,6 +633,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     db.getAll("categories"),
     db.getAll("categoryBudgets"),
     db.getAll("recurringTemplates"),
+    db.getAll("debtsReceivables"),
     db.getAll("transactions"),
     db.getAll("transfers"),
     db.getAll("meta"),
@@ -616,6 +661,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     categories,
     categoryBudgets: categoryBudgets ?? [],
     recurringTemplates: recurringTemplates ?? [],
+    debtsReceivables: debtsReceivables ?? [],
     transactions,
     transfers,
     outbox: [...outboxRows].sort((a, b) => a.createdAt - b.createdAt),
@@ -640,6 +686,7 @@ async function writeDomainMirrorState(
     | "categories"
     | "categoryBudgets"
     | "recurringTemplates"
+    | "debtsReceivables"
     | "transactions"
     | "transfers"
     | "userProfile"
@@ -656,6 +703,7 @@ async function writeDomainMirrorState(
       "categories",
       "categoryBudgets",
       "recurringTemplates",
+      "debtsReceivables",
       "transactions",
       "transfers",
       "meta",
@@ -671,6 +719,7 @@ async function writeDomainMirrorState(
   const categoriesStore = tx.objectStore("categories");
   const categoryBudgetsStore = tx.objectStore("categoryBudgets");
   const recurringTemplatesStore = tx.objectStore("recurringTemplates");
+  const debtsReceivablesStore = tx.objectStore("debtsReceivables");
   const transactionsStore = tx.objectStore("transactions");
   const transfersStore = tx.objectStore("transfers");
   const metaStore = tx.objectStore("meta");
@@ -684,6 +733,7 @@ async function writeDomainMirrorState(
     categoriesStore.clear(),
     categoryBudgetsStore.clear(),
     recurringTemplatesStore.clear(),
+    debtsReceivablesStore.clear(),
     transactionsStore.clear(),
     transfersStore.clear(),
   ]);
@@ -700,6 +750,9 @@ async function writeDomainMirrorState(
     ),
     ...(state.recurringTemplates ?? []).map((item) =>
       recurringTemplatesStore.put(item),
+    ),
+    ...(state.debtsReceivables ?? []).map((item) =>
+      debtsReceivablesStore.put(item),
     ),
     ...state.transactions.map((item) => transactionsStore.put(item)),
     ...state.transfers.map((item) => transfersStore.put(item)),
@@ -738,6 +791,7 @@ export async function applySnapshotWithPendingReplay(
     categories: snapshot.categories,
     categoryBudgets: snapshot.categoryBudgets ?? [],
     recurringTemplates: snapshot.recurringTemplates ?? [],
+    debtsReceivables: snapshot.debtsReceivables ?? [],
     transactions: snapshot.transactions,
     transfers: snapshot.transfers,
     outbox: currentOutbox,

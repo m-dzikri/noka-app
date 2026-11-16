@@ -1,6 +1,7 @@
 import type { AuthUser } from "@/features/auth/session";
 import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
+import type { DebtReceivableDto } from "@/features/finance/debt-schemas";
 import type { RecurringTemplateDto } from "@/features/finance/recurring-schemas";
 import type { TransactionDto } from "@/features/finance/transactions-service";
 import type { TransferDto } from "@/features/finance/transfers-service";
@@ -26,6 +27,7 @@ export interface SnapshotDto {
   categories: CategoryDto[];
   categoryBudgets?: CategoryBudgetDto[];
   recurringTemplates?: RecurringTemplateDto[];
+  debtsReceivables?: DebtReceivableDto[];
   transactions: TransactionDto[];
   transfers: TransferDto[];
   serverTime: string;
@@ -40,7 +42,9 @@ export type OutboxEntity =
   | "transfer"
   | "noteLink"
   | "budget"
-  | "recurring";
+  | "recurring"
+  | "debt"
+  | "debt_settlement";
 
 export type OutboxOp = "upsert" | "delete" | "link" | "unlink";
 
@@ -111,6 +115,25 @@ export type OutboxOptimisticPayload =
   | {
       kind: "recurring_delete";
       id: string;
+    }
+  | {
+      kind: "debt_upsert";
+      debt: DebtReceivableDto;
+    }
+  | {
+      kind: "debt_delete";
+      id: string;
+    }
+  | {
+      kind: "debt_settlement";
+      settlement: {
+        id: string;
+        debtId: string;
+        amount: number;
+        walletId?: string | null;
+        settledAt: string;
+      };
+      updatedDebt?: DebtReceivableDto;
     };
 
 export interface OutboxItemRecord {

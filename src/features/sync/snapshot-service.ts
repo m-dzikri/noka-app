@@ -18,6 +18,7 @@ import {
 import type { AuthUser } from "@/features/auth/session";
 import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
 import { listCategories } from "@/features/finance/categories-service";
+import { listDebts } from "@/features/finance/debt-service";
 import { listRecurringTemplates } from "@/features/finance/recurring-service";
 import type { FinanceEntryType } from "@/features/finance/schemas";
 import type { TransactionDto } from "@/features/finance/transactions-service";
@@ -54,6 +55,7 @@ export async function buildUserSyncSnapshot(
     transactionRows,
     transferRows,
     recurringTemplateDtos,
+    debtsData,
   ] = await Promise.all([
     db
       .select()
@@ -166,6 +168,7 @@ export async function buildUserSyncSnapshot(
         .orderBy(desc(transfers.occurredAt), desc(transfers.createdAt));
     })(),
     listRecurringTemplates(user.id),
+    listDebts(user.id, {}, db),
   ]);
 
   const folderNameMap = new Map<string, string>(
@@ -297,6 +300,7 @@ export async function buildUserSyncSnapshot(
     categories: categoryDtos,
     categoryBudgets: categoryBudgetDtos,
     recurringTemplates: recurringTemplateDtos,
+    debtsReceivables: debtsData.items,
     transactions: transactionDtos,
     transfers: transferDtos,
     serverTime: new Date().toISOString(),

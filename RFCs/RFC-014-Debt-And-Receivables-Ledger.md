@@ -102,12 +102,12 @@ Mengimplementasikan Buku Utang-Piutang (*Debt & Receivables Ledger*) (`F22`, `FR
 
 ## Acceptance Criteria
 
-- [ ] **AC-14.1 (Skema Database & Pemisahan Pengeluaran Bulanan — `F22`, `DATA-1`, `DATA-4`):** Tabel `debts_receivables` dan `debt_settlements` menggunakan nominal `bigint` integer IDR. Nilai pokok utang/piutang tidak mempengaruhi kalkulasi arus kas bulanan konsumtif.
-- [ ] **AC-14.2 (Pencatatan Cicilan Kas & Non-Kas — `F22`, `DATA-2`):** Ketika cicilan dicatat dengan memilih dompet, sistem membuat transaksi ledger kas bertipe `EXPENSE` (untuk utang) atau `INCOME` (untuk piutang) secara atomik; ketika tanpa dompet, cicilan dicatat tanpa memodifikasi saldo dompet.
-- [ ] **AC-14.3 (Status Pelunasan Otomatis — `F22`):** Sistem otomatis mengubah status dari `ACTIVE` ke `SETTLED` saat `settled_amount >= total_amount`, serta menolak nominal cicilan yang melebihi sisa pokok utang/piutang.
-- [ ] **AC-14.4 (Deteksi Tanggal Jatuh Tempo — `F22`, `UI-1`):** UI menampilkan indikator badge jelas untuk utang/piutang yang mendekati atau telah melewati tanggal jatuh tempo (*overdue*).
-- [ ] **AC-14.5 (Penyimpanan Offline & Sinkronisasi Idempoten — `F22`, `OFFLINE-2`, `OFFLINE-3`):** Data utang-piutang dapat dibaca dan dicatat saat offline via IndexedDB mirror dan tersinkronisasi idempoten saat online.
-- [ ] **AC-14.6 (Integritas Hapus & Pembersihan Akun — `F22`, `DATA-4`):** Penghapusan utang-piutang tidak merusak saldo kas masa lalu, dan penghapusan akun mandiri (`RFC-010`) membersihkan seluruh data utang-piutang beserta cicilannya.
+- [x] **AC-14.1 (Skema Database & Pemisahan Pengeluaran Bulanan — `F22`, `DATA-1`, `DATA-4`):** Tabel `debts_receivables` dan `debt_settlements` menggunakan nominal `bigint` integer IDR. Nilai pokok utang/piutang tidak mempengaruhi kalkulasi arus kas bulanan konsumtif.
+- [x] **AC-14.2 (Pencatatan Cicilan Kas & Non-Kas — `F22`, `DATA-2`):** Ketika cicilan dicatat dengan memilih dompet, sistem membuat transaksi ledger kas bertipe `EXPENSE` (untuk utang) atau `INCOME` (untuk piutang) secara atomik; ketika tanpa dompet, cicilan dicatat tanpa memodifikasi saldo dompet.
+- [x] **AC-14.3 (Status Pelunasan Otomatis — `F22`):** Sistem otomatis mengubah status dari `ACTIVE` ke `SETTLED` saat `settled_amount >= total_amount`, serta menolak nominal cicilan yang melebihi sisa pokok utang/piutang.
+- [x] **AC-14.4 (Deteksi Tanggal Jatuh Tempo — `F22`, `UI-1`):** UI menampilkan indikator badge jelas untuk utang/piutang yang mendekati atau telah melewati tanggal jatuh tempo (*overdue*).
+- [x] **AC-14.5 (Penyimpanan Offline & Sinkronisasi Idempoten — `F22`, `OFFLINE-2`, `OFFLINE-3`):** Data utang-piutang dapat dibaca dan dicatat saat offline via IndexedDB mirror dan tersinkronisasi idempoten saat online.
+- [x] **AC-14.6 (Integritas Hapus & Pembersihan Akun — `F22`, `DATA-4`):** Penghapusan utang-piutang tidak merusak saldo kas masa lalu, dan penghapusan akun mandiri (`RFC-010`) membersihkan seluruh data utang-piutang beserta cicilannya.
 
 ---
 

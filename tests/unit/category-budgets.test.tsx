@@ -396,6 +396,7 @@ describe("TS-012-01: Category Budgets Calculation, Status Thresholds & UI Progre
         ],
         transfers: [],
         recurringTemplates: [],
+        debtsReceivables: [],
         outbox: [],
       };
 
