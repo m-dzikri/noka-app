@@ -61,6 +61,10 @@ export function useI18n(): I18nContextValue {
     ...directDict.finance.budgets,
     ...(rawContextT?.finance?.budgets ?? {}),
   };
+  const recurring = {
+    ...directDict.finance.recurring,
+    ...(rawContextT?.finance?.recurring ?? {}),
+  };
   const exportModal = {
     ...directDict.finance.exportModal,
     ...(rawContextT?.finance?.exportModal ?? {}),
@@ -73,6 +77,7 @@ export function useI18n(): I18nContextValue {
     ...directDict.finance,
     ...(rawContextT?.finance ?? {}),
     budgets,
+    recurring,
     exportModal,
     reportPage,
   };

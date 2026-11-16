@@ -41,7 +41,7 @@ Mengacu pada `## Product Type` di `PRD.md` dan `RULES.md`:
 | [RFC-010](RFCs/RFC-010-Account-Settings-And-Deletion.md) | Account Settings, Cycle Configuration & Self-Service Account Deletion | F6 | RFC-001, RFC-002, RFC-005, RFC-007, RFC-009 | Medium | Passed | Reviewed |
 | [RFC-011](RFCs/RFC-011-Financial-Data-Export.md) | Financial Data Export & Reporting (CSV, Excel & Print/PDF) | F24 | RFC-001, RFC-002, RFC-006, RFC-007 | Medium | Passed | Reviewed |
 | [RFC-012](RFCs/RFC-012-Monthly-Category-Budgeting.md) | Monthly Category Budgeting & Overspending Alerts | F20 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-010 | Medium | Passed | Reviewed |
-| [RFC-013](RFCs/RFC-013-Recurring-Transactions-Scheduler.md) | Recurring Transactions Scheduler (Serverless-Safe On-Access) | F21 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-012 | High | Passed | Not started |
+| [RFC-013](RFCs/RFC-013-Recurring-Transactions-Scheduler.md) | Recurring Transactions Scheduler (Serverless-Safe On-Access) | F21 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-012 | High | Passed | Implemented |
 | [RFC-014](RFCs/RFC-014-Debt-And-Receivables-Ledger.md) | Debt & Receivables Ledger (Buku Utang-Piutang & Pelunasan) | F22 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-013 | High | Passed | Not started |
 | [RFC-015](RFCs/RFC-015-PDF-Note-Attachments.md) | PDF Note Attachments & Secure Document Viewer | F23 | RFC-001, RFC-002, RFC-004, RFC-005, RFC-009, RFC-010 | Medium | Passed | Not started |
 

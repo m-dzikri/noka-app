@@ -4,6 +4,7 @@ import { sessions, users } from "@/db/schema/auth";
 import {
   categories,
   categoryBudgets,
+  recurringTemplates,
   transactions,
   transfers,
   wallets,
@@ -178,6 +179,7 @@ export async function deleteAccount(
     keysToDelete = attachments.map((a) => a.storageKey);
 
     // 4. Delete in RESTRICT-safe FK order.
+    await tx.delete(recurringTemplates).where(eq(recurringTemplates.userId, userId));
     await tx.delete(transfers).where(eq(transfers.userId, userId));
     await tx.delete(transactions).where(eq(transactions.userId, userId));
     await tx.delete(wallets).where(eq(wallets.userId, userId));

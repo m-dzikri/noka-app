@@ -7,6 +7,7 @@ import {
   Download,
   FolderKanban,
   Plus,
+  Repeat,
   Target,
   Wallet,
   X,
@@ -30,6 +31,8 @@ import {
   type LedgerFiltersState,
 } from "@/components/finance/LedgerFilterBar";
 import { LedgerList } from "@/components/finance/LedgerList";
+import { RecurringPendingBanner } from "@/components/finance/RecurringPendingBanner";
+import { RecurringTemplateModal } from "@/components/finance/RecurringTemplateModal";
 import { SafeToSpendCard } from "@/components/finance/SafeToSpendCard";
 import { TransactionFormModal } from "@/components/finance/TransactionFormModal";
 import { TransferFormModal } from "@/components/finance/TransferFormModal";
@@ -48,6 +51,10 @@ import { Modal } from "@/components/ui/Modal";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
 import type { CategoryBudgetSummaryDto } from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
+import type {
+  PendingRecurringDto,
+  RecurringTemplateDto,
+} from "@/features/finance/recurring-schemas";
 import type { FinanceSummaryDto } from "@/features/finance/summary-service";
 import type { TransactionDto } from "@/features/finance/transactions-service";
 import type { TransferDto } from "@/features/finance/transfers-service";
@@ -66,6 +73,8 @@ export interface FinanceWorkspaceProps {
   initialSummary: FinanceSummaryDto;
   initialCategories: CategoryDto[];
   initialBudgets?: CategoryBudgetSummaryDto | null;
+  initialRecurringTemplates?: RecurringTemplateDto[];
+  initialPendingRecurring?: PendingRecurringDto[];
 }
 
 const DEFAULT_FILTERS: LedgerFiltersState = {
@@ -113,6 +122,8 @@ export function FinanceWorkspace({
   initialSummary,
   initialCategories,
   initialBudgets,
+  initialRecurringTemplates,
+  initialPendingRecurring,
 }: FinanceWorkspaceProps) {
   const { t } = useI18n();
   const budgetsDict = t.finance?.budgets;
@@ -122,6 +133,13 @@ export function FinanceWorkspace({
   const [categories, setCategories] = useState<CategoryDto[]>(initialCategories);
   const [budgetsSummary, setBudgetsSummary] =
     useState<CategoryBudgetSummaryDto | null>(initialBudgets ?? null);
+  const [recurringTemplates, setRecurringTemplates] = useState<
+    RecurringTemplateDto[]
+  >(initialRecurringTemplates ?? []);
+  const [pendingRecurring, setPendingRecurring] = useState<
+    PendingRecurringDto[]
+  >(initialPendingRecurring ?? []);
+  const [recurringModalOpen, setRecurringModalOpen] = useState(false);
   const activeCyclePeriod = summary.cycle.startDate.slice(0, 7);
   const [selectedBudgetPeriod, setSelectedBudgetPeriod] = useState<string>(
     initialBudgets?.period ?? activeCyclePeriod,
@@ -234,6 +252,9 @@ export function FinanceWorkspace({
       if (syncMirror.categories.length > 0) {
         setCategories(syncMirror.categories);
       }
+      if (syncMirror.recurringTemplates) {
+        setRecurringTemplates(syncMirror.recurringTemplates);
+      }
       const localBudgets = computeLocalCategoryBudgets(syncMirror, {
         period: selectedBudgetPeriod,
       });
@@ -258,13 +279,38 @@ export function FinanceWorkspace({
       const summaryParams = buildSummaryQuery(nextFilters, null);
       try {
         setLoadingBudgets(true);
-        const [summaryRes, catsRes, budgetsRes] = await Promise.all([
-          apiFetch(`/api/finance/summary?${summaryParams.toString()}`),
-          apiFetch("/api/categories"),
-          apiFetch(
-            `/api/finance/budgets?period=${selectedBudgetPeriod}&tzOffset=${-new Date().getTimezoneOffset()}`,
-          ),
-        ]);
+
+        if (!offlineNow) {
+          try {
+            const processRes = await apiFetch(
+              "/api/finance/recurring/process",
+              { method: "POST" },
+            );
+            if (processRes.ok) {
+              const pData = await readJsonSafe<{
+                data: {
+                  appliedCount: number;
+                  pendingConfirmations: PendingRecurringDto[];
+                };
+              }>(processRes);
+              if (pData?.data?.pendingConfirmations) {
+                setPendingRecurring(pData.data.pendingConfirmations);
+              }
+            }
+          } catch {
+            // Non-blocking for summary loading
+          }
+        }
+
+        const [summaryRes, catsRes, budgetsRes, recurringRes] =
+          await Promise.all([
+            apiFetch(`/api/finance/summary?${summaryParams.toString()}`),
+            apiFetch("/api/categories"),
+            apiFetch(
+              `/api/finance/budgets?period=${selectedBudgetPeriod}&tzOffset=${-new Date().getTimezoneOffset()}`,
+            ),
+            apiFetch("/api/finance/recurring"),
+          ]);
 
         if (summaryRes.ok) {
           const payload = await readJsonSafe<{ data: FinanceSummaryDto }>(
@@ -297,6 +343,20 @@ export function FinanceWorkspace({
           }
         } else {
           await surfaceNonOkError(budgetsRes);
+        }
+
+        if (recurringRes.ok) {
+          const payload = await readJsonSafe<{
+            data: { templates: RecurringTemplateDto[] };
+          }>(recurringRes);
+          if (
+            payload?.data?.templates &&
+            Array.isArray(payload.data.templates)
+          ) {
+            setRecurringTemplates(payload.data.templates);
+          }
+        } else {
+          await surfaceNonOkError(recurringRes);
         }
       } catch (err) {
         if (
@@ -670,6 +730,17 @@ export function FinanceWorkspace({
 
           <Button
             variant="secondary"
+            onClick={() => setRecurringModalOpen(true)}
+            data-testid="finance-manage-recurring-button"
+          >
+            <Repeat className="h-4 w-4" aria-hidden="true" />
+            <span>
+              {t.finance?.recurring?.manageRecurringButton ?? "Atur Jadwal Rutin"}
+            </span>
+          </Button>
+
+          <Button
+            variant="secondary"
             onClick={() => setExportModalOpen(true)}
             data-testid="finance-export-button"
           >
@@ -744,6 +815,12 @@ export function FinanceWorkspace({
           </div>
         </div>
       ) : null}
+
+      <RecurringPendingBanner
+        pendingItems={pendingRecurring}
+        wallets={summary.wallets}
+        onItemsMutated={refreshAllFinanceData}
+      />
 
       <SafeToSpendCard
         safeToSpend={summary.safeToSpend}
@@ -901,6 +978,15 @@ export function FinanceWorkspace({
         categories={categories}
         budgets={budgetsSummary?.items ?? []}
         currentPeriod={selectedBudgetPeriod}
+        onMutated={refreshAllFinanceData}
+      />
+
+      <RecurringTemplateModal
+        open={recurringModalOpen}
+        onClose={() => setRecurringModalOpen(false)}
+        templates={recurringTemplates}
+        wallets={summary.wallets}
+        categories={categories}
         onMutated={refreshAllFinanceData}
       />
     </div>

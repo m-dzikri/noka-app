@@ -315,12 +315,12 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 - **Fitur & Prioritas:** `F21` — **Could Have** *(v1.1)*
 - **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-006`, `RFC-007`, `RFC-009`, `RFC-012`
 - **Aturan Terkait:** `ARCH-2`, `API-1`, `API-2`, `DATA-1`, `DATA-2`, `DATA-3`, `DATA-4`, `SEC-1`, `OFFLINE-2`, `OFFLINE-3`, `UI-1`, `UI-2`, `I18N-1`, `TEST-1`, `TEST-3`, `QUAL-2`
-- **File Suite (`Proposed`):** `tests/unit/recurring-scheduler.test.ts`, `tests/integration/recurring-api.test.ts`
+- **File Suite (`Proposed`):** `tests/unit/recurring-scheduler.test.tsx`, `tests/integration/recurring-api.test.ts`
 
 | Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
 |---|---|---|---|---|---|---|
-| **TS-013-01** | Proposed | `tests/unit/recurring-scheduler.test.ts` (Unit) | Could | Uji algoritma kalkulasi interval tanggal `next_run_at` (harian, mingguan, bulanan), edge cases akhir bulan (tanggal 31 pada Feb/Apr/Jun/Sep/Nov), dan penanganan batas akhir `end_date`. | Pure unit / node | Tanggal jatuh tempo terhitung akurat tanpa offset drift; template expired otomatis dinonaktifkan (`is_active = false`). |
-| **TS-013-02** | Proposed | `tests/integration/recurring-api.test.ts` (Integration) | Could | Uji endpoint `POST /api/finance/recurring/process` (auto-apply atomik dengan `FOR UPDATE`, pencegahan transaksi ganda saat dipanggil paralel), alur konfirmasi manual `confirm` (apply vs skip), mutasi saldo ledger, dan jeda template. | PostgreSQL uji | Transaksi baru tercatat di ledger dengan `recurring_template_id`; saldo dompet terpotong/bertambah akurat; zero duplicate execution. |
+| **TS-013-01** | Implemented | `tests/unit/recurring-scheduler.test.tsx` (Unit) | Could | Uji algoritma kalkulasi interval tanggal `next_run_at` (harian, mingguan, bulanan), edge cases akhir bulan (tanggal 31 pada Feb/Apr/Jun/Sep/Nov), penanganan batas akhir `end_date`, dan UI component rendering/actions. | Pure unit / node | Tanggal jatuh tempo terhitung akurat tanpa offset drift; template expired otomatis dinonaktifkan (`is_active = false`). |
+| **TS-013-02** | Implemented | `tests/integration/recurring-api.test.ts` (Integration) | Could | Uji endpoint `POST /api/finance/recurring/process` (auto-apply atomik dengan `FOR UPDATE`, pencegahan transaksi ganda saat dipanggil paralel), alur konfirmasi manual `confirm` (apply vs skip), mutasi saldo ledger, dan jeda template. | PostgreSQL uji | Transaksi baru tercatat di ledger dengan `recurring_template_id`; saldo dompet terpotong/bertambah akurat; zero duplicate execution. |
 
 ---
 

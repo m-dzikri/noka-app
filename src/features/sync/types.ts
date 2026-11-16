@@ -1,6 +1,7 @@
 import type { AuthUser } from "@/features/auth/session";
 import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
+import type { RecurringTemplateDto } from "@/features/finance/recurring-schemas";
 import type { TransactionDto } from "@/features/finance/transactions-service";
 import type { TransferDto } from "@/features/finance/transfers-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
@@ -24,6 +25,7 @@ export interface SnapshotDto {
   wallets: WalletWithBalanceDto[];
   categories: CategoryDto[];
   categoryBudgets?: CategoryBudgetDto[];
+  recurringTemplates?: RecurringTemplateDto[];
   transactions: TransactionDto[];
   transfers: TransferDto[];
   serverTime: string;
@@ -37,7 +39,8 @@ export type OutboxEntity =
   | "transaction"
   | "transfer"
   | "noteLink"
-  | "budget";
+  | "budget"
+  | "recurring";
 
 export type OutboxOp = "upsert" | "delete" | "link" | "unlink";
 
@@ -99,6 +102,14 @@ export type OutboxOptimisticPayload =
     }
   | {
       kind: "budget_delete";
+      id: string;
+    }
+  | {
+      kind: "recurring_upsert";
+      template: RecurringTemplateDto;
+    }
+  | {
+      kind: "recurring_delete";
       id: string;
     };
 

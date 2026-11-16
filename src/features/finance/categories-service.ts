@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { getDb, type DbOrTx } from "@/db";
-import { categories, categoryBudgets, transactions } from "@/db/schema/finance";
+import { categories, categoryBudgets, recurringTemplates, transactions } from "@/db/schema/finance";
 import type {
   CategoryListQueryInput,
   CreateCategoryInput,
@@ -342,6 +342,19 @@ export async function deleteCategory(
         and(
           eq(categoryBudgets.userId, userId),
           eq(categoryBudgets.categoryId, categoryId),
+        ),
+      );
+
+    await tx
+      .update(recurringTemplates)
+      .set({
+        categoryId: fallbackCategory.id,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(recurringTemplates.userId, userId),
+          eq(recurringTemplates.categoryId, categoryId),
         ),
       );
 

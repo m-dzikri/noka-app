@@ -153,6 +153,7 @@ function makeSampleSnapshot(overrides: Partial<SnapshotDto> = {}): SnapshotDto {
     transactions: [],
     transfers: [],
     categoryBudgets: [],
+    recurringTemplates: [],
     ...overrides,
   };
 }

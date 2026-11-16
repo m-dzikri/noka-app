@@ -385,6 +385,7 @@ export interface FinanceDictionary {
   exportModal: FinanceExportModalDictionary;
   reportPage: FinanceReportPageDictionary;
   budgets: FinanceBudgetsDictionary;
+  recurring: FinanceRecurringDictionary;
 }
 
 export interface FinanceBudgetsDictionary {
@@ -433,6 +434,71 @@ export interface FinanceBudgetsDictionary {
   copyPreviousMonthSuccess: string;
   noPreviousBudgets: string;
   allPreviousBudgetsExist: string;
+}
+
+export interface FinanceRecurringDictionary {
+  sectionTitle: string;
+  manageRecurringButton: string;
+  noRecurringTitle: string;
+  noRecurringDescription: string;
+  createFirstRecurringCta: string;
+  modalTitle: string;
+  modalDescription: string;
+  newTemplateTitle: string;
+  editTemplateTitle: string;
+  walletLabel: string;
+  selectWalletPlaceholder: string;
+  categoryLabel: string;
+  selectCategoryPlaceholder: string;
+  typeLabel: string;
+  expenseType: string;
+  incomeType: string;
+  amountLabel: string;
+  amountPlaceholder: string;
+  descriptionLabel: string;
+  descriptionPlaceholder: string;
+  frequencyLabel: string;
+  dailyFrequency: string;
+  weeklyFrequency: string;
+  monthlyFrequency: string;
+  intervalStepLabel: string;
+  dayOfMonthLabel: string;
+  dayOfWeekLabel: string;
+  startDateLabel: string;
+  endDateLabel: string;
+  endDateOptional: string;
+  executionModeLabel: string;
+  autoApplyLabel: string;
+  autoApplyDescription: string;
+  manualApplyLabel: string;
+  manualApplyDescription: string;
+  activeStatus: string;
+  pausedStatus: string;
+  pauseAction: string;
+  resumeAction: string;
+  deleteAction: string;
+  confirmDeleteTitle: string;
+  confirmDeleteButton: string;
+  saveButton: string;
+  savingButton: string;
+  cancelButton: string;
+  nextRunLabel: string;
+  pendingBannerTitle: string;
+  pendingBannerDesc: string;
+  applyAllButton: string;
+  applyingButton: string;
+  reviewButton: string;
+  applyButton: string;
+  skipButton: string;
+  skipThisCycle: string;
+  confirmModalTitle: string;
+  customAmountLabel: string;
+  customWalletLabel: string;
+  applySuccessToast: string;
+  skipSuccessToast: string;
+  noActiveWalletsError: string;
+  noCategoriesError: string;
+  invalidAmountError: string;
 }
 
 export interface FinanceExportModalDictionary {

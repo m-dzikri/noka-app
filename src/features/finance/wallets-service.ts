@@ -9,7 +9,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { getDb, type DbOrTx } from "@/db";
-import { transactions, transfers, wallets } from "@/db/schema/finance";
+import { transactions, transfers, wallets, recurringTemplates } from "@/db/schema/finance";
 import {
   bigintToSafeNumber,
   computeWalletBalances,
@@ -501,9 +501,20 @@ export async function deleteWallet(
         ),
       );
 
+    const recurringHistoryRows = await tx
+      .select({ count: sql<number>`count(*)` })
+      .from(recurringTemplates)
+      .where(
+        and(
+          eq(recurringTemplates.userId, userId),
+          eq(recurringTemplates.walletId, walletId),
+        ),
+      );
+
     const totalHistoryCount =
       Number(txHistoryRows[0]?.count ?? 0) +
-      Number(transferHistoryRows[0]?.count ?? 0);
+      Number(transferHistoryRows[0]?.count ?? 0) +
+      Number(recurringHistoryRows[0]?.count ?? 0);
 
     if (totalHistoryCount > 0) {
       throw new ApiError(

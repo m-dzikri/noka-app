@@ -3,6 +3,7 @@ import type { AuthUser } from "@/features/auth/session";
 import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import { bigintToSafeNumber, computeWalletBalances } from "@/features/finance/ledger";
+import type { RecurringTemplateDto } from "@/features/finance/recurring-schemas";
 import type { TransactionDto } from "@/features/finance/transactions-service";
 import type { TransferDto } from "@/features/finance/transfers-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
@@ -16,7 +17,7 @@ import type {
 } from "@/features/sync/types";
 
 export const OFFLINE_DB_PREFIX = "noka-offline-";
-export const OFFLINE_DB_VERSION = 2;
+export const OFFLINE_DB_VERSION = 3;
 
 export function getOfflineDbName(userId: string): string {
   return `${OFFLINE_DB_PREFIX}${userId}`;
@@ -54,6 +55,11 @@ export interface NokaOfflineDbSchema extends DBSchema {
     value: CategoryBudgetDto;
     indexes: { "by-periodMonth": string };
   };
+  recurringTemplates: {
+    key: string;
+    value: RecurringTemplateDto;
+    indexes: { "by-nextRunAt": string };
+  };
   transactions: {
     key: string;
     value: TransactionDto;
@@ -89,6 +95,7 @@ export interface MirrorDataState {
   wallets: WalletWithBalanceDto[];
   categories: CategoryDto[];
   categoryBudgets: CategoryBudgetDto[];
+  recurringTemplates: RecurringTemplateDto[];
   transactions: TransactionDto[];
   transfers: TransferDto[];
   outbox: OutboxItemRecord[];
@@ -158,6 +165,12 @@ export async function getOfflineDb(
             keyPath: "id",
           });
           budgetStore.createIndex("by-periodMonth", "periodMonth");
+        }
+        if (!db.objectStoreNames.contains("recurringTemplates")) {
+          const recStore = db.createObjectStore("recurringTemplates", {
+            keyPath: "id",
+          });
+          recStore.createIndex("by-nextRunAt", "nextRunAt");
         }
         if (!db.objectStoreNames.contains("transactions")) {
           const txStore = db.createObjectStore("transactions", {
@@ -406,6 +419,7 @@ export function applyOptimisticPayloadInMemory(
     wallets: [...state.wallets],
     categories: [...state.categories],
     categoryBudgets: [...(state.categoryBudgets ?? [])],
+    recurringTemplates: [...(state.recurringTemplates ?? [])],
     transactions: [...state.transactions],
     transfers: [...state.transfers],
     outbox: [...state.outbox],
@@ -525,6 +539,23 @@ export function applyOptimisticPayloadInMemory(
       );
       break;
     }
+    case "recurring_upsert": {
+      const idx = next.recurringTemplates.findIndex(
+        (r) => r.id === payload.template.id,
+      );
+      if (idx >= 0) {
+        next.recurringTemplates[idx] = payload.template;
+      } else {
+        next.recurringTemplates.unshift(payload.template);
+      }
+      break;
+    }
+    case "recurring_delete": {
+      next.recurringTemplates = next.recurringTemplates.filter(
+        (r) => r.id !== payload.id,
+      );
+      break;
+    }
   }
 
   recomputeNoteRelationsAndBalances(next);
@@ -544,6 +575,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     wallets,
     categories,
     categoryBudgets,
+    recurringTemplates,
     transactions,
     transfers,
     metaRows,
@@ -556,6 +588,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     db.getAll("wallets"),
     db.getAll("categories"),
     db.getAll("categoryBudgets"),
+    db.getAll("recurringTemplates"),
     db.getAll("transactions"),
     db.getAll("transfers"),
     db.getAll("meta"),
@@ -582,6 +615,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     wallets,
     categories,
     categoryBudgets: categoryBudgets ?? [],
+    recurringTemplates: recurringTemplates ?? [],
     transactions,
     transfers,
     outbox: [...outboxRows].sort((a, b) => a.createdAt - b.createdAt),
@@ -605,6 +639,7 @@ async function writeDomainMirrorState(
     | "wallets"
     | "categories"
     | "categoryBudgets"
+    | "recurringTemplates"
     | "transactions"
     | "transfers"
     | "userProfile"
@@ -620,6 +655,7 @@ async function writeDomainMirrorState(
       "wallets",
       "categories",
       "categoryBudgets",
+      "recurringTemplates",
       "transactions",
       "transfers",
       "meta",
@@ -634,6 +670,7 @@ async function writeDomainMirrorState(
   const walletsStore = tx.objectStore("wallets");
   const categoriesStore = tx.objectStore("categories");
   const categoryBudgetsStore = tx.objectStore("categoryBudgets");
+  const recurringTemplatesStore = tx.objectStore("recurringTemplates");
   const transactionsStore = tx.objectStore("transactions");
   const transfersStore = tx.objectStore("transfers");
   const metaStore = tx.objectStore("meta");
@@ -646,6 +683,7 @@ async function writeDomainMirrorState(
     walletsStore.clear(),
     categoriesStore.clear(),
     categoryBudgetsStore.clear(),
+    recurringTemplatesStore.clear(),
     transactionsStore.clear(),
     transfersStore.clear(),
   ]);
@@ -659,6 +697,9 @@ async function writeDomainMirrorState(
     ...state.categories.map((item) => categoriesStore.put(item)),
     ...(state.categoryBudgets ?? []).map((item) =>
       categoryBudgetsStore.put(item),
+    ),
+    ...(state.recurringTemplates ?? []).map((item) =>
+      recurringTemplatesStore.put(item),
     ),
     ...state.transactions.map((item) => transactionsStore.put(item)),
     ...state.transfers.map((item) => transfersStore.put(item)),
@@ -696,6 +737,7 @@ export async function applySnapshotWithPendingReplay(
     wallets: snapshot.wallets,
     categories: snapshot.categories,
     categoryBudgets: snapshot.categoryBudgets ?? [],
+    recurringTemplates: snapshot.recurringTemplates ?? [],
     transactions: snapshot.transactions,
     transfers: snapshot.transfers,
     outbox: currentOutbox,

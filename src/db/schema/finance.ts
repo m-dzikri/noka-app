@@ -4,6 +4,7 @@ import {
   boolean,
   check,
   index,
+  integer,
   pgTable,
   timestamp,
   uniqueIndex,
@@ -112,6 +113,66 @@ export const transfers = pgTable(
   ],
 );
 
+export const recurringTemplates = pgTable(
+  "recurring_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    walletId: uuid("wallet_id")
+      .notNull()
+      .references(() => wallets.id, { onDelete: "restrict" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "restrict" }),
+    type: varchar("type", { length: 16 }).notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    description: varchar("description", { length: 300 }).notNull(),
+    frequency: varchar("frequency", { length: 20 }).notNull(),
+    intervalStep: integer("interval_step").notNull().default(1),
+    dayOfMonth: integer("day_of_month"),
+    dayOfWeek: integer("day_of_week"),
+    startDate: timestamp("start_date", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    endDate: timestamp("end_date", { withTimezone: true }),
+    autoApply: boolean("auto_apply").notNull().default(false),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }).notNull(),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("recurring_templates_user_idx").on(table.userId),
+    index("recurring_templates_user_active_next_run_idx").on(
+      table.userId,
+      table.isActive,
+      table.nextRunAt,
+    ),
+    index("recurring_templates_wallet_idx").on(table.walletId),
+    index("recurring_templates_category_idx").on(table.categoryId),
+    check("recurring_templates_amount_positive", sql`${table.amount} > 0`),
+    check(
+      "recurring_templates_interval_positive",
+      sql`${table.intervalStep} >= 1`,
+    ),
+    check(
+      "recurring_templates_day_of_month_valid",
+      sql`${table.dayOfMonth} IS NULL OR (${table.dayOfMonth} >= 1 AND ${table.dayOfMonth} <= 31)`,
+    ),
+    check(
+      "recurring_templates_day_of_week_valid",
+      sql`${table.dayOfWeek} IS NULL OR (${table.dayOfWeek} >= 0 AND ${table.dayOfWeek} <= 6)`,
+    ),
+  ],
+);
+
 export const transactions = pgTable(
   "transactions",
   {
@@ -128,6 +189,10 @@ export const transactions = pgTable(
     noteId: uuid("note_id").references(() => notes.id, {
       onDelete: "set null",
     }),
+    recurringTemplateId: uuid("recurring_template_id").references(
+      () => recurringTemplates.id,
+      { onDelete: "set null" },
+    ),
     type: varchar("type", { length: 16 }).notNull(),
     amount: bigint("amount", { mode: "number" }).notNull(),
     description: varchar("description", { length: 300 }),
@@ -144,6 +209,9 @@ export const transactions = pgTable(
     index("transactions_user_occurred_idx").on(table.userId, table.occurredAt),
     index("transactions_user_wallet_idx").on(table.userId, table.walletId),
     index("transactions_note_id_idx").on(table.noteId),
+    index("transactions_recurring_template_id_idx").on(
+      table.recurringTemplateId,
+    ),
     check("transactions_amount_positive", sql`${table.amount} > 0`),
   ],
 );

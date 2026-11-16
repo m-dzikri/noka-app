@@ -93,19 +93,19 @@ Mengimplementasikan penjadwalan transaksi rutin (`F21`, `FR-18`) untuk pos penge
 - `src/components/finance/RecurringTemplateModal.tsx`: Modal CRUD jadwal rutin.
 - `src/components/finance/RecurringPendingBanner.tsx`: Notifikasi transaksi jatuh tempo.
 - `src/lib/i18n/types.ts`, `src/lib/i18n/dictionaries/{id,en}.ts`: Key `finance.recurring.*`.
-- `tests/unit/recurring-scheduler.test.ts`: Uji kalkulasi interval (harian, mingguan, bulanan akhir bulan 31 -> 28/30 Feb/Apr), dan anti-duplikasi.
-- `tests/integration/recurring-api.test.ts`: Uji auto-apply atomik, mutasi saldo ledger, skip siklus, dan jeda template.
+- `tests/unit/recurring-scheduler.test.tsx`: Uji kalkulasi interval (harian, mingguan, bulanan akhir bulan 31 -> 28/30 Feb/Apr), dan UI component rendering/actions.
+- `tests/integration/recurring-api.test.ts`: Uji auto-apply atomik, mutasi saldo ledger, skip siklus, jeda template, dan tenant isolation.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] **AC-13.1 (Skema Database & Validasi Aturan Finansial — `F21`, `DATA-1`, `DATA-4`):** Tabel `recurring_templates` menyimpan data jadwal dengan tipe `EXPENSE`/`INCOME`, nominal integer `bigint`, dan relasi `walletId`/`categoryId`. Dompet yang diarsipkan ditolak saat pembuatan jadwal baru.
-- [ ] **AC-13.2 (Kalkulasi Tanggal Jatuh Tempo Akurat — `F21`):** Algoritma penjadwalan menangani frekuensi harian, mingguan, dan bulanan secara deterministik, termasuk penanganan tanggal 31 pada bulan pendek (contoh: 31 Januari -> 28/29 Februari -> 31 Maret).
-- [ ] **AC-13.3 (Eksekusi On-Access Bebas Duplikasi — `F21`, `DATA-3`, `SEC-1`):** Pemanggilan `process` mengunci baris template dengan `FOR UPDATE`, membuat baris `transactions` baru secara atomik, dan memperbarui `next_run_at` sehingga tidak ada transaksi ganda meskipun dipanggil beberapa kali secara simultan.
-- [ ] **AC-13.4 (Alur Konfirmasi & Opsi Skip — `F21`, `UI-1`):** Template dengan `auto_apply: false` menampilkan daftar transaksi jatuh tempo di UI, di mana pengguna dapat memilih untuk Menerapkan (Apply), Mengubah dompet/nominal, atau Melewati (Skip).
-- [ ] **AC-13.5 (Integritas Riwayat Historis — `F21`, `DATA-4`):** Penghapusan jadwal berulang melepaskan referensi `recurring_template_id = NULL` pada transaksi ledger tanpa menghapus riwayat transaksi masa lalu.
-- [ ] **AC-13.6 (Penyimpanan Offline & Sinkronisasi — `F21`, `OFFLINE-2`):** Daftar jadwal tersimpan di IndexedDB mirror dan dapat dikonfigurasi saat offline melalui antrean outbox.
+- [x] **AC-13.1 (Skema Database & Validasi Aturan Finansial — `F21`, `DATA-1`, `DATA-4`):** Tabel `recurring_templates` menyimpan data jadwal dengan tipe `EXPENSE`/`INCOME`, nominal integer `bigint`, dan relasi `walletId`/`categoryId`. Dompet yang diarsipkan ditolak saat pembuatan jadwal baru.
+- [x] **AC-13.2 (Kalkulasi Tanggal Jatuh Tempo Akurat — `F21`):** Algoritma penjadwalan menangani frekuensi harian, mingguan, dan bulanan secara deterministik, termasuk penanganan tanggal 31 pada bulan pendek (contoh: 31 Januari -> 28/29 Februari -> 31 Maret).
+- [x] **AC-13.3 (Eksekusi On-Access Bebas Duplikasi — `F21`, `DATA-3`, `SEC-1`):** Pemanggilan `process` mengunci baris template dengan `FOR UPDATE`, membuat baris `transactions` baru secara atomik, dan memperbarui `next_run_at` sehingga tidak ada transaksi ganda meskipun dipanggil beberapa kali secara simultan.
+- [x] **AC-13.4 (Alur Konfirmasi & Opsi Skip — `F21`, `UI-1`):** Template dengan `auto_apply: false` menampilkan daftar transaksi jatuh tempo di UI, di mana pengguna dapat memilih untuk Menerapkan (Apply), Mengubah dompet/nominal, atau Melewati (Skip).
+- [x] **AC-13.5 (Integritas Riwayat Historis — `F21`, `DATA-4`):** Penghapusan jadwal berulang melepaskan referensi `recurring_template_id = NULL` pada transaksi ledger tanpa menghapus riwayat transaksi masa lalu.
+- [x] **AC-13.6 (Penyimpanan Offline & Sinkronisasi — `F21`, `OFFLINE-2`):** Daftar jadwal tersimpan di IndexedDB mirror dan dapat dikonfigurasi saat offline melalui antrean outbox.
 
 ---
 

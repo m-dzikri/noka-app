@@ -165,10 +165,15 @@ export function PreferencesProvider({
       ...directDict.finance.budgets,
       ...(baseDict.finance?.budgets ?? {}),
     };
+    const recurring = {
+      ...directDict.finance.recurring,
+      ...(baseDict.finance?.recurring ?? {}),
+    };
     const finance = {
       ...directDict.finance,
       ...(baseDict.finance ?? {}),
       budgets,
+      recurring,
     };
     return {
       locale,
