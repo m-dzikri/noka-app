@@ -10,7 +10,9 @@
 
 ---
 
-## Step 0: Automated Verification Output
+## Round 1 -- 2026-11-16
+
+### Step 0: Automated Verification Output
 
 All automated checks were executed directly against branch `feat/rfc-012-monthly-category-budgeting` (commit `76f835f`):
 
@@ -119,3 +121,60 @@ All automated checks were executed directly against branch `feat/rfc-012-monthly
   1. **Historical Period Navigation in UI:** The backend and API support querying any historical cycle via `GET /api/finance/budgets?period=YYYY-MM`. Adding a period dropdown/switcher in `CategoryBudgetSection` would allow users to review past months' budget achievements directly from the UI.
   2. **Proactive Overbudget Notification Toast:** When an expense is recorded that pushes a category into `exceeded` status (≥ 100%), triggering an immediate warning toast in the workspace could enhance visibility alongside the existing card badges.
   3. **Carry-Over / Copy From Previous Month CTA:** In `BudgetManagerModal`, providing a one-click "Salin dari bulan lalu" (*Copy from last month*) button would streamline monthly setup for users whose recurring category limits remain consistent.
+
+---
+
+## Round 2 -- 2026-11-16
+
+- **Review Commit Range:** `76f835f`..`0fe5acf` (HEAD at `0fe5acf`)
+- **Key Changes Reviewed:**
+  1. Historical Period Navigation in UI (`CategoryBudgetSection.tsx`, `shiftPeriodMonth`, `historical-period-badge`, `currentPeriodButton`).
+  2. Proactive Overbudget Alerts (`showOverbudgetBanner` with dismiss key and category pill badges in `FinanceWorkspace.tsx`).
+  3. Copy Previous Month Budgets (`handleCopyPreviousMonth` in `BudgetManagerModal.tsx` with offline/online support).
+  4. Defensive i18n access and namespace fallback for `finance.budgets` across HMR and hydration transitions (`src/lib/i18n/context.tsx`, `PreferencesProvider.tsx`).
+- **Reviewer Verdict:** **Reviewed** (**Overall Risk Level: Low**)
+
+### Step 0: Automated Verification Output (Round 2)
+
+All automated checks were executed directly against branch `feat/rfc-012-monthly-category-budgeting` at commit `0fe5acf`:
+
+1. **Lint (`npm run lint` -> `eslint .`):**
+   - Result: Exit code `0` (clean pass, 0 errors, 0 warnings).
+2. **Typecheck (`npm run typecheck` -> `tsc --noEmit`):**
+   - Result: Exit code `0` (clean pass, 0 type errors).
+3. **Unit & Integration Test Suite (`npm test` -> `vitest run`, Vitest `5.1.0`):**
+   - Result: Exit code `0` — **`Test Files 34 passed (34)`**, **`Tests 185 passed (185)`**, `Duration 58.20s`.
+   - All 13 budget unit tests (`tests/unit/category-budgets.test.tsx`), 6 finance workspace tests (`tests/unit/finance-workspace.test.tsx`), and 8 integration tests (`tests/integration/category-budgets-api.test.ts`) passed cleanly.
+4. **Production Build (`npm run build` -> Next.js `16.4.6` Turbopack):**
+   - Result: Exit code `0` — `Compiled successfully in 2.6s`, static pages generated in 604ms.
+5. **Playwright E2E Suite (`npm run test:e2e`):**
+   - Result: Exit code `0` — **`16 passed (2.3m)`** across all desktop and mobile specs.
+6. **Code Hygiene & Standards Compliance Scan:**
+   - `0` occurrences of `TODO` or `FIXME`.
+   - `0` occurrences of `: any` or `as any`.
+   - `0` occurrences of unauthorized `process.env.*` outside `src/lib/env.ts`.
+   - `0` occurrences of `rehype-raw` (`SEC-7`).
+7. **Traceability Check (`python .agents/skills/workflow-status/scripts/trace-check.py .`):**
+   - Result: `33 requirements, 31 features, 61 rules, 15 RFCs`, `0 failure(s), 0 warning(s)`.
+
+### Review of Round 1 Improvement Suggestions
+
+1. **Historical Period Navigation in UI (`CategoryBudgetSection.tsx`):**
+   - **Status:** **SATISFIED**
+   - **Evaluation:** `CategoryBudgetSection.tsx` adds responsive month navigation chevrons (`shiftPeriodMonth`) and period badge indicators. When navigating away from the current active cycle, a "Kembali ke Periode Aktif" / "Return to Current Period" shortcut button appears. Date window resolution (`resolveCycleWindowForPeriod`) correctly adheres to the user's custom `cycleStartDay`.
+2. **Proactive Overbudget Notification Alert (`FinanceWorkspace.tsx`):**
+   - **Status:** **SATISFIED**
+   - **Evaluation:** `FinanceWorkspace.tsx` computes exceeded category budgets and displays an alert banner atop the workspace if any category breaches 100% of its budget limit. It includes individual category badge links to quickly manage budgets and supports dismissal with localStorage state keyed to the cycle period.
+3. **Copy From Previous Month Budgets CTA (`BudgetManagerModal.tsx`):**
+   - **Status:** **SATISFIED**
+   - **Evaluation:** `BudgetManagerModal.tsx` introduces `handleCopyPreviousMonth` allowing users to replicate budget allocations from the prior calendar month for categories that have not yet been assigned a budget. The implementation works offline using the IndexedDB mirror store (`sync.mirror.categoryBudgets`) and online via `fetchBudgets(prevPeriod)`.
+4. **Resilient i18n Fallback Handling (`context.tsx` & `PreferencesProvider.tsx`):**
+   - **Status:** **SATISFIED**
+   - **Evaluation:** Added defensive fallback in `useTranslation` and `PreferencesProvider` guaranteeing safe property lookup for `finance.budgets` and preventing transient `undefined` crashes during hot module reloading (HMR) or hydration transitions.
+
+### Overall Assessment (Round 2)
+
+- **Overall Risk Level:** **Low**
+- **Summary:** The Round 1 non-blocking improvements have been comprehensively addressed with clean architecture, strict TypeScript types, robust test coverage (+6 new tests), and zero regressions across the 185-test suite and E2E specs. RFC-012 is fully verified and ready for merge into `main`.
+- **Blocking Issues:** None.
+- **Improvement Suggestions:** None.
