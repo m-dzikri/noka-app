@@ -473,7 +473,7 @@ export const idDictionary: Dictionary = {
       cycleDefaultHint: "Kosong = bawaan siklus aktif ({start} s.d. {end})",
     },
     ledger: {
-      sectionTitle: "Buku Besar Ledger",
+      sectionTitle: "Riwayat Transaksi",
       allTab: "Semua",
       transactionsTab: "Transaksi",
       transfersTab: "Transfer Antar-Dompet",

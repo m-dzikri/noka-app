@@ -36,6 +36,33 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+input[type="date"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] input[type="date"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 .noka-hero-grid {
   background-image:
     linear-gradient(to right, var(--grid-line) 1px, transparent 1px),

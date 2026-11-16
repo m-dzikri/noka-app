@@ -48,6 +48,8 @@ export function Input({
         aria-describedby={describedBy}
         className={cn(
           "min-h-10 w-full rounded-[var(--radius-md)] border bg-[var(--bg-surface)] px-3.5 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] transition-colors",
+          props.type === "date" &&
+            "cursor-pointer [color-scheme:inherit] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100",
           error
             ? "border-[var(--status-expense)]"
             : "border-[var(--border-default)] focus:border-[var(--border-strong)]",

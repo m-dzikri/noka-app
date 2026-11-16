@@ -1,5 +1,6 @@
 :root,
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg-canvas: #ededed;
   --bg-surface: #f7f7f6;
   --bg-subtle: #f0f0ee;
@@ -28,6 +29,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg-canvas: #161616;
   --bg-surface: #222222;
   --bg-subtle: #2b2b2b;
