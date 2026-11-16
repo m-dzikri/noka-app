@@ -53,16 +53,43 @@ export function useI18n(): I18nContextValue {
 
   const locale = context.locale === "en" ? "en" : "id";
   const directDict = locale === "en" ? enDictionary : idDictionary;
-  const t = context.t ?? directDict;
-  const settings = t.settings ?? directDict.settings ?? idDictionary.settings;
+  const rawContextT = context.t;
+
+  // Deep merge directDict with rawContextT to ensure all namespaces and sub-namespaces
+  // (such as finance.budgets and settings) are guaranteed to exist, even across Fast Refresh / HMR staleness.
+  const budgets = {
+    ...directDict.finance.budgets,
+    ...(rawContextT?.finance?.budgets ?? {}),
+  };
+  const exportModal = {
+    ...directDict.finance.exportModal,
+    ...(rawContextT?.finance?.exportModal ?? {}),
+  };
+  const reportPage = {
+    ...directDict.finance.reportPage,
+    ...(rawContextT?.finance?.reportPage ?? {}),
+  };
+  const finance = {
+    ...directDict.finance,
+    ...(rawContextT?.finance ?? {}),
+    budgets,
+    exportModal,
+    reportPage,
+  };
+  const settings =
+    rawContextT?.settings ?? directDict.settings ?? idDictionary.settings;
+
+  const t: Dictionary = {
+    ...directDict,
+    ...(rawContextT ?? {}),
+    finance,
+    settings,
+  };
 
   return {
     ...context,
     locale,
-    t: {
-      ...t,
-      settings,
-    },
+    t,
   };
 }
 

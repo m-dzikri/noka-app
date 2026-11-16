@@ -156,14 +156,26 @@ export function PreferencesProvider({
   );
 
   const i18nValue = useMemo(() => {
-    const baseDict = DICTIONARIES[locale] ?? DICTIONARIES.id;
+    const directDict = locale === "en" ? DICTIONARIES.en : DICTIONARIES.id;
+    const baseDict = DICTIONARIES[locale] ?? directDict;
     const settings =
       baseDict.settings ??
-      (locale === "en" ? DICTIONARIES.en.settings : DICTIONARIES.id.settings);
+      directDict.settings;
+    const budgets = {
+      ...directDict.finance.budgets,
+      ...(baseDict.finance?.budgets ?? {}),
+    };
+    const finance = {
+      ...directDict.finance,
+      ...(baseDict.finance ?? {}),
+      budgets,
+    };
     return {
       locale,
       t: {
+        ...directDict,
         ...baseDict,
+        finance,
         settings,
       },
       setLocale,

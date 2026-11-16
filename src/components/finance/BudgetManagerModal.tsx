@@ -572,7 +572,7 @@ export function BudgetManagerModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={t.finance.budgets.modalTitle}
+      title={t.finance?.budgets?.modalTitle ?? "Kelola Anggaran Kategori"}
       className="max-w-xl"
     >
       <BudgetManagerBody

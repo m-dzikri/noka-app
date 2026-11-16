@@ -37,17 +37,18 @@ export interface CategoryBudgetSectionProps {
 }
 
 function getStatusBadge(status: BudgetThresholdStatus, t: ReturnType<typeof useI18n>["t"]) {
+  const budgets = t.finance?.budgets;
   switch (status) {
     case "exceeded":
       return {
-        label: t.finance.budgets.exceededStatus,
+        label: budgets?.exceededStatus ?? "Melebihi Batas",
         colorClass: "bg-[var(--status-expense)]/15 text-[var(--status-expense)] border-[var(--status-expense)]/30",
         barClass: "bg-[var(--status-expense)]",
         icon: <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />,
       };
     case "warning":
       return {
-        label: t.finance.budgets.warningStatus,
+        label: budgets?.warningStatus ?? "Waspada",
         colorClass: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
         barClass: "bg-amber-500",
         icon: <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />,
@@ -55,7 +56,7 @@ function getStatusBadge(status: BudgetThresholdStatus, t: ReturnType<typeof useI
     case "normal":
     default:
       return {
-        label: t.finance.budgets.normalStatus,
+        label: budgets?.normalStatus ?? "Aman",
         colorClass: "bg-[var(--accent-primary)]/15 text-[var(--accent-primary)] border-[var(--accent-primary)]/30",
         barClass: "bg-[var(--accent-primary)]",
         icon: <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />,

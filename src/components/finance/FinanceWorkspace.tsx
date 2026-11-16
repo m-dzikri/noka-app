@@ -115,6 +115,7 @@ export function FinanceWorkspace({
   initialBudgets,
 }: FinanceWorkspaceProps) {
   const { t } = useI18n();
+  const budgetsDict = t.finance?.budgets;
   const sync = useOptionalSync();
 
   const [summary, setSummary] = useState<FinanceSummaryDto>(initialSummary);
@@ -664,7 +665,7 @@ export function FinanceWorkspace({
             data-testid="finance-manage-budgets-button"
           >
             <Target className="h-4 w-4" aria-hidden="true" />
-            <span>{t.finance.budgets.manageBudgetsButton}</span>
+            <span>{budgetsDict?.manageBudgetsButton ?? "Kelola Anggaran"}</span>
           </Button>
 
           <Button
@@ -701,10 +702,10 @@ export function FinanceWorkspace({
             />
             <div>
               <h4 className="font-bold text-[var(--status-expense)]">
-                {t.finance.budgets.overbudgetBannerTitle}
+                {budgetsDict?.overbudgetBannerTitle ?? "Peringatan Batas Anggaran Terlampaui"}
               </h4>
               <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                {t.finance.budgets.overbudgetBannerDesc}
+                {budgetsDict?.overbudgetBannerDesc ?? "Terdapat kategori pengeluaran yang telah melampaui batas anggaran bulan ini."}
               </p>
               <div className="mt-1 flex flex-wrap gap-2 text-xs">
                 {exceededBudgets.map((b) => (
@@ -729,13 +730,13 @@ export function FinanceWorkspace({
               onClick={() => setBudgetModalOpen(true)}
               className="h-8 text-xs"
             >
-              {t.finance.budgets.manageBudgetsButton}
+              {budgetsDict?.manageBudgetsButton ?? "Kelola Anggaran"}
             </Button>
             <button
               type="button"
               onClick={() => setLastDismissedExceededKey(exceededKey)}
               className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] focus:outline-hidden"
-              aria-label={t.finance.budgets.dismissBanner}
+              aria-label={budgetsDict?.dismissBanner ?? "Tutup peringatan"}
               data-testid="dismiss-overbudget-banner"
             >
               <X className="h-4 w-4" aria-hidden="true" />
