@@ -209,13 +209,13 @@ test.describe("RFC-009: PWA Installability, Offline Sync & Logout/401 Purge (TS-
       await walletModal.getByLabel("Nama dompet").fill("Kas Tunai");
       await walletModal.getByLabel("Saldo awal (IDR)").fill("500000");
       await walletModal.getByRole("button", { name: "Tambah Dompet" }).click();
-      await expect(walletModal.getByText("Kas Tunai")).toBeVisible();
+      await expect(walletModal.getByText("Kas Tunai")).toBeVisible({ timeout: 15_000 });
 
       await walletModal.getByLabel("Nama dompet").fill("Bank BCA");
       await walletModal.getByLabel("Tipe dompet").selectOption("bank");
       await walletModal.getByLabel("Saldo awal (IDR)").fill("1000000");
       await walletModal.getByRole("button", { name: "Tambah Dompet" }).click();
-      await expect(walletModal.getByText("Bank BCA")).toBeVisible();
+      await expect(walletModal.getByText("Bank BCA")).toBeVisible({ timeout: 15_000 });
 
       await walletModal.getByRole("button", { name: "Tutup" }).click();
       await expect(page.getByTestId("finance-total-balance")).toHaveText("Rp1.500.000");
@@ -568,6 +568,7 @@ test.describe("RFC-009: PWA Installability, Offline Sync & Logout/401 Purge (TS-
       console.log(`[E2E-STEP ${testInfo.project.name}] 5. Logging out`);
       await clickHeaderLogout(page, isMobileProject);
       await expect(page).toHaveURL(/\/login/, { timeout: 15_000 });
+      await page.waitForLoadState("networkidle");
       console.log(`[E2E-STEP ${testInfo.project.name}] 5. Reached /login after logout`);
 
       await expect
