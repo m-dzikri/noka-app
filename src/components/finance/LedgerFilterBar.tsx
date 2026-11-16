@@ -119,6 +119,8 @@ export function LedgerFilterBar({
 
       <Input
         label={t.finance.filters.fromDate}
+        labelClassName="text-xs font-medium text-[var(--text-secondary)]"
+        containerClassName="gap-1"
         type="date"
         value={filters.from}
         onChange={(e) => onFilterChange({ from: e.target.value })}
@@ -126,6 +128,8 @@ export function LedgerFilterBar({
 
       <Input
         label={t.finance.filters.toDate}
+        labelClassName="text-xs font-medium text-[var(--text-secondary)]"
+        containerClassName="gap-1"
         type="date"
         value={filters.to}
         onChange={(e) => onFilterChange({ to: e.target.value })}

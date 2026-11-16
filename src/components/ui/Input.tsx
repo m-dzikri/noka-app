@@ -5,6 +5,8 @@ import { cn } from "@/lib/cn";
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  labelClassName?: string;
+  containerClassName?: string;
   error?: string;
   hint?: string;
   ref?: Ref<HTMLInputElement>;
@@ -16,6 +18,8 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export function Input({
   id,
   label,
+  labelClassName,
+  containerClassName,
   error,
   hint,
   className,
@@ -32,11 +36,14 @@ export function Input({
     undefined;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn("flex flex-col gap-1.5", containerClassName)}>
       {label ? (
         <label
           htmlFor={inputId}
-          className="text-sm font-medium text-[var(--text-primary)]"
+          className={cn(
+            "text-sm font-medium text-[var(--text-primary)]",
+            labelClassName,
+          )}
         >
           {label}
         </label>
