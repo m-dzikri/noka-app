@@ -681,6 +681,22 @@ export const idDictionary: Dictionary = {
         "Belum ada kategori pengeluaran aktif. Tambahkan kategori pengeluaran terlebih dahulu.",
       invalidAmountError:
         "Nominal anggaran harus berupa angka positif lebih dari 0.",
+      prevPeriodButton: "Bulan Sebelumnya",
+      nextPeriodButton: "Bulan Berikutnya",
+      currentPeriodButton: "Periode Aktif",
+      historicalNotice: "Melihat riwayat anggaran periode lampau",
+      overbudgetBannerTitle: "Peringatan Batas Anggaran Terlampaui",
+      overbudgetBannerDesc:
+        "Ada kategori pengeluaran yang telah melampaui batas anggaran bulan ini.",
+      dismissBanner: "Tutup peringatan",
+      copyPreviousMonthButton: "Salin dari Bulan Lalu",
+      copyingPreviousMonth: "Menyalin...",
+      copyPreviousMonthSuccess:
+        "Berhasil menyalin {count} anggaran dari bulan lalu",
+      noPreviousBudgets:
+        "Tidak ada data anggaran pada bulan sebelumnya untuk disalin",
+      allPreviousBudgetsExist:
+        "Semua anggaran dari bulan sebelumnya sudah terdaftar pada periode ini",
     },
   },
   privacy: {

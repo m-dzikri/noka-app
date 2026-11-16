@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { AlertCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   dispatchFinanceUpdated,
   readJsonSafe,
@@ -13,12 +13,17 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
-import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
+import {
+  shiftPeriodMonth,
+  type CategoryBudgetDto,
+  type CategoryBudgetSummaryDto,
+} from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import {
   executeOfflineCapableMutation,
   isLikelyNetworkError,
 } from "@/features/sync/client-api";
+import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface BudgetManagerModalProps {
@@ -50,10 +55,13 @@ function BudgetManagerBody({
   const [busyDeleteId, setBusyDeleteId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [copying, setCopying] = useState(false);
+  const [copySuccessMsg, setCopySuccessMsg] = useState<string | null>(null);
 
   // If user chooses an existing category that already has a budget, show existing amount
   function handleSelectCategory(catId: string) {
     setSelectedCategoryId(catId);
+    setCopySuccessMsg(null);
     const existing = budgets.find((b) => b.categoryId === catId);
     if (existing) {
       setAmountStr(String(existing.amount));
@@ -66,6 +74,7 @@ function BudgetManagerBody({
   function handleStartEdit(budget: CategoryBudgetDto) {
     setSelectedCategoryId(budget.categoryId);
     setAmountStr(String(budget.amount));
+    setCopySuccessMsg(null);
     setErrorMsg(null);
   }
 
@@ -219,15 +228,172 @@ function BudgetManagerBody({
     }
   }
 
+  async function handleCopyPreviousMonth() {
+    setErrorMsg(null);
+    setCopySuccessMsg(null);
+    setCopying(true);
+
+    const prevPeriod = shiftPeriodMonth(currentPeriod, -1);
+    try {
+      let previousBudgets: CategoryBudgetDto[] = [];
+      const offlineNow =
+        sync !== null
+          ? !sync.isOnline
+          : typeof navigator !== "undefined" && !navigator.onLine;
+
+      if (offlineNow && sync?.mirror?.categoryBudgets) {
+        previousBudgets = sync.mirror.categoryBudgets.filter(
+          (b) => b.periodMonth === prevPeriod,
+        );
+      } else {
+        const res = await apiFetch(
+          `/api/finance/budgets?period=${prevPeriod}&tzOffset=${-new Date().getTimezoneOffset()}`,
+        );
+        if (res.ok) {
+          const payload = await readJsonSafe<{
+            data: CategoryBudgetSummaryDto;
+          }>(res);
+          if (payload?.data?.items && Array.isArray(payload.data.items)) {
+            previousBudgets = payload.data.items;
+          }
+        } else if (sync?.mirror?.categoryBudgets) {
+          previousBudgets = sync.mirror.categoryBudgets.filter(
+            (b) => b.periodMonth === prevPeriod,
+          );
+        }
+      }
+
+      if (!previousBudgets || previousBudgets.length === 0) {
+        setErrorMsg(t.finance.budgets.noPreviousBudgets);
+        return;
+      }
+
+      // Filter out budgets whose categoryId already exists in currentPeriod budgets
+      const existingCategoryIds = new Set(budgets.map((b) => b.categoryId));
+      const toCopy = previousBudgets.filter(
+        (b) => !existingCategoryIds.has(b.categoryId),
+      );
+
+      if (toCopy.length === 0) {
+        setErrorMsg(t.finance.budgets.allPreviousBudgetsExist);
+        return;
+      }
+
+      const syncMutationContext = sync
+        ? {
+            userId: sync.userId,
+            isOnline: sync.isOnline,
+            storageAvailable: sync.storageAvailable,
+            onMirrorChanged: () => void sync.reloadMirror(),
+          }
+        : null;
+
+      let copiedCount = 0;
+      for (const item of toCopy) {
+        const optimisticId = crypto.randomUUID();
+        const optimisticBudget: CategoryBudgetDto = {
+          id: optimisticId,
+          categoryId: item.categoryId,
+          categoryName: item.categoryName,
+          amount: item.amount,
+          periodMonth: currentPeriod,
+          spentAmount: 0,
+          remainingAmount: item.amount,
+          percentage: 0,
+          status: "normal",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        const outcome = await executeOfflineCapableMutation<{
+          budget: CategoryBudgetDto;
+        }>(syncMutationContext, {
+          entity: "budget",
+          entityId: optimisticId,
+          op: "upsert",
+          method: "POST",
+          path: "/api/finance/budgets",
+          body: {
+            categoryId: item.categoryId,
+            amount: item.amount,
+            period: currentPeriod,
+          },
+          optimisticSnapshot: {
+            kind: "budget_upsert",
+            budget: optimisticBudget,
+          },
+        });
+
+        if (outcome.mode === "online" && outcome.response && !outcome.response.ok) {
+          const errorJson = (await readJsonSafe(outcome.response)) as ApiErrorPayload | null;
+          setErrorMsg(resolveFinanceErrorMessage(t, errorJson));
+          break;
+        }
+        copiedCount++;
+      }
+
+      if (copiedCount > 0) {
+        setCopySuccessMsg(
+          t.finance.budgets.copyPreviousMonthSuccess.replace(
+            "{count}",
+            String(copiedCount),
+          ),
+        );
+        dispatchFinanceUpdated();
+        await onMutated();
+      }
+    } catch (error) {
+      if (!isLikelyNetworkError(error)) {
+        setErrorMsg(
+          error instanceof Error
+            ? error.message
+            : "Terjadi kesalahan saat menyalin anggaran dari bulan lalu",
+        );
+      }
+    } finally {
+      setCopying(false);
+    }
+  }
+
   const existingSelectedBudget = budgets.find(
     (b) => b.categoryId === selectedCategoryId,
   );
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-[var(--text-muted)]">
-        {t.finance.budgets.modalDescription}
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)]/50 pb-3">
+        <p className="max-w-xs text-xs text-[var(--text-muted)] sm:max-w-sm">
+          {t.finance.budgets.modalDescription}
+        </p>
+
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void handleCopyPreviousMonth()}
+          disabled={copying || saving}
+          className="gap-1.5 text-xs"
+          data-testid="copy-previous-month-button"
+        >
+          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>
+            {copying
+              ? t.finance.budgets.copyingPreviousMonth
+              : t.finance.budgets.copyPreviousMonthButton}
+          </span>
+        </Button>
+      </div>
+
+      {copySuccessMsg ? (
+        <div
+          role="status"
+          data-testid="copy-success-banner"
+          className="flex items-center gap-2 rounded-xl border border-[var(--status-income)]/40 bg-[var(--status-income)]/10 px-3 py-2.5 text-xs text-[var(--status-income)]"
+        >
+          <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{copySuccessMsg}</span>
+        </div>
+      ) : null}
 
       {errorMsg ? (
         <div

@@ -1,6 +1,15 @@
 "use client";
 
-import { AlertCircle, AlertTriangle, CheckCircle2, SlidersHorizontal, Target } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  History,
+  SlidersHorizontal,
+  Target,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
   Card,
@@ -10,10 +19,11 @@ import {
   CardTitle,
 } from "@/components/ui/Card";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
-import type {
-  BudgetThresholdStatus,
-  CategoryBudgetDto,
-  CategoryBudgetSummaryDto,
+import {
+  shiftPeriodMonth,
+  type BudgetThresholdStatus,
+  type CategoryBudgetDto,
+  type CategoryBudgetSummaryDto,
 } from "@/features/finance/budgets-schemas";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -21,6 +31,9 @@ export interface CategoryBudgetSectionProps {
   summary: CategoryBudgetSummaryDto | null;
   loading?: boolean;
   onManageBudgets: () => void;
+  currentPeriod?: string;
+  activeCyclePeriod?: string;
+  onSelectPeriod?: (period: string) => void;
 }
 
 function getStatusBadge(status: BudgetThresholdStatus, t: ReturnType<typeof useI18n>["t"]) {
@@ -54,8 +67,18 @@ export function CategoryBudgetSection({
   summary,
   loading = false,
   onManageBudgets,
+  currentPeriod,
+  activeCyclePeriod,
+  onSelectPeriod,
 }: CategoryBudgetSectionProps) {
   const { t } = useI18n();
+
+  const displayPeriod = currentPeriod ?? summary?.period ?? "";
+  const isHistorical = Boolean(
+    activeCyclePeriod &&
+      displayPeriod &&
+      displayPeriod !== activeCyclePeriod,
+  );
 
   const hasBudgets =
     Boolean(summary && Array.isArray(summary.items) && summary.items.length > 0);
@@ -68,10 +91,21 @@ export function CategoryBudgetSection({
     <Card className="overflow-hidden border border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-xs">
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 border-b border-[var(--border-subtle)]/60 pb-4">
         <div>
-          <CardTitle as="h2" className="flex items-center gap-2 text-lg font-bold text-[var(--text-primary)]">
-            <Target className="h-5 w-5 text-[var(--accent-primary)]" aria-hidden="true" />
-            <span>{t.finance.budgets.sectionTitle}</span>
-          </CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle as="h2" className="flex items-center gap-2 text-lg font-bold text-[var(--text-primary)]">
+              <Target className="h-5 w-5 text-[var(--accent-primary)]" aria-hidden="true" />
+              <span>{t.finance.budgets.sectionTitle}</span>
+            </CardTitle>
+            {isHistorical ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400"
+                data-testid="historical-period-badge"
+              >
+                <History className="h-3 w-3" aria-hidden="true" />
+                <span>{t.finance.budgets.historicalNotice}</span>
+              </span>
+            ) : null}
+          </div>
           <CardDescription className="mt-1 text-sm text-[var(--text-muted)]">
             {t.finance.budgets.sectionSubtitle}
             {summary?.cycle ? (
@@ -82,16 +116,63 @@ export function CategoryBudgetSection({
           </CardDescription>
         </div>
 
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onManageBudgets}
-          className="gap-1.5"
-          data-testid="manage-budgets-button"
-        >
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          <span>{t.finance.budgets.manageBudgetsButton}</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {onSelectPeriod && displayPeriod ? (
+            <div className="flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-muted)]/50 p-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSelectPeriod(shiftPeriodMonth(displayPeriod, -1))}
+                disabled={loading}
+                className="h-8 w-8 p-0"
+                aria-label={t.finance.budgets.prevPeriodButton}
+                data-testid="prev-period-budget-btn"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              </Button>
+              <span
+                className="px-2 text-xs font-semibold text-[var(--text-primary)]"
+                data-testid="current-budget-period-label"
+              >
+                {displayPeriod}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onSelectPeriod(shiftPeriodMonth(displayPeriod, 1))}
+                disabled={loading}
+                className="h-8 w-8 p-0"
+                aria-label={t.finance.budgets.nextPeriodButton}
+                data-testid="next-period-budget-btn"
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+          ) : null}
+
+          {isHistorical && activeCyclePeriod && onSelectPeriod ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onSelectPeriod(activeCyclePeriod)}
+              className="h-8 px-2.5 text-xs"
+              data-testid="reset-current-period-budget-btn"
+            >
+              {t.finance.budgets.currentPeriodButton}
+            </Button>
+          ) : null}
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onManageBudgets}
+            className="gap-1.5"
+            data-testid="manage-budgets-button"
+          >
+            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+            <span>{t.finance.budgets.manageBudgetsButton}</span>
+          </Button>
+        </div>
       </CardHeader>
 
       <CardContent className="pt-5">

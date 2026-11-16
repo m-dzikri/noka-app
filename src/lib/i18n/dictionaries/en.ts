@@ -681,6 +681,22 @@ export const enDictionary: Dictionary = {
         "No active expense categories found. Please create an expense category first.",
       invalidAmountError:
         "Budget amount must be a positive integer greater than 0.",
+      prevPeriodButton: "Previous Month",
+      nextPeriodButton: "Next Month",
+      currentPeriodButton: "Current Cycle",
+      historicalNotice: "Viewing historical budget cycle",
+      overbudgetBannerTitle: "Budget Limit Exceeded Alert",
+      overbudgetBannerDesc:
+        "There are expense categories that have exceeded this month's budget limit.",
+      dismissBanner: "Dismiss alert",
+      copyPreviousMonthButton: "Copy from Last Month",
+      copyingPreviousMonth: "Copying...",
+      copyPreviousMonthSuccess:
+        "Successfully copied {count} budgets from last month",
+      noPreviousBudgets:
+        "No budget entries found in previous month to copy",
+      allPreviousBudgetsExist:
+        "All budgets from previous month are already set for this period",
     },
   },
   privacy: {

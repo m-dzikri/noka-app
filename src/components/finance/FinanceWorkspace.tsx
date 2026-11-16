@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, Download, FolderKanban, Plus, Target, Wallet } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeftRight,
+  Download,
+  FolderKanban,
+  Plus,
+  Target,
+  Wallet,
+  X,
+} from "lucide-react";
 import { BudgetManagerModal } from "@/components/finance/BudgetManagerModal";
 import { CashflowSummaryCards } from "@/components/finance/CashflowSummaryCards";
 import { CategoryBudgetSection } from "@/components/finance/CategoryBudgetSection";
@@ -112,8 +121,29 @@ export function FinanceWorkspace({
   const [categories, setCategories] = useState<CategoryDto[]>(initialCategories);
   const [budgetsSummary, setBudgetsSummary] =
     useState<CategoryBudgetSummaryDto | null>(initialBudgets ?? null);
+  const activeCyclePeriod = summary.cycle.startDate.slice(0, 7);
+  const [selectedBudgetPeriod, setSelectedBudgetPeriod] = useState<string>(
+    initialBudgets?.period ?? activeCyclePeriod,
+  );
   const [budgetModalOpen, setBudgetModalOpen] = useState(false);
   const [loadingBudgets, setLoadingBudgets] = useState(false);
+
+  const exceededBudgets = useMemo(() => {
+    if (!budgetsSummary?.items) return [];
+    return budgetsSummary.items.filter((b) => b.status === "exceeded");
+  }, [budgetsSummary]);
+
+  const exceededKey = useMemo(
+    () =>
+      exceededBudgets
+        .map((b) => `${b.categoryId}:${b.remainingAmount}`)
+        .sort()
+        .join(","),
+    [exceededBudgets],
+  );
+  const [lastDismissedExceededKey, setLastDismissedExceededKey] = useState<string | null>(null);
+  const showOverbudgetBanner =
+    exceededBudgets.length > 0 && lastDismissedExceededKey !== exceededKey;
 
   const [showArchivedWallets, setShowArchivedWallets] = useState(false);
   const [filters, setFilters] = useState<LedgerFiltersState>(DEFAULT_FILTERS);
@@ -203,11 +233,13 @@ export function FinanceWorkspace({
       if (syncMirror.categories.length > 0) {
         setCategories(syncMirror.categories);
       }
-      const localBudgets = computeLocalCategoryBudgets(syncMirror);
+      const localBudgets = computeLocalCategoryBudgets(syncMirror, {
+        period: selectedBudgetPeriod,
+      });
       setBudgetsSummary(localBudgets);
       return true;
     },
-    [syncMirror],
+    [selectedBudgetPeriod, syncMirror],
   );
 
   const fetchSummaryWithFilters = useCallback(
@@ -229,7 +261,7 @@ export function FinanceWorkspace({
           apiFetch(`/api/finance/summary?${summaryParams.toString()}`),
           apiFetch("/api/categories"),
           apiFetch(
-            `/api/finance/budgets?tzOffset=${-new Date().getTimezoneOffset()}`,
+            `/api/finance/budgets?period=${selectedBudgetPeriod}&tzOffset=${-new Date().getTimezoneOffset()}`,
           ),
         ]);
 
@@ -280,10 +312,57 @@ export function FinanceWorkspace({
     [
       applyLocalSummaryFromMirror,
       buildSummaryQuery,
+      selectedBudgetPeriod,
       surfaceNonOkError,
       sync,
       t.errors.generic,
     ],
+  );
+
+  const handleSelectBudgetPeriod = useCallback(
+    async (period: string) => {
+      setSelectedBudgetPeriod(period);
+      setLoadingBudgets(true);
+      const offlineNow =
+        sync !== null
+          ? !sync.isOnline
+          : typeof navigator !== "undefined" && navigator.onLine === false;
+
+      if (offlineNow && syncMirror) {
+        const localBudgets = computeLocalCategoryBudgets(syncMirror, {
+          period,
+        });
+        setBudgetsSummary(localBudgets);
+        setLoadingBudgets(false);
+        return;
+      }
+
+      try {
+        const res = await apiFetch(
+          `/api/finance/budgets?period=${period}&tzOffset=${-new Date().getTimezoneOffset()}`,
+        );
+        if (res.ok) {
+          const payload = await readJsonSafe<{
+            data: CategoryBudgetSummaryDto;
+          }>(res);
+          if (payload?.data?.items && Array.isArray(payload.data.items)) {
+            setBudgetsSummary(payload.data);
+          }
+        } else {
+          await surfaceNonOkError(res);
+        }
+      } catch (err) {
+        if (isLikelyNetworkError(err) && syncMirror) {
+          const localBudgets = computeLocalCategoryBudgets(syncMirror, {
+            period,
+          });
+          setBudgetsSummary(localBudgets);
+        }
+      } finally {
+        setLoadingBudgets(false);
+      }
+    },
+    [surfaceNonOkError, sync, syncMirror],
   );
 
   const refreshAllFinanceData = useCallback(async () => {
@@ -608,6 +687,63 @@ export function FinanceWorkspace({
         </p>
       ) : null}
 
+      {showOverbudgetBanner ? (
+        <div
+          role="alert"
+          aria-live="polite"
+          data-testid="overbudget-alert-banner"
+          className="flex flex-col gap-3 rounded-2xl border border-[var(--status-expense)]/40 bg-[var(--status-expense)]/10 p-4 text-sm text-[var(--text-primary)] shadow-xs transition-all sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="flex items-start gap-3">
+            <AlertCircle
+              className="mt-0.5 h-5 w-5 shrink-0 text-[var(--status-expense)]"
+              aria-hidden="true"
+            />
+            <div>
+              <h4 className="font-bold text-[var(--status-expense)]">
+                {t.finance.budgets.overbudgetBannerTitle}
+              </h4>
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                {t.finance.budgets.overbudgetBannerDesc}
+              </p>
+              <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                {exceededBudgets.map((b) => (
+                  <span
+                    key={b.id}
+                    className="inline-flex items-center gap-1 rounded-md border border-[var(--status-expense)]/30 bg-[var(--bg-surface)] px-2 py-0.5 font-medium text-[var(--status-expense)]"
+                  >
+                    <span>{b.categoryName}:</span>
+                    <span>
+                      +<PrivacyAmount amount={Math.abs(b.remainingAmount)} signMode="plain" />
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setBudgetModalOpen(true)}
+              className="h-8 text-xs"
+            >
+              {t.finance.budgets.manageBudgetsButton}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setLastDismissedExceededKey(exceededKey)}
+              className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] focus:outline-hidden"
+              aria-label={t.finance.budgets.dismissBanner}
+              data-testid="dismiss-overbudget-banner"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <SafeToSpendCard
         safeToSpend={summary.safeToSpend}
         cycle={summary.cycle}
@@ -617,6 +753,9 @@ export function FinanceWorkspace({
         summary={budgetsSummary}
         loading={loadingBudgets}
         onManageBudgets={() => setBudgetModalOpen(true)}
+        currentPeriod={selectedBudgetPeriod}
+        activeCyclePeriod={activeCyclePeriod}
+        onSelectPeriod={handleSelectBudgetPeriod}
       />
 
       <WalletListSection
@@ -760,9 +899,7 @@ export function FinanceWorkspace({
         onClose={() => setBudgetModalOpen(false)}
         categories={categories}
         budgets={budgetsSummary?.items ?? []}
-        currentPeriod={
-          budgetsSummary?.period ?? summary.cycle.startDate.slice(0, 7)
-        }
+        currentPeriod={selectedBudgetPeriod}
         onMutated={refreshAllFinanceData}
       />
     </div>

@@ -4,6 +4,7 @@ import { FinanceWorkspace } from "@/components/finance/FinanceWorkspace";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
 import { PrivacyProvider } from "@/components/providers/PrivacyProvider";
 import type { CategoryDto } from "@/features/finance/categories-service";
+import type { CategoryBudgetSummaryDto } from "@/features/finance/budgets-schemas";
 import type {
   FinanceSummaryDto,
   SummaryLedgerItem,
@@ -116,7 +117,7 @@ function createSummaryFixture(
   };
 }
 
-const defaultMockBudgets = {
+const defaultMockBudgets: CategoryBudgetSummaryDto = {
   period: "2026-11",
   cycle: {
     startDate: "2026-11-01",
@@ -134,7 +135,7 @@ const defaultMockBudgets = {
 function renderWorkspace(
   summary: FinanceSummaryDto = createSummaryFixture(),
   cats: CategoryDto[] = sampleCategories,
-  budgets = defaultMockBudgets,
+  budgets: CategoryBudgetSummaryDto = defaultMockBudgets,
 ) {
   return render(
     <PreferencesProvider initialLocale="id" initialTheme="light">
@@ -549,5 +550,50 @@ describe("FinanceWorkspace Component & noka:finance-updated Sync", () => {
       expect(lastUrl).toContain("from=2026-11-10");
       expect(lastUrl).not.toContain("to=");
     });
+  });
+
+  it("renders proactive overbudget alert banner when a category exceeds limit, and allows dismissing it", async () => {
+    const exceededBudgetsMock = {
+      period: "2026-11",
+      cycle: {
+        startDate: "2026-11-01",
+        endDate: "2026-11-30",
+        startUtcIso: "2026-10-31T17:00:00.000Z",
+        endExclusiveUtcIso: "2026-11-30T17:00:00.000Z",
+        remainingDays: 19,
+        cycleStartDay: "1",
+      },
+      totalBudgeted: 1_000_000,
+      totalSpent: 1_250_000,
+      items: [
+        {
+          id: "b-exceeded-1",
+          categoryId: sampleCategories[0]!.id,
+          categoryName: "Makan & Minum",
+          amount: 1_000_000,
+          periodMonth: "2026-11",
+          spentAmount: 1_250_000,
+          remainingAmount: -250_000,
+          percentage: 125,
+          status: "exceeded" as const,
+          createdAt: "2026-11-01T00:00:00.000Z",
+          updatedAt: "2026-11-01T00:00:00.000Z",
+        },
+      ],
+    };
+
+    renderWorkspace(createSummaryFixture(), sampleCategories, exceededBudgetsMock);
+
+    // Banner is visible
+    const alertBanner = screen.getByTestId("overbudget-alert-banner");
+    expect(alertBanner).toBeInTheDocument();
+    expect(alertBanner).toHaveTextContent("Peringatan Batas Anggaran Terlampaui");
+    expect(alertBanner).toHaveTextContent("Makan & Minum");
+
+    // Dismiss banner
+    const dismissBtn = screen.getByTestId("dismiss-overbudget-banner");
+    fireEvent.click(dismissBtn);
+
+    expect(screen.queryByTestId("overbudget-alert-banner")).not.toBeInTheDocument();
   });
 });

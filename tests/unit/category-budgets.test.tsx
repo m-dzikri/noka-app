@@ -1,11 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CategoryBudgetSection } from "@/components/finance/CategoryBudgetSection";
+import { BudgetManagerModal } from "@/components/finance/BudgetManagerModal";
 import {
   calculateBudgetMetrics,
+  shiftPeriodMonth,
   type CategoryBudgetDto,
   type CategoryBudgetSummaryDto,
 } from "@/features/finance/budgets-schemas";
+import type { CategoryDto } from "@/features/finance/categories-service";
 import type { MirrorDataState } from "@/features/sync/db";
 import { computeLocalCategoryBudgets } from "@/features/sync/local-queries";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
@@ -103,6 +106,21 @@ describe("TS-012-01: Category Budgets Calculation, Status Thresholds & UI Progre
       expect(zeroBudget.remainingAmount).toBe(0);
       expect(zeroBudget.status).toBe("normal");
     });
+
+    it("shifts period month correctly with boundary wrap and invalid fallback", () => {
+      // Normal shift
+      expect(shiftPeriodMonth("2026-11", 1)).toBe("2026-12");
+      expect(shiftPeriodMonth("2026-11", -1)).toBe("2026-10");
+
+      // Year boundary wrap forward: Dec -> Jan
+      expect(shiftPeriodMonth("2026-12", 1)).toBe("2027-01");
+
+      // Year boundary wrap backward: Jan -> Dec
+      expect(shiftPeriodMonth("2026-01", -1)).toBe("2025-12");
+
+      // Invalid input fallback
+      expect(shiftPeriodMonth("invalid", 1)).toBe("invalid");
+    });
   });
 
   describe("CategoryBudgetSection UI rendering (F20, UI-1, UI-3, I18N-1)", () => {
@@ -196,6 +214,69 @@ describe("TS-012-01: Category Budgets Calculation, Status Thresholds & UI Progre
       const manageBtn = screen.getByTestId("manage-budgets-button");
       fireEvent.click(manageBtn);
       expect(onManageMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("renders historical cycle badge and reset button when viewing a historical month", () => {
+      const onSelectPeriodMock = vi.fn();
+      const summary = createMockSummary([
+        {
+          categoryId: "cat-1",
+          categoryName: "Transport",
+          amount: 500_000,
+          spentAmount: 200_000,
+        },
+      ]);
+
+      renderWithI18n(
+        <CategoryBudgetSection
+          summary={summary}
+          onManageBudgets={vi.fn()}
+          currentPeriod="2026-10"
+          activeCyclePeriod="2026-11"
+          onSelectPeriod={onSelectPeriodMock}
+        />,
+        "id",
+      );
+
+      expect(screen.getByTestId("historical-period-badge")).toBeDefined();
+      expect(screen.getByText(/Melihat riwayat anggaran/)).toBeDefined();
+
+      const resetBtn = screen.getByTestId("reset-current-period-budget-btn");
+      expect(resetBtn).toBeDefined();
+      fireEvent.click(resetBtn);
+      expect(onSelectPeriodMock).toHaveBeenCalledWith("2026-11");
+    });
+
+    it("triggers onSelectPeriod with shifted period when clicking previous or next period buttons", () => {
+      const onSelectPeriodMock = vi.fn();
+      const summary = createMockSummary([
+        {
+          categoryId: "cat-1",
+          categoryName: "Transport",
+          amount: 500_000,
+        },
+      ]);
+
+      renderWithI18n(
+        <CategoryBudgetSection
+          summary={summary}
+          onManageBudgets={vi.fn()}
+          currentPeriod="2026-11"
+          activeCyclePeriod="2026-11"
+          onSelectPeriod={onSelectPeriodMock}
+        />,
+        "id",
+      );
+
+      // Previous month button
+      const prevBtn = screen.getByTestId("prev-period-budget-btn");
+      fireEvent.click(prevBtn);
+      expect(onSelectPeriodMock).toHaveBeenCalledWith("2026-10");
+
+      // Next month button
+      const nextBtn = screen.getByTestId("next-period-budget-btn");
+      fireEvent.click(nextBtn);
+      expect(onSelectPeriodMock).toHaveBeenCalledWith("2026-12");
     });
   });
 
@@ -334,6 +415,184 @@ describe("TS-012-01: Category Budgets Calculation, Status Thresholds & UI Progre
       expect(foodBudget.remainingAmount).toBe(150_000);
       expect(foodBudget.percentage).toBe(85);
       expect(foodBudget.status).toBe("warning");
+    });
+  });
+
+  describe("BudgetManagerModal 'Salin dari bulan lalu' CTA (Non-blocking improvement)", () => {
+    it("copies budgets from previous month for categories that are not yet budgeted in current period", async () => {
+      const onMutatedMock = vi.fn();
+      const categories: CategoryDto[] = [
+        {
+          id: "cat-food",
+          name: "Makanan",
+          type: "expense",
+          isSystem: true,
+          systemKey: "food",
+          createdAt: "2026-11-01T00:00:00.000Z",
+          updatedAt: "2026-11-01T00:00:00.000Z",
+        },
+        {
+          id: "cat-transport",
+          name: "Transportasi",
+          type: "expense",
+          isSystem: false,
+          systemKey: null,
+          createdAt: "2026-11-01T00:00:00.000Z",
+          updatedAt: "2026-11-01T00:00:00.000Z",
+        },
+      ];
+
+      // Existing budgets in current period: only cat-food is already budgeted
+      const currentBudgets: CategoryBudgetDto[] = [
+        {
+          id: "b-current-food",
+          categoryId: "cat-food",
+          categoryName: "Makanan",
+          amount: 1_000_000,
+          periodMonth: "2026-11",
+          spentAmount: 100_000,
+          remainingAmount: 900_000,
+          percentage: 10,
+          status: "normal",
+          createdAt: "2026-11-01T00:00:00.000Z",
+          updatedAt: "2026-11-01T00:00:00.000Z",
+        },
+      ];
+
+      // Mock fetch: GET previous period returns cat-food and cat-transport
+      const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes("/api/finance/budgets?period=2026-10")) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              data: {
+                period: "2026-10",
+                items: [
+                  {
+                    id: "b-prev-food",
+                    categoryId: "cat-food",
+                    categoryName: "Makanan",
+                    amount: 1_000_000,
+                    periodMonth: "2026-10",
+                    spentAmount: 800_000,
+                    remainingAmount: 200_000,
+                    percentage: 80,
+                    status: "warning",
+                    createdAt: "2026-10-01T00:00:00.000Z",
+                    updatedAt: "2026-10-01T00:00:00.000Z",
+                  },
+                  {
+                    id: "b-prev-transport",
+                    categoryId: "cat-transport",
+                    categoryName: "Transportasi",
+                    amount: 500_000,
+                    periodMonth: "2026-10",
+                    spentAmount: 300_000,
+                    remainingAmount: 200_000,
+                    percentage: 60,
+                    status: "normal",
+                    createdAt: "2026-10-01T00:00:00.000Z",
+                    updatedAt: "2026-10-01T00:00:00.000Z",
+                  },
+                ],
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        if (urlStr.includes("/api/finance/budgets") && !urlStr.includes("?")) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              data: {
+                budget: {
+                  id: "b-new-transport",
+                  categoryId: "cat-transport",
+                  categoryName: "Transportasi",
+                  amount: 500_000,
+                  periodMonth: "2026-11",
+                  spentAmount: 0,
+                  remainingAmount: 500_000,
+                  percentage: 0,
+                  status: "normal",
+                  createdAt: "2026-11-01T00:00:00.000Z",
+                  updatedAt: "2026-11-01T00:00:00.000Z",
+                },
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      });
+
+      renderWithI18n(
+        <BudgetManagerModal
+          open={true}
+          onClose={vi.fn()}
+          categories={categories}
+          budgets={currentBudgets}
+          currentPeriod="2026-11"
+          onMutated={onMutatedMock}
+        />,
+        "id",
+      );
+
+      const copyBtn = screen.getByTestId("copy-previous-month-button");
+      expect(copyBtn).toBeDefined();
+      fireEvent.click(copyBtn);
+
+      const successBanner = await screen.findByTestId("copy-success-banner");
+      expect(successBanner).toHaveTextContent("Berhasil menyalin 1 anggaran dari bulan lalu");
+      expect(onMutatedMock).toHaveBeenCalled();
+      fetchSpy.mockRestore();
+    });
+
+    it("displays notice when no budgets were found in the previous month", async () => {
+      const categories: CategoryDto[] = [
+        {
+          id: "cat-food",
+          name: "Makanan",
+          type: "expense",
+          isSystem: true,
+          systemKey: "food",
+          createdAt: "2026-11-01T00:00:00.000Z",
+          updatedAt: "2026-11-01T00:00:00.000Z",
+        },
+      ];
+
+      const fetchSpy = vi.spyOn(global, "fetch").mockImplementation(async () => {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              period: "2026-10",
+              items: [],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      });
+
+      renderWithI18n(
+        <BudgetManagerModal
+          open={true}
+          onClose={vi.fn()}
+          categories={categories}
+          budgets={[]}
+          currentPeriod="2026-11"
+          onMutated={vi.fn()}
+        />,
+        "id",
+      );
+
+      fireEvent.click(screen.getByTestId("copy-previous-month-button"));
+      expect(
+        await screen.findByText("Tidak ada data anggaran pada bulan sebelumnya untuk disalin"),
+      ).toBeDefined();
+
+      fetchSpy.mockRestore();
     });
   });
 });

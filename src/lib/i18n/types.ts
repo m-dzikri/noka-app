@@ -421,6 +421,18 @@ export interface FinanceBudgetsDictionary {
   onlyExpenseCategoriesNote: string;
   noExpenseCategoriesError: string;
   invalidAmountError: string;
+  prevPeriodButton: string;
+  nextPeriodButton: string;
+  currentPeriodButton: string;
+  historicalNotice: string;
+  overbudgetBannerTitle: string;
+  overbudgetBannerDesc: string;
+  dismissBanner: string;
+  copyPreviousMonthButton: string;
+  copyingPreviousMonth: string;
+  copyPreviousMonthSuccess: string;
+  noPreviousBudgets: string;
+  allPreviousBudgetsExist: string;
 }
 
 export interface FinanceExportModalDictionary {
