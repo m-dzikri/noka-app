@@ -681,93 +681,134 @@ export function FinanceWorkspace({
           </div>
         </CardHeader>
 
-        <CardContent className="mt-4 flex flex-wrap gap-2">
-          <Button
-            onClick={() => {
-              setEditingTx(null);
-              setTxModalOpen(true);
-            }}
-            disabled={activeWallets.length === 0}
+        <CardContent className="mt-3 border-t border-[var(--border-subtle)] pt-3">
+          <div
+            data-testid="finance-quick-actions-grid"
+            className="grid grid-cols-4 gap-2 sm:gap-2.5 lg:grid-cols-8"
           >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            <span>{t.finance.newTransactionButton}</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setEditingTransfer(null);
-              setTransferModalOpen(true);
-            }}
-            disabled={activeWallets.length < 2}
-          >
-            <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
-            <span>{t.finance.newTransferButton}</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => setWalletModalOpen(true)}
-          >
-            <Wallet className="h-4 w-4" aria-hidden="true" />
-            <span>{t.finance.manageWalletsButton}</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => setCategoryModalOpen(true)}
-          >
-            <FolderKanban className="h-4 w-4" aria-hidden="true" />
-            <span>{t.finance.manageCategoriesButton}</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => setBudgetModalOpen(true)}
-            data-testid="finance-manage-budgets-button"
-          >
-            <Target className="h-4 w-4" aria-hidden="true" />
-            <span>{budgetsDict?.manageBudgetsButton ?? "Kelola Anggaran"}</span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            onClick={() => setRecurringModalOpen(true)}
-            data-testid="finance-manage-recurring-button"
-          >
-            <Repeat className="h-4 w-4" aria-hidden="true" />
-            <span>
-              {t.finance?.recurring?.manageRecurringButton ?? "Atur Jadwal Rutin"}
-            </span>
-            {recurringTemplates.length > 0 ? (
-              <span
-                data-testid="recurring-active-count-badge"
-                className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--accent-primary)]/15 px-1.5 text-[10px] font-bold text-[var(--accent-primary)]"
-              >
-                {recurringTemplates.filter((t) => t.isActive).length}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingTx(null);
+                setTxModalOpen(true);
+              }}
+              disabled={activeWallets.length === 0}
+              className="group relative flex min-h-[68px] sm:min-h-[74px] flex-col items-center justify-center rounded-xl bg-[var(--accent-primary)] p-2 text-center text-[var(--accent-foreground)] shadow-[var(--shadow-sm)] transition-all hover:bg-[var(--accent-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] cursor-pointer"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent-foreground)]/10">
+                <Plus className="h-4 w-4 stroke-[2.5]" aria-hidden="true" />
+              </div>
+              <span className="mt-1 line-clamp-2 px-0.5 text-[11px] sm:text-xs font-bold leading-tight">
+                {t.finance.newTransactionButton}
               </span>
-            ) : null}
-          </Button>
+            </button>
 
-          <Link
-            href="/app/finance/debts"
-            data-testid="finance-debts-button"
-            className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-primary)]"
-          >
-            <Scale className="h-4 w-4" aria-hidden="true" />
-            <span>
-              {t.finance?.debts?.manageDebtsButton ?? "Buku Utang-Piutang"}
-            </span>
-          </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingTransfer(null);
+                setTransferModalOpen(true);
+              }}
+              disabled={activeWallets.length < 2}
+              className="group relative flex min-h-[68px] sm:min-h-[74px] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-2 text-center text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] cursor-pointer"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <span className="mt-1 line-clamp-2 px-0.5 text-[11px] sm:text-xs font-medium leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                {t.finance.newTransferButton}
+              </span>
+            </button>
 
-          <Button
-            variant="secondary"
-            onClick={() => setExportModalOpen(true)}
-            data-testid="finance-export-button"
-          >
-            <Download className="h-4 w-4" aria-hidden="true" />
-            <span>{t.finance.exportButton}</span>
-          </Button>
+            <Link
+              href="/app/finance/debts"
+              data-testid="finance-debts-button"
+              className="group relative flex min-h-[68px] sm:min-h-[74px] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-2 text-center text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                <Scale className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <span className="mt-1 line-clamp-2 px-0.5 text-[11px] sm:text-xs font-medium leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                {t.finance?.debts?.manageDebtsButton ?? "Buku Utang-Piutang"}
+              </span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setBudgetModalOpen(true)}
+              data-testid="finance-manage-budgets-button"
+              className="group relative flex min-h-[68px] sm:min-h-[74px] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-2 text-center text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] cursor-pointer"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                <Target className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <span className="mt-1 line-clamp-2 px-0.5 text-[11px] sm:text-xs font-medium leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                {budgetsDict?.manageBudgetsButton ?? "Kelola Anggaran"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRecurringModalOpen(true)}
+              data-testid="finance-manage-recurring-button"
+              className="group relative flex min-h-[68px] sm:min-h-[74px] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-2 text-center text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] cursor-pointer"
+            >
+              {recurringTemplates.length > 0 ? (
+                <span
+                  data-testid="recurring-active-count-badge"
+                  className="absolute top-1.5 right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--accent-primary)]/15 px-1 text-[10px] font-bold text-[var(--accent-primary)]"
+                >
+                  {recurringTemplates.filter((t) => t.isActive).length}
+                </span>
+              ) : null}
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                <Repeat className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <span className="mt-1 line-clamp-2 px-0.5 text-[11px] sm:text-xs font-medium leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                {t.finance?.recurring?.manageRecurringButton ?? "Atur Jadwal Rutin"}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setWalletModalOpen(true)}
+              className="group relative flex min-h-[68px] sm:min-h-[74px] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-2 text-center text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] cursor-pointer"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                <Wallet className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <span className="mt-1 line-clamp-2 px-0.5 text-[11px] sm:text-xs font-medium leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                {t.finance.manageWalletsButton}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCategoryModalOpen(true)}
+              className="group relative flex min-h-[68px] sm:min-h-[74px] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-2 text-center text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] cursor-pointer"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                <FolderKanban className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <span className="mt-1 line-clamp-2 px-0.5 text-[11px] sm:text-xs font-medium leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                {t.finance.manageCategoriesButton}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setExportModalOpen(true)}
+              data-testid="finance-export-button"
+              className="group relative flex min-h-[68px] sm:min-h-[74px] flex-col items-center justify-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/70 p-2 text-center text-[var(--text-primary)] transition-all hover:border-[var(--border-strong)] hover:bg-[var(--bg-subtle)] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--focus-ring)] cursor-pointer"
+            >
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--bg-surface)] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                <Download className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <span className="mt-1 line-clamp-2 px-0.5 text-[11px] sm:text-xs font-medium leading-tight text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
+                {t.finance.exportButton}
+              </span>
+            </button>
+          </div>
         </CardContent>
       </Card>
 
