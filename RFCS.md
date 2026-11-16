@@ -43,7 +43,7 @@ Mengacu pada `## Product Type` di `PRD.md` dan `RULES.md`:
 | [RFC-012](RFCs/RFC-012-Monthly-Category-Budgeting.md) | Monthly Category Budgeting & Overspending Alerts | F20 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-010 | Medium | Passed | Reviewed |
 | [RFC-013](RFCs/RFC-013-Recurring-Transactions-Scheduler.md) | Recurring Transactions Scheduler (Serverless-Safe On-Access) | F21 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-012 | High | Passed | Reviewed |
 | [RFC-014](RFCs/RFC-014-Debt-And-Receivables-Ledger.md) | Debt & Receivables Ledger (Buku Utang-Piutang & Pelunasan) | F22 | RFC-001, RFC-002, RFC-006, RFC-007, RFC-009, RFC-013 | High | Passed | Reviewed |
-| [RFC-015](RFCs/RFC-015-PDF-Note-Attachments.md) | PDF Note Attachments & Secure Document Viewer | F23 | RFC-001, RFC-002, RFC-004, RFC-005, RFC-009, RFC-010 | Medium | Passed | Not started |
+| [RFC-015](RFCs/RFC-015-PDF-Note-Attachments.md) | PDF Note Attachments & Secure Document Viewer | F23 | RFC-001, RFC-002, RFC-004, RFC-005, RFC-009, RFC-010 | Medium | Passed | Implemented |
 
 ---
 

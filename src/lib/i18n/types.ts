@@ -199,6 +199,15 @@ export interface NotesDictionary {
     unsupportedClientType: string;
     clientEmptyFile: string;
     clientFileTooLarge: string;
+    pdfBadge: string;
+    pdfDocumentLabel: string;
+    previewPdf: string;
+    downloadPdf: string;
+    pdfModalTitle: string;
+    openInNewTab: string;
+    deletePdfConfirmTitle: string;
+    deletePdfConfirmDescription: string;
+    deletePdfConfirmButton: string;
   };
 }
 
@@ -801,6 +810,7 @@ export interface Dictionary {
     EMPTY_FILE: string;
     FILE_TOO_LARGE: string;
     UNSUPPORTED_IMAGE_TYPE: string;
+    UNSUPPORTED_ATTACHMENT_TYPE: string;
     ATTACHMENT_LIMIT_REACHED: string;
     ATTACHMENT_NOT_FOUND: string;
     ATTACHMENT_OBJECT_MISSING: string;

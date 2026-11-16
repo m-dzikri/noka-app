@@ -23,15 +23,24 @@ export async function GET(
 
     const asset = await readNoteAttachmentBinary(user.id, attachmentId);
 
+    const headers: Record<string, string> = {
+      "Content-Type": asset.mimeType,
+      "Content-Length": String(asset.sizeBytes),
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "private, max-age=3600",
+    };
+
+    if (asset.mimeType === "application/pdf") {
+      headers["Content-Security-Policy"] =
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox allow-scripts";
+      headers["Content-Disposition"] =
+        `inline; filename="attachment-${attachmentId}.pdf"`;
+    }
+
     return new NextResponse(new Uint8Array(asset.buffer), {
       status: 200,
-      headers: {
-        "Content-Type": asset.mimeType,
-        "Content-Length": String(asset.sizeBytes),
-        "Content-Disposition": "inline",
-        "X-Content-Type-Options": "nosniff",
-        "Cache-Control": "private, max-age=3600",
-      },
+      headers,
     });
   } catch (error) {
     return handleApiError(error);

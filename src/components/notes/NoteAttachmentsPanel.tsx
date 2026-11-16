@@ -9,6 +9,9 @@ import {
   type ChangeEvent,
 } from "react";
 import {
+  Download,
+  Eye,
+  FileText,
   Image as ImageIcon,
   ImagePlus,
   Loader2,
@@ -26,6 +29,7 @@ import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 import type { Dictionary } from "@/lib/i18n/types";
 import { cn } from "@/lib/cn";
+import { PdfDocumentModal, formatFileSize } from "./PdfDocumentModal";
 
 const MAX_ATTACHMENTS_PER_NOTE = 5;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -34,6 +38,7 @@ const ALLOWED_CLIENT_MIME_TYPES = new Set([
   "image/jpg",
   "image/png",
   "image/webp",
+  "application/pdf",
 ]);
 
 export interface NoteAttachmentsPanelProps {
@@ -62,6 +67,7 @@ interface AttachmentPanelState {
   errorMessage: string | null;
   deleteTarget: NoteAttachmentDto | null;
   lightboxAttachment: NoteAttachmentDto | null;
+  pdfAttachment: NoteAttachmentDto | null;
   failedImageIds: ReadonlySet<string>;
   retrySeed: number;
 }
@@ -121,6 +127,7 @@ function createInitialState(
     errorMessage: null,
     deleteTarget: null,
     lightboxAttachment: null,
+    pdfAttachment: null,
     failedImageIds: EMPTY_FAILED_IDS,
     retrySeed: 0,
   };
@@ -652,6 +659,10 @@ export function NoteAttachmentsPanel({
             base.lightboxAttachment?.id === targetAttachment.id
               ? null
               : base.lightboxAttachment,
+          pdfAttachment:
+            base.pdfAttachment?.id === targetAttachment.id
+              ? null
+              : base.pdfAttachment,
           deleteTarget: null,
           deletingId: null,
         };
@@ -711,7 +722,7 @@ export function NoteAttachmentsPanel({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
             tabIndex={-1}
             aria-label={t.notes.attachments.uploadInputAria}
             disabled={uploadDisabled}
@@ -797,7 +808,94 @@ export function NoteAttachmentsPanel({
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {activeState.attachments.map((item, index) => {
+            const isPdf = item.mimeType === "application/pdf";
             const hasLoadError = activeState.failedImageIds.has(item.id);
+
+            if (isPdf) {
+              const filename = `attachment-${item.id.slice(0, 8)}.pdf`;
+              return (
+                <li
+                  key={item.id}
+                  data-testid="pdf-attachment-card"
+                  className="flex min-w-0 flex-col justify-between overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)]/50 p-3 transition-all hover:border-[var(--border-default)]"
+                >
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                        <FileText className="h-5 w-5" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="truncate text-xs font-semibold text-[var(--text-primary)]"
+                          title={`attachment-${item.id}.pdf`}
+                        >
+                          {filename}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] mt-0.5">
+                          <span className="font-semibold text-rose-600 dark:text-rose-400">
+                            {t.notes.attachments.pdfBadge}
+                          </span>
+                          <span>•</span>
+                          <span>{formatFileSize(item.sizeBytes)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          setState((prev) => ({
+                            ...(prev.noteId === noteId
+                              ? prev
+                              : createInitialState(noteId)),
+                            pdfAttachment: item,
+                          }))
+                        }
+                        aria-label={`${t.notes.attachments.previewPdf} (${index + 1})`}
+                        className="h-7 px-2 text-[11px] gap-1 flex-1"
+                      >
+                        <Eye className="h-3 w-3" aria-hidden="true" />
+                        <span>{t.notes.attachments.previewPdf}</span>
+                      </Button>
+
+                      <a
+                        href={item.url}
+                        download={`attachment-${item.id}.pdf`}
+                        aria-label={`${t.notes.attachments.downloadPdf} (${index + 1})`}
+                        className="inline-flex h-7 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
+                      >
+                        <Download className="h-3 w-3" aria-hidden="true" />
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end border-t border-[var(--border-subtle)]/80 mt-2.5 pt-1.5">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={deleteControlsDisabled}
+                      onClick={() =>
+                        setState((prev) => ({
+                          ...(prev.noteId === noteId
+                            ? prev
+                            : createInitialState(noteId)),
+                          deleteTarget: item,
+                        }))
+                      }
+                      aria-label={`${t.notes.attachments.deleteButtonAria} (${index + 1})`}
+                      className="min-h-7 w-full justify-center gap-1 px-2 py-0.5 text-xs text-[var(--text-secondary)] hover:text-[var(--danger-bg)]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{t.notes.attachments.deleteButton}</span>
+                    </Button>
+                  </div>
+                </li>
+              );
+            }
+
             return (
               <li
                 key={item.id}
@@ -891,8 +989,16 @@ export function NoteAttachmentsPanel({
             }));
           }
         }}
-        title={t.notes.attachments.deleteConfirmTitle}
-        description={t.notes.attachments.deleteConfirmDescription}
+        title={
+          activeState.deleteTarget?.mimeType === "application/pdf"
+            ? t.notes.attachments.deletePdfConfirmTitle
+            : t.notes.attachments.deleteConfirmTitle
+        }
+        description={
+          activeState.deleteTarget?.mimeType === "application/pdf"
+            ? t.notes.attachments.deletePdfConfirmDescription
+            : t.notes.attachments.deleteConfirmDescription
+        }
       >
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button
@@ -917,7 +1023,9 @@ export function NoteAttachmentsPanel({
           >
             {activeState.deletingId !== null
               ? t.notes.attachments.deletingButton
-              : t.notes.attachments.deleteConfirmButton}
+              : activeState.deleteTarget?.mimeType === "application/pdf"
+                ? t.notes.attachments.deletePdfConfirmButton
+                : t.notes.attachments.deleteConfirmButton}
           </Button>
         </div>
       </Modal>
@@ -969,6 +1077,17 @@ export function NoteAttachmentsPanel({
           </div>
         ) : null}
       </Modal>
+
+      <PdfDocumentModal
+        open={activeState.pdfAttachment !== null}
+        onClose={() =>
+          setState((prev) => ({
+            ...(prev.noteId === noteId ? prev : createInitialState(noteId)),
+            pdfAttachment: null,
+          }))
+        }
+        attachment={activeState.pdfAttachment}
+      />
     </section>
   );
 }

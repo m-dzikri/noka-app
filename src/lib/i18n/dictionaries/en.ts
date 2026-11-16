@@ -65,6 +65,8 @@ export const enDictionary: Dictionary = {
     EMPTY_FILE: "Uploaded image file cannot be empty.",
     FILE_TOO_LARGE: "Image file size exceeds the 5 MB limit.",
     UNSUPPORTED_IMAGE_TYPE: "Only JPEG, PNG, and WebP images are supported.",
+    UNSUPPORTED_ATTACHMENT_TYPE:
+      "Only PDF documents, JPEG, PNG, and WebP images are supported.",
     ATTACHMENT_LIMIT_REACHED: "Maximum of 5 image attachments per note reached.",
     ATTACHMENT_NOT_FOUND: "Attachment not found.",
     ATTACHMENT_OBJECT_MISSING: "Attachment file could not be found in storage.",
@@ -401,9 +403,19 @@ export const enDictionary: Dictionary = {
       lightboxTitle: "Attachment Preview",
       closePreview: "Close Preview",
       unsupportedClientType:
-        "Unsupported file type. Choose a JPEG, PNG, or WebP image.",
-      clientEmptyFile: "Image file cannot be empty.",
+        "Unsupported file type. Choose a JPEG, PNG, or WebP image, or a PDF document.",
+      clientEmptyFile: "File cannot be empty.",
       clientFileTooLarge: "File size exceeds the 5 MB maximum limit.",
+      pdfBadge: "PDF",
+      pdfDocumentLabel: "PDF Document",
+      previewPdf: "View Document",
+      downloadPdf: "Download Document",
+      pdfModalTitle: "PDF Document Preview",
+      openInNewTab: "Open in New Tab",
+      deletePdfConfirmTitle: "Delete PDF Document?",
+      deletePdfConfirmDescription:
+        "This PDF document will be permanently deleted from this note and storage.",
+      deletePdfConfirmButton: "Yes, Delete Document",
     },
   },
   folders: {

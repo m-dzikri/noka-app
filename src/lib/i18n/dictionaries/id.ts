@@ -65,6 +65,8 @@ export const idDictionary: Dictionary = {
     EMPTY_FILE: "File gambar tidak boleh kosong.",
     FILE_TOO_LARGE: "Ukuran file gambar melebihi batas maksimal 5 MB.",
     UNSUPPORTED_IMAGE_TYPE: "Hanya gambar JPEG, PNG, dan WebP yang didukung.",
+    UNSUPPORTED_ATTACHMENT_TYPE:
+      "Hanya dokumen PDF serta gambar JPEG, PNG, dan WebP yang didukung.",
     ATTACHMENT_LIMIT_REACHED: "Maksimal 5 lampiran gambar per catatan tercapai.",
     ATTACHMENT_NOT_FOUND: "Lampiran tidak ditemukan.",
     ATTACHMENT_OBJECT_MISSING: "Berkas gambar lampiran tidak ditemukan di penyimpanan.",
@@ -401,9 +403,19 @@ export const idDictionary: Dictionary = {
       lightboxTitle: "Pratinjau Lampiran",
       closePreview: "Tutup Pratinjau",
       unsupportedClientType:
-        "Format file tidak didukung. Pilih gambar JPEG, PNG, atau WebP.",
-      clientEmptyFile: "File gambar tidak boleh kosong.",
+        "Format file tidak didukung. Pilih gambar JPEG, PNG, atau WebP, atau dokumen PDF.",
+      clientEmptyFile: "File tidak boleh kosong.",
       clientFileTooLarge: "Ukuran file melebihi batas maksimal 5 MB.",
+      pdfBadge: "PDF",
+      pdfDocumentLabel: "Dokumen PDF",
+      previewPdf: "Lihat Dokumen",
+      downloadPdf: "Unduh Dokumen",
+      pdfModalTitle: "Pratinjau Dokumen PDF",
+      openInNewTab: "Buka di Tab Baru",
+      deletePdfConfirmTitle: "Hapus Dokumen PDF?",
+      deletePdfConfirmDescription:
+        "Dokumen PDF ini akan dihapus permanen dari catatan dan penyimpanan.",
+      deletePdfConfirmButton: "Ya, Hapus Dokumen",
     },
   },
   folders: {

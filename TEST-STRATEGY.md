@@ -343,12 +343,12 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 - **Fitur & Prioritas:** `F23` — **Could Have** *(v1.1)*
 - **Prasyarat (*Depends on*):** `RFC-001`, `RFC-002`, `RFC-004`, `RFC-005`, `RFC-009`, `RFC-010`
 - **Aturan Terkait:** `STACK-3`, `ARCH-2`, `ARCH-6`, `API-1`, `API-2`, `SEC-1`, `SEC-4`, `SEC-5`, `SEC-6`, `OFFLINE-4`, `UI-3`, `UI-5`, `I18N-1`, `PERF-4`, `OBS-2`, `OBS-3`, `TEST-1`, `TEST-3`, `QUAL-2`
-- **File Suite (`Proposed`):** `tests/unit/pdf-attachments.test.ts`, `tests/integration/pdf-attachments-api.test.ts`
+- **File Suite (`Passing`):** `tests/unit/pdf-attachments.test.tsx`, `tests/integration/pdf-attachments-api.test.ts`
 
 | Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
 |---|---|---|---|---|---|---|
-| **TS-015-01** | Proposed | `tests/unit/pdf-attachments.test.ts` (Unit) | Could | Uji deteksi magic bytes `%PDF-` (`file-type`), penolakan file PDF palsu/corrupt, batas ukuran 5 MB, kuota gabungan 5 lampiran/catatan, rendering kartu PDF di UI, dan offline guard tombol upload/hapus. | `jsdom` + node buffer | Magic bytes tervalidasi ketat; file biner palsu ditolak `422`; UI menampilkan kartu dokumen PDF dengan ukuran dan tombol viewer; tombol dinonaktifkan saat offline (`OFFLINE-4`). |
-| **TS-015-02** | Proposed | `tests/integration/pdf-attachments-api.test.ts` (Integration) | Could | Uji `POST /api/notes/[id]/attachments` dengan PDF, penyajian privat `GET /api/attachments/[attachmentId]` dengan header CSP `sandbox allow-scripts` + `X-Content-Type-Options: nosniff`, penghapusan PDF dari storage, dan pembersihan akun (`DELETE /api/account`). | PostgreSQL uji + storage | Dokumen tersimpan aman di S3/local storage; header CSP terpasang untuk mencegah XSS; pembersihan storage 100% tuntas saat catatan/akun dihapus. |
+| **TS-015-01** | Passing | `tests/unit/pdf-attachments.test.tsx` (Unit) | Could | Uji deteksi magic bytes `%PDF-` (`file-type`), penolakan file PDF palsu/corrupt, batas ukuran 5 MB, kuota gabungan 5 lampiran/catatan, rendering kartu PDF di UI, dan offline guard tombol upload/hapus. | `jsdom` + node buffer | Magic bytes tervalidasi ketat; file biner palsu ditolak `422`; UI menampilkan kartu dokumen PDF dengan ukuran dan tombol viewer; tombol dinonaktifkan saat offline (`OFFLINE-4`). |
+| **TS-015-02** | Passing | `tests/integration/pdf-attachments-api.test.ts` (Integration) | Could | Uji `POST /api/notes/[id]/attachments` dengan PDF, penyajian privat `GET /api/attachments/[attachmentId]` dengan header CSP `sandbox allow-scripts` + `X-Content-Type-Options: nosniff`, penghapusan PDF dari storage, dan pembersihan akun (`DELETE /api/account`). | PostgreSQL uji + storage | Dokumen tersimpan aman di S3/local storage; header CSP terpasang untuk mencegah XSS; pembersihan storage 100% tuntas saat catatan/akun dihapus. |
 
 ---
 

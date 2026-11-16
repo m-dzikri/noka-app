@@ -81,15 +81,23 @@ Memperluas modul lampiran catatan (`RFC-005`) agar mendukung dokumen **PDF** (`F
 
 ## Acceptance Criteria
 
-- [ ] **AC-15.1 (Validasi Magic Bytes & Ekstensi PDF — `F23`, `SEC-5`, `SEC-6`):** `POST /api/notes/[id]/attachments` memverifikasi magic bytes `%PDF-` (`0x25 0x50 0x44 0x46`) via `file-type`. Berkas non-PDF atau berkas yang diganti ekstensinya secara manipulatif ditolak dengan `422 UNSUPPORTED_ATTACHMENT_TYPE`.
-- [ ] **AC-15.2 (Batas Ukuran 5 MB & Kuota Gabungan — `F23`):** Berkas PDF dengan ukuran `> 5 MB` ditolak dengan `413 FILE_TOO_LARGE`. Catatan yang telah memiliki 5 lampiran gabungan (gambar + PDF) ditolak dengan `409 ATTACHMENT_LIMIT_REACHED`.
-- [ ] **AC-15.3 (Penyajian Privat dengan CSP Sandboxing — `F23`, `SEC-4`):** Endpoint `GET /api/attachments/[attachmentId]` menyertakan header keamanan `Content-Security-Policy: sandbox allow-scripts` dan `X-Content-Type-Options: nosniff` untuk mencegah serangan XSS melalui dokumen PDF.
-- [ ] **AC-15.4 (UI Kartu Dokumen & Penampil PDF — `F23`, `UI-3`, `I18N-1`):** `NoteAttachmentsPanel` menampilkan kartu dokumen PDF yang jelas dengan nama berkas, ukuran, tombol buka pratinjau, dan tombol unduh.
-- [ ] **AC-15.5 (Aturan Offline-Only Guard — `F23`, `OFFLINE-4`):** Tombol unggah dan hapus PDF dinonaktifkan saat `!isOnline`, dengan indikator placeholder yang jelas jika dokumen belum tersedia di cache privat lokal.
-- [ ] **AC-15.6 (Pembersihan Siklus Hidup & Hapus Akun — `F23`, `RFC-010`):** Berkas PDF di storage terhapus bersih saat lampiran dihapus, catatan dihapus, atau akun pengguna dihapus secara mandiri.
+- [x] **AC-15.1 (Validasi Magic Bytes & Ekstensi PDF — `F23`, `SEC-5`, `SEC-6`):** `POST /api/notes/[id]/attachments` memverifikasi magic bytes `%PDF-` (`0x25 0x50 0x44 0x46`) via `file-type`. Berkas non-PDF atau berkas yang diganti ekstensinya secara manipulatif ditolak dengan `422 UNSUPPORTED_ATTACHMENT_TYPE`.
+- [x] **AC-15.2 (Batas Ukuran 5 MB & Kuota Gabungan — `F23`):** Berkas PDF dengan ukuran `> 5 MB` ditolak dengan `413 FILE_TOO_LARGE`. Catatan yang telah memiliki 5 lampiran gabungan (gambar + PDF) ditolak dengan `409 ATTACHMENT_LIMIT_REACHED`.
+- [x] **AC-15.3 (Penyajian Privat dengan CSP Sandboxing — `F23`, `SEC-4`):** Endpoint `GET /api/attachments/[attachmentId]` menyertakan header keamanan `Content-Security-Policy: sandbox allow-scripts` dan `X-Content-Type-Options: nosniff` untuk mencegah serangan XSS melalui dokumen PDF.
+- [x] **AC-15.4 (UI Kartu Dokumen & Penampil PDF — `F23`, `UI-3`, `I18N-1`):** `NoteAttachmentsPanel` menampilkan kartu dokumen PDF yang jelas dengan nama berkas, ukuran, tombol buka pratinjau, dan tombol unduh.
+- [x] **AC-15.5 (Aturan Offline-Only Guard — `F23`, `OFFLINE-4`):** Tombol unggah dan hapus PDF dinonaktifkan saat `!isOnline`, dengan indikator placeholder yang jelas jika dokumen belum tersedia di cache privat lokal.
+- [x] **AC-15.6 (Pembersihan Siklus Hidup & Hapus Akun — `F23`, `RFC-010`):** Berkas PDF di storage terhapus bersih saat lampiran dihapus, catatan dihapus, atau akun pengguna dihapus secara mandiri.
 
 ---
 
 ## Implementation Considerations
 
 - **Iframe Sandboxing:** Komponen penampil PDF menggunakan `<iframe sandbox="allow-scripts allow-same-origin" src="..." />` di dalam modal responsif untuk isolasi konteks eksekusi dokumen.
+
+---
+
+## Implementation Notes
+
+- **Ekstensi Unit Test (.tsx):** Berkas unit test dinamai `tests/unit/pdf-attachments.test.tsx` (menggunakan ekstensi `.tsx`) untuk mendukung rendering komponen React JSX (`NoteAttachmentsPanel`, `PdfDocumentModal`, `PreferencesProvider`) di lingkungan Vitest jsdom.
+- **Dukungan Magic Bytes & Signature Fallback:** Validasi biner di `attachments-service.ts` memadukan `fileTypeFromBuffer` dengan deteksi signature `%PDF-` (`0x25 0x50 0x44 0x46`) untuk memastikan pengujian unit dengan header buffer minimal maupun file PDF produksi terverifikasi akurat.
+- **Zero Schema Change:** Kolom `mime_type varchar(32)` pada tabel `note_attachments` telah mampu menyimpan `application/pdf` secara native tanpa memerlukan migrasi skema database tambahan.

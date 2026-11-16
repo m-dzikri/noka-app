@@ -15,6 +15,7 @@ const ALLOWED_ATTACHMENT_MIME_TO_EXT = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "application/pdf": "pdf",
 } as const;
 
 export type AllowedAttachmentMime = keyof typeof ALLOWED_ATTACHMENT_MIME_TO_EXT;
@@ -49,11 +50,13 @@ export interface ReadNoteAttachmentBinaryResult {
   buffer: Buffer;
 }
 
-export interface ValidatedAttachmentImage {
+export interface ValidatedAttachment {
   mimeType: AllowedAttachmentMime;
   ext: AllowedAttachmentExt;
   sizeBytes: number;
 }
+
+export type ValidatedAttachmentImage = ValidatedAttachment;
 
 export interface NoteAttachmentCleanupInput {
   userId: string;
@@ -103,28 +106,28 @@ export function buildAttachmentStorageKey(
 }
 
 /**
- * Validates file size boundaries for note image uploads (`422 EMPTY_FILE`, `413 FILE_TOO_LARGE`).
+ * Validates file size boundaries for note uploads (`422 EMPTY_FILE`, `413 FILE_TOO_LARGE`).
  */
 export function assertValidAttachmentSize(sizeBytes: number): void {
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
-    throw new ApiError(422, "EMPTY_FILE", "Uploaded image file cannot be empty");
+    throw new ApiError(422, "EMPTY_FILE", "Uploaded file cannot be empty");
   }
   if (sizeBytes > MAX_ATTACHMENT_BYTES) {
     throw new ApiError(
       413,
       "FILE_TOO_LARGE",
-      "Uploaded image exceeds the 5 MB file limit",
+      "Uploaded file exceeds the 5 MB file limit",
     );
   }
 }
 
 /**
- * Validates magic bytes (`file-type`) and optional declared MIME type for JPEG/PNG/WebP uploads (SEC-6).
+ * Validates magic bytes (`file-type` or `%PDF-`) and optional declared MIME type for JPEG/PNG/WebP/PDF uploads (SEC-5, SEC-6).
  */
-export async function validateAttachmentImageBuffer(
+export async function validateAttachmentBuffer(
   buffer: Buffer,
   declaredMimeType?: string,
-): Promise<ValidatedAttachmentImage> {
+): Promise<ValidatedAttachment> {
   assertValidAttachmentSize(buffer.byteLength);
 
   // Convert to a realm-local Uint8Array view so file-type works identically in Node and jsdom realms.
@@ -133,8 +136,31 @@ export async function validateAttachmentImageBuffer(
     buffer.byteOffset,
     buffer.byteLength,
   );
-  const detected = await fileTypeFromBuffer(bytes);
+  let detected = await fileTypeFromBuffer(bytes);
+
+  // Fallback detection for PDF magic bytes "%PDF-" (0x25 0x50 0x44 0x46)
+  if (!detected && bytes.length >= 4) {
+    if (
+      bytes[0] === 0x25 && // %
+      bytes[1] === 0x50 && // P
+      bytes[2] === 0x44 && // D
+      bytes[3] === 0x46    // F
+    ) {
+      detected = { ext: "pdf", mime: "application/pdf" };
+    }
+  }
+
+  const normalizedDeclared = normalizeDeclaredMime(declaredMimeType);
+  const isPdfDeclared = normalizedDeclared === "application/pdf";
+
   if (!detected || !isAllowedMime(detected.mime)) {
+    if (isPdfDeclared) {
+      throw new ApiError(
+        422,
+        "UNSUPPORTED_ATTACHMENT_TYPE",
+        "Only PDF documents, JPEG, PNG, and WebP images are supported",
+      );
+    }
     throw new ApiError(
       422,
       "UNSUPPORTED_IMAGE_TYPE",
@@ -142,12 +168,18 @@ export async function validateAttachmentImageBuffer(
     );
   }
 
-  const normalizedDeclared = normalizeDeclaredMime(declaredMimeType);
   if (
     normalizedDeclared.length > 0 &&
     normalizedDeclared !== "application/octet-stream" &&
     normalizedDeclared !== detected.mime
   ) {
+    if (isPdfDeclared || detected.mime === "application/pdf") {
+      throw new ApiError(
+        422,
+        "UNSUPPORTED_ATTACHMENT_TYPE",
+        "Declared MIME type does not match file contents",
+      );
+    }
     throw new ApiError(
       422,
       "UNSUPPORTED_IMAGE_TYPE",
@@ -161,6 +193,8 @@ export async function validateAttachmentImageBuffer(
     sizeBytes: buffer.byteLength,
   };
 }
+
+export const validateAttachmentImageBuffer = validateAttachmentBuffer;
 
 /**
  * Parses and pre-validates a `multipart/form-data` image upload Request containing a single `file` field.
@@ -280,7 +314,7 @@ export async function listNoteAttachments(
 }
 
 /**
- * Validates and uploads one image attachment atomically under a note FOR UPDATE lock with compensation on commit failure.
+ * Validates and uploads one attachment (image or PDF) atomically under a note FOR UPDATE lock with compensation on commit failure.
  */
 export async function uploadNoteAttachment(
   userId: string,
@@ -289,7 +323,7 @@ export async function uploadNoteAttachment(
   declaredMimeType?: string,
   storage: StorageAdapter = getStorage(),
 ): Promise<UploadNoteAttachmentResult> {
-  const validated = await validateAttachmentImageBuffer(
+  const validated = await validateAttachmentBuffer(
     buffer,
     declaredMimeType,
   );
@@ -329,7 +363,7 @@ export async function uploadNoteAttachment(
         throw new ApiError(
           409,
           "ATTACHMENT_LIMIT_REACHED",
-          "Maximum of 5 image attachments per note reached",
+          "Maximum of 5 attachments per note reached",
         );
       }
 
