@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DebtCard } from "@/components/finance/debts/DebtCard";
+import { DebtsWorkspace } from "@/components/finance/debts/DebtsWorkspace";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
 import { PrivacyProvider } from "@/components/providers/PrivacyProvider";
 import type { DebtReceivableDto } from "@/features/finance/debt-schemas";
@@ -243,6 +244,110 @@ describe("TS-014-01: Debt & Receivables Calculation, Overdue Detection & UI (Uni
 
       fireEvent.click(screen.getByTitle("Hapus"));
       expect(onDelete).toHaveBeenCalledWith(debt);
+    });
+  });
+
+  describe("Non-Blocking Improvements: Overdue Shortcut, Contact Grouping & Revert", () => {
+    it("renders overdue alert banner and filters list to overdue items when clicked", () => {
+      const overdueDebt = createMockDebt({
+        id: "d-1",
+        personName: "Budi Overdue",
+        isOverdue: true,
+        status: "active",
+      });
+      const activeDebt = createMockDebt({
+        id: "d-2",
+        personName: "Citra Normal",
+        isOverdue: false,
+        status: "active",
+      });
+
+      const summary = {
+        totalReceivable: 0,
+        totalDebt: 1_000_000,
+        netPosition: -1_000_000,
+        activeDebtsCount: 2,
+        activeReceivablesCount: 0,
+        overdueCount: 1,
+      };
+
+      renderWithI18n(
+        <DebtsWorkspace
+          initialSummary={summary}
+          initialItems={[overdueDebt, activeDebt]}
+          initialContacts={["Budi Overdue", "Citra Normal"]}
+          wallets={[]}
+        />,
+      );
+
+      // Overdue banner is displayed
+      expect(screen.getByTestId("overdue-banner")).toBeInTheDocument();
+      expect(
+        screen.getByText(/1 komitmen lewat jatuh tempo/i),
+      ).toBeInTheDocument();
+
+      // Click filter overdue button on the banner
+      fireEvent.click(
+        screen.getByRole("button", { name: "Lewat Jatuh Tempo" }),
+      );
+
+      // Now only Budi Overdue is visible, Citra Normal is filtered out
+      expect(screen.getByText("Budi Overdue")).toBeInTheDocument();
+      expect(screen.queryByText("Citra Normal")).not.toBeInTheDocument();
+    });
+
+    it("switches to contact view mode and renders aggregated exposure per contact", () => {
+      const debt1 = createMockDebt({
+        id: "d-1",
+        type: "debt",
+        personName: "Rudi Hartono",
+        totalAmount: 1_000_000,
+        settledAmount: 400_000, // remaining 600k
+        status: "active",
+      });
+      const receivable1 = createMockDebt({
+        id: "d-2",
+        type: "receivable",
+        personName: "Rudi Hartono",
+        totalAmount: 2_000_000,
+        settledAmount: 500_000, // remaining 1.5M
+        status: "active",
+      });
+
+      renderWithI18n(
+        <DebtsWorkspace
+          initialSummary={{
+            totalReceivable: 1_500_000,
+            totalDebt: 600_000,
+            netPosition: 900_000,
+            activeDebtsCount: 1,
+            activeReceivablesCount: 1,
+            overdueCount: 0,
+          }}
+          initialItems={[debt1, receivable1]}
+          initialContacts={["Rudi Hartono"]}
+          wallets={[]}
+        />,
+      );
+
+      // Switch to Per Rekanan view
+      fireEvent.click(screen.getByTitle("Per Rekanan"));
+
+      // Shows contact card for Rudi Hartono
+      expect(screen.getByText("Rudi Hartono")).toBeInTheDocument();
+      expect(screen.getByText("2 komitmen")).toBeInTheDocument();
+      expect(screen.getByText("Hak Tagih (Piutang)")).toBeInTheDocument();
+      expect(screen.getByText("Kewajiban (Utang)")).toBeInTheDocument();
+      expect(screen.getByText("Eksposur Bersih")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /Lihat Komitmen Rekanan/i }),
+      ).toBeInTheDocument();
+
+      // Click "Lihat Komitmen Rekanan" -> switches back to list with filter
+      fireEvent.click(
+        screen.getByRole("button", { name: /Lihat Komitmen Rekanan/i }),
+      );
+      expect(screen.getByText("Daftar Komitmen")).toBeInTheDocument();
     });
   });
 });

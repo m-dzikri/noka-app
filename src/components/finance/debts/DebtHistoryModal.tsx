@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { History, Wallet, X } from "lucide-react";
+import { History, Trash2, Wallet, X } from "lucide-react";
 import type {
   DebtReceivableDetailDto,
   DebtReceivableDto,
@@ -13,17 +13,20 @@ interface DebtHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   debt: DebtReceivableDto | null;
+  onSettlementReverted?: () => void;
 }
 
 function DebtHistoryBody({
   onClose,
   debt,
+  onSettlementReverted,
 }: Omit<DebtHistoryModalProps, "isOpen"> & { debt: DebtReceivableDto }) {
   const { t: dict } = useI18n();
   const t = dict.finance.debts;
 
   const [detail, setDetail] = useState<DebtReceivableDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,6 +57,36 @@ function DebtHistoryBody({
       cancelled = true;
     };
   }, [debt.id]);
+
+  const handleDeleteSettlement = async (settlementId: string) => {
+    if (!window.confirm(t.revertConfirmDesc)) return;
+    setDeletingId(settlementId);
+    try {
+      const res = await fetch(
+        `/api/finance/debts/${debt.id}/settlements/${settlementId}`,
+        {
+          method: "DELETE",
+        },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error?.message || "Gagal membatalkan pelunasan");
+      }
+      setDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              settlements: prev.settlements.filter((s) => s.id !== settlementId),
+            }
+          : null,
+      );
+      onSettlementReverted?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Gagal membatalkan pelunasan");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div
@@ -116,12 +149,24 @@ function DebtHistoryBody({
                       {s.notes && <span>• {s.notes}</span>}
                     </div>
                   </div>
-                  <div className="text-right text-[11px] text-muted-foreground">
-                    {new Date(s.settledAt).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                  <div className="flex items-center gap-2">
+                    <div className="text-right text-[11px] text-muted-foreground">
+                      {new Date(s.settledAt).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      title={t.revertSettlementCta}
+                      aria-label={t.revertSettlementCta}
+                      disabled={deletingId === s.id}
+                      onClick={() => handleDeleteSettlement(s.id)}
+                      className="p-1 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ))}

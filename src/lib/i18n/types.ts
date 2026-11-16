@@ -526,6 +526,15 @@ export interface FinanceDebtsDictionary {
   filterStatusAll: string;
   filterStatusActive: string;
   filterStatusSettled: string;
+  filterStatusOverdue: string;
+  overdueAlertPill: string;
+  viewModeList: string;
+  viewModeContacts: string;
+  contactCardTotalReceivable: string;
+  contactCardTotalDebt: string;
+  contactCardNet: string;
+  contactCardItemsCount: string;
+  filterByContactCta: string;
   searchPlaceholder: string;
   newDebtCta: string;
   newReceivableCta: string;
@@ -590,6 +599,10 @@ export interface FinanceDebtsDictionary {
   settlementWalletColumn: string;
   settlementDateColumn: string;
   settlementNotesColumn: string;
+  revertSettlementCta: string;
+  revertConfirmTitle: string;
+  revertConfirmDesc: string;
+  revertSuccess: string;
   // Delete confirm
   deleteConfirmTitle: string;
   deleteConfirmDescription: string;

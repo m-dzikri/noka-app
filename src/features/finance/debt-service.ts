@@ -558,3 +558,91 @@ export async function recordSettlement(
     };
   });
 }
+
+/**
+ * Reverts / deletes a settlement payment.
+ * If the settlement created a cash ledger transaction, that transaction is atomically deleted
+ * (restoring the wallet balance). The debt settled amount is decremented, and if it was settled,
+ * its status is restored to 'active'.
+ */
+export async function deleteSettlement(
+  userId: string,
+  debtId: string,
+  settlementId: string,
+): Promise<{ deleted: true; settlementId: string; debt: DebtReceivableDto }> {
+  const db = getDb();
+
+  return await db.transaction(async (tx) => {
+    // 1. Lock debt row
+    const [debt] = await tx
+      .select()
+      .from(debtsReceivables)
+      .where(
+        and(
+          eq(debtsReceivables.id, debtId),
+          eq(debtsReceivables.userId, userId),
+          isNull(debtsReceivables.deletedAt),
+        ),
+      )
+      .for("update");
+
+    if (!debt) {
+      throw new ApiError(404, "NOT_FOUND", "Data utang/piutang tidak ditemukan");
+    }
+
+    // 2. Find settlement row
+    const [settlement] = await tx
+      .select()
+      .from(debtSettlements)
+      .where(
+        and(
+          eq(debtSettlements.id, settlementId),
+          eq(debtSettlements.debtId, debtId),
+        ),
+      )
+      .limit(1);
+
+    if (!settlement) {
+      throw new ApiError(404, "NOT_FOUND", "Riwayat cicilan tidak ditemukan");
+    }
+
+    // 3. If there was a linked cash transaction, delete it to restore wallet balance
+    if (settlement.transactionId) {
+      await tx
+        .delete(transactions)
+        .where(
+          and(
+            eq(transactions.id, settlement.transactionId),
+            eq(transactions.userId, userId),
+          ),
+        );
+    }
+
+    // 4. Delete settlement row
+    await tx
+      .delete(debtSettlements)
+      .where(eq(debtSettlements.id, settlementId));
+
+    // 5. Decrement settled amount and update status
+    const newSettledAmount = Math.max(0, debt.settledAmount - settlement.amount);
+    const newStatus =
+      newSettledAmount >= debt.totalAmount ? "settled" : "active";
+
+    const [updatedDebt] = await tx
+      .update(debtsReceivables)
+      .set({
+        settledAmount: newSettledAmount,
+        status: newStatus,
+        updatedAt: new Date(),
+      })
+      .where(eq(debtsReceivables.id, debtId))
+      .returning();
+
+    return {
+      deleted: true,
+      settlementId,
+      debt: mapDebtRow(updatedDebt),
+    };
+  });
+}
+

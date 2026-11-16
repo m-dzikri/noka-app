@@ -12,6 +12,7 @@ import {
   DELETE as debtDetailDelete,
 } from "@/app/api/finance/debts/[id]/route";
 import { POST as settlementsPost } from "@/app/api/finance/debts/[id]/settlements/route";
+import { DELETE as settlementDelete } from "@/app/api/finance/debts/[id]/settlements/[settlementId]/route";
 import { POST as walletsPost } from "@/app/api/wallets/route";
 import { getDb } from "@/db";
 import { users } from "@/db/schema/auth";
@@ -531,6 +532,92 @@ describe("TS-014-02: Debts & Receivables API Integration Tests", () => {
         .from(debtSettlements)
         .where(eq(debtSettlements.debtId, debtId));
       expect(userSettlements).toHaveLength(0);
+    });
+
+    it("reverts settlement payment atomically: deletes linked cash transaction, restores wallet balance, and restores debt status (Non-blocking improvement)", async () => {
+      const user = await createRegisteredUser("revert-settle");
+      const userB = await createRegisteredUser("revert-intruder");
+
+      // 1. Create wallet with 1,500,000 IDR
+      const walletRes = await walletsPost(
+        makeAuthedRequest("http://localhost:3000/api/wallets", "POST", user.cookie, {
+          name: "Dompet Reversal",
+          type: "bank",
+          initialBalance: 1_500_000,
+        }),
+      );
+      const walletId = (await walletRes.json()).data.wallet.id;
+
+      // 2. Create debt of 500,000 IDR
+      const debtRes = await debtsPost(
+        makeAuthedRequest("http://localhost:3000/api/finance/debts", "POST", user.cookie, {
+          type: "debt",
+          personName: "Mitra Bisnis",
+          totalAmount: 500_000,
+        }),
+      );
+      const debtId = (await debtRes.json()).data.item.id;
+
+      // 3. Fully settle debt with wallet
+      const settleRes = await settlementsPost(
+        makeAuthedRequest(
+          `http://localhost:3000/api/finance/debts/${debtId}/settlements`,
+          "POST",
+          user.cookie,
+          { amount: 500_000, walletId, notes: "Pelunasan penuh" },
+        ),
+        { params: Promise.resolve({ id: debtId }) },
+      );
+      expect(settleRes.status).toBe(201);
+      const settleJson = await settleRes.json();
+      const settlementId = settleJson.data.settlement.id;
+      const transactionId = settleJson.data.settlement.transactionId;
+      expect(settleJson.data.debt.status).toBe("settled");
+      expect(settleJson.data.debt.settledAmount).toBe(500_000);
+
+      // Verify wallet balance is 1,000,000
+      const db = getDb();
+      let balances = await loadWalletsWithBalances(db, user.userId);
+      let targetWallet = balances.find((w) => w.id === walletId);
+      expect(targetWallet?.currentBalance).toBe(1_000_000);
+
+      // 4. Multi-tenant rejection: User B cannot delete User A's settlement
+      const intruderDelRes = await settlementDelete(
+        makeAuthedRequest(
+          `http://localhost:3000/api/finance/debts/${debtId}/settlements/${settlementId}`,
+          "DELETE",
+          userB.cookie,
+        ),
+        { params: Promise.resolve({ id: debtId, settlementId }) },
+      );
+      expect(intruderDelRes.status).toBe(404);
+
+      // 5. User A deletes/reverts the settlement
+      const delRes = await settlementDelete(
+        makeAuthedRequest(
+          `http://localhost:3000/api/finance/debts/${debtId}/settlements/${settlementId}`,
+          "DELETE",
+          user.cookie,
+        ),
+        { params: Promise.resolve({ id: debtId, settlementId }) },
+      );
+      expect(delRes.status).toBe(200);
+      const delJson = await delRes.json();
+      expect(delJson.data.deleted).toBe(true);
+      expect(delJson.data.debt.settledAmount).toBe(0);
+      expect(delJson.data.debt.status).toBe("active");
+
+      // Verify the cash transaction was deleted
+      const [tx] = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.id, transactionId));
+      expect(tx).toBeUndefined();
+
+      // Verify wallet balance is restored to 1,500,000!
+      balances = await loadWalletsWithBalances(db, user.userId);
+      targetWallet = balances.find((w) => w.id === walletId);
+      expect(targetWallet?.currentBalance).toBe(1_500_000);
     });
   });
 });
