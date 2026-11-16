@@ -4,9 +4,13 @@ import { describe, expect, it, vi } from "vitest";
 import { NoteAttachmentsPanel } from "@/components/notes/NoteAttachmentsPanel";
 import {
   PdfDocumentModal,
+  extractPdfPageCount,
   formatFileSize,
+  formatPageCount,
 } from "@/components/notes/PdfDocumentModal";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
+import { idDictionary } from "@/lib/i18n/dictionaries/id";
+import { enDictionary } from "@/lib/i18n/dictionaries/en";
 import {
   assertValidAttachmentSize,
   MAX_ATTACHMENT_BYTES,
@@ -202,6 +206,92 @@ describe("TS-015-01: PDF Attachments Validation, Formatting & UI (Unit)", () => 
       const iframe = screen.getByTitle("Pratinjau Dokumen PDF");
       expect(iframe).toHaveAttribute("sandbox", "allow-scripts allow-same-origin");
       expect(screen.getByText("Buka di Tab Baru")).toBeInTheDocument();
+    });
+
+    it("renders original desktop filename and page count badge when metadata is provided", () => {
+      const enrichedAttachment: NoteAttachmentDto = {
+        ...mockPdfAttachment,
+        originalFileName: "laporan-keuangan-2026.pdf",
+        pageCount: 7,
+      };
+
+      renderWithI18n(
+        <NoteAttachmentsPanel
+          noteId="n1n2n3n4-0000-0000-0000-000000000001"
+          isOnline={true}
+          initialAttachments={[enrichedAttachment]}
+        />,
+      );
+
+      // Card displays original desktop filename
+      expect(screen.getByText("laporan-keuangan-2026.pdf")).toBeInTheDocument();
+
+      // Card displays page count badge
+      const pageBadge = screen.getByTestId("pdf-page-count");
+      expect(pageBadge).toHaveTextContent("7 hlm");
+
+      // Download button uses original desktop filename
+      const downloadBtn = screen.getByRole("link", { name: /Unduh Dokumen/i });
+      expect(downloadBtn).toHaveAttribute(
+        "download",
+        "laporan-keuangan-2026.pdf",
+      );
+    });
+
+    it("displays original filename and page count in PdfDocumentModal header and description", () => {
+      const enrichedAttachment: NoteAttachmentDto = {
+        ...mockPdfAttachment,
+        originalFileName: "proposal-riset.pdf",
+        pageCount: 3,
+      };
+
+      renderWithI18n(
+        <PdfDocumentModal
+          open={true}
+          onClose={vi.fn()}
+          attachment={enrichedAttachment}
+          displayName={enrichedAttachment.originalFileName}
+          pageCount={enrichedAttachment.pageCount}
+        />,
+      );
+
+      expect(screen.getByText("proposal-riset.pdf")).toBeInTheDocument();
+      expect(screen.getByText(/Dokumen PDF • 3 hlm • 1.8 MB/)).toBeInTheDocument();
+    });
+  });
+
+  describe("Improvement Suggestions: PDF Page Count Extraction & Formatting (REVIEW-RFC-015)", () => {
+    it("extracts single page from valid PDF sample", () => {
+      expect(extractPdfPageCount(VALID_PDF_SAMPLE)).toBe(1);
+    });
+
+    it("extracts multi-page count from /Pages /Count N dictionary", () => {
+      const multiPagePdf = Buffer.from(
+        "%PDF-1.4\n1 0 obj\n<< /Type /Pages /Kids [2 0 R 3 0 R] /Count 12 >>\nendobj\n%%EOF",
+        "utf8",
+      );
+      expect(extractPdfPageCount(multiPagePdf)).toBe(12);
+    });
+
+    it("extracts page count from multiple /Type /Page objects", () => {
+      const multiObjPdf = Buffer.from(
+        "%PDF-1.4\n1 0 obj<</Type/Page>>endobj\n2 0 obj<</Type/Page>>endobj\n3 0 obj<</Type/Page>>endobj\n%%EOF",
+        "utf8",
+      );
+      expect(extractPdfPageCount(multiObjPdf)).toBe(3);
+    });
+
+    it("returns null for non-PDF or image buffers", () => {
+      expect(extractPdfPageCount(JPEG_SAMPLE)).toBeNull();
+      expect(extractPdfPageCount(Buffer.from([0x00, 0x01, 0x02]))).toBeNull();
+    });
+
+    it("formats page count correctly across ID and EN locales", () => {
+      expect(formatPageCount(1, idDictionary)).toBe("1 hlm");
+      expect(formatPageCount(5, idDictionary)).toBe("5 hlm");
+
+      expect(formatPageCount(1, enDictionary)).toBe("1 pg");
+      expect(formatPageCount(5, enDictionary)).toBe("5 pgs");
     });
   });
 });

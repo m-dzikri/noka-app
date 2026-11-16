@@ -408,6 +408,8 @@ export const enDictionary: Dictionary = {
       clientFileTooLarge: "File size exceeds the 5 MB maximum limit.",
       pdfBadge: "PDF",
       pdfDocumentLabel: "PDF Document",
+      pageCountBadge: "{count} pgs",
+      pageCountSingle: "{count} pg",
       previewPdf: "View Document",
       downloadPdf: "Download Document",
       pdfModalTitle: "PDF Document Preview",

@@ -39,13 +39,15 @@ export async function POST(
     const { id } = await params;
     const noteId = parseUuidRouteParam(id);
 
-    const { buffer, declaredMimeType } =
+    const { buffer, declaredMimeType, originalFileName } =
       await extractAttachmentUploadFromRequest(req);
     const result = await uploadNoteAttachment(
       user.id,
       noteId,
       buffer,
       declaredMimeType,
+      undefined,
+      originalFileName,
     );
 
     const response = apiOk({ attachment: result.attachment }, 201);

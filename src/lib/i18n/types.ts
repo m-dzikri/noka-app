@@ -201,6 +201,8 @@ export interface NotesDictionary {
     clientFileTooLarge: string;
     pdfBadge: string;
     pdfDocumentLabel: string;
+    pageCountBadge: string;
+    pageCountSingle: string;
     previewPdf: string;
     downloadPdf: string;
     pdfModalTitle: string;

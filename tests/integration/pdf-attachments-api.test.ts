@@ -183,6 +183,8 @@ describe("TS-015-02: PDF Note Attachments API Integration Tests", () => {
     expect(json.data.attachment.url).toBe(
       `/api/attachments/${json.data.attachment.id}`,
     );
+    expect(json.data.attachment.originalFileName).toBe("document.pdf");
+    expect(json.data.attachment.pageCount).toBe(1);
 
     // Verify storage object was written
     const storage = getStorage();

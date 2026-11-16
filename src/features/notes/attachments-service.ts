@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import path from "node:path";
 import { and, asc, count, eq, isNull } from "drizzle-orm";
 import { fileTypeFromBuffer } from "file-type";
 import { getDb, type DbOrTx } from "@/db";
@@ -6,6 +7,9 @@ import { noteAttachments, notes } from "@/db/schema/notes";
 import { ApiError } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
 import { getStorage, type StorageAdapter } from "@/lib/storage";
+import { extractPdfPageCount } from "./pdf-metadata";
+
+export { extractPdfPageCount };
 
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 export const MAX_MULTIPART_CONTENT_LENGTH = MAX_ATTACHMENT_BYTES + 65_536;
@@ -29,6 +33,8 @@ export interface NoteAttachmentDto {
   sizeBytes: number;
   url: string;
   createdAt: string;
+  originalFileName?: string;
+  pageCount?: number;
 }
 
 export interface UploadNoteAttachmentResult {
@@ -54,6 +60,7 @@ export interface ValidatedAttachment {
   mimeType: AllowedAttachmentMime;
   ext: AllowedAttachmentExt;
   sizeBytes: number;
+  pageCount?: number;
 }
 
 export type ValidatedAttachmentImage = ValidatedAttachment;
@@ -187,10 +194,16 @@ export async function validateAttachmentBuffer(
     );
   }
 
+  const pageCount =
+    detected.mime === "application/pdf"
+      ? extractPdfPageCount(bytes) ?? undefined
+      : undefined;
+
   return {
     mimeType: detected.mime,
     ext: ALLOWED_ATTACHMENT_MIME_TO_EXT[detected.mime],
     sizeBytes: buffer.byteLength,
+    pageCount,
   };
 }
 
@@ -201,7 +214,11 @@ export const validateAttachmentImageBuffer = validateAttachmentBuffer;
  */
 export async function extractAttachmentUploadFromRequest(
   req: Request,
-): Promise<{ buffer: Buffer; declaredMimeType: string }> {
+): Promise<{
+  buffer: Buffer;
+  declaredMimeType: string;
+  originalFileName?: string;
+}> {
   const contentType = req.headers.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.includes("multipart/form-data")) {
     throw new ApiError(
@@ -263,9 +280,14 @@ export async function extractAttachmentUploadFromRequest(
   const buffer = Buffer.from(arrayBuffer);
   assertValidAttachmentSize(buffer.byteLength);
 
+  const rawName = typeof fileEntry.name === "string" ? fileEntry.name.trim() : "";
+  const sanitizedOriginalName =
+    rawName.length > 0 ? path.basename(rawName).slice(0, 255) : undefined;
+
   return {
     buffer,
     declaredMimeType: fileEntry.type,
+    originalFileName: sanitizedOriginalName,
   };
 }
 
@@ -322,6 +344,7 @@ export async function uploadNoteAttachment(
   buffer: Buffer,
   declaredMimeType?: string,
   storage: StorageAdapter = getStorage(),
+  originalFileName?: string,
 ): Promise<UploadNoteAttachmentResult> {
   const validated = await validateAttachmentBuffer(
     buffer,
@@ -427,7 +450,11 @@ export async function uploadNoteAttachment(
       uploadedStorageKey = storageKey;
 
       return {
-        attachment: toAttachmentDto(inserted),
+        attachment: {
+          ...toAttachmentDto(inserted),
+          ...(originalFileName ? { originalFileName } : {}),
+          ...(validated.pageCount ? { pageCount: validated.pageCount } : {}),
+        },
         noteUpdatedAt: now.toISOString(),
       };
     });

@@ -29,7 +29,12 @@ import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 import type { Dictionary } from "@/lib/i18n/types";
 import { cn } from "@/lib/cn";
-import { PdfDocumentModal, formatFileSize } from "./PdfDocumentModal";
+import {
+  PdfDocumentModal,
+  extractPdfPageCount,
+  formatFileSize,
+  formatPageCount,
+} from "./PdfDocumentModal";
 
 const MAX_ATTACHMENTS_PER_NOTE = 5;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -40,6 +45,64 @@ const ALLOWED_CLIENT_MIME_TYPES = new Set([
   "image/webp",
   "application/pdf",
 ]);
+
+export interface AttachmentClientMetadata {
+  originalName?: string;
+  pageCount?: number;
+}
+
+const ATTACHMENT_METADATA_STORAGE_KEY = "noka_attachment_client_metadata";
+
+function loadClientAttachmentMetadata(): Record<
+  string,
+  AttachmentClientMetadata
+> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(ATTACHMENT_METADATA_STORAGE_KEY);
+    return raw
+      ? (JSON.parse(raw) as Record<string, AttachmentClientMetadata>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveClientAttachmentMetadata(
+  attachmentId: string,
+  metadata: AttachmentClientMetadata,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    const current = loadClientAttachmentMetadata();
+    current[attachmentId] = {
+      ...(current[attachmentId] || {}),
+      ...metadata,
+    };
+    window.localStorage.setItem(
+      ATTACHMENT_METADATA_STORAGE_KEY,
+      JSON.stringify(current),
+    );
+  } catch {
+    // Ignore restricted localStorage errors
+  }
+}
+
+function deleteClientAttachmentMetadata(attachmentId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const current = loadClientAttachmentMetadata();
+    if (attachmentId in current) {
+      delete current[attachmentId];
+      window.localStorage.setItem(
+        ATTACHMENT_METADATA_STORAGE_KEY,
+        JSON.stringify(current),
+      );
+    }
+  } catch {
+    // Ignore
+  }
+}
 
 export interface NoteAttachmentsPanelProps {
   noteId: string;
@@ -70,6 +133,7 @@ interface AttachmentPanelState {
   pdfAttachment: NoteAttachmentDto | null;
   failedImageIds: ReadonlySet<string>;
   retrySeed: number;
+  clientMetadata: Record<string, AttachmentClientMetadata>;
 }
 
 const EMPTY_FAILED_IDS: ReadonlySet<string> = new Set();
@@ -130,6 +194,7 @@ function createInitialState(
     pdfAttachment: null,
     failedImageIds: EMPTY_FAILED_IDS,
     retrySeed: 0,
+    clientMetadata: loadClientAttachmentMetadata(),
   };
 }
 
@@ -497,6 +562,20 @@ export function NoteAttachmentsPanel({
       errorMessage: null,
     }));
 
+    // Pre-extract page count if the uploaded file is a PDF
+    let clientPageCount: number | null = null;
+    if (
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      try {
+        const headerSlice = await file.slice(0, 512 * 1024).arrayBuffer();
+        clientPageCount = extractPdfPageCount(new Uint8Array(headerSlice));
+      } catch {
+        // Safe fallback
+      }
+    }
+
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -540,6 +619,15 @@ export function NoteAttachmentsPanel({
       }
 
       const createdAttachment = payload.data.attachment;
+      const originalFileName = createdAttachment.originalFileName || file.name;
+      const pageCount =
+        createdAttachment.pageCount ?? clientPageCount ?? undefined;
+
+      saveClientAttachmentMetadata(createdAttachment.id, {
+        originalName: originalFileName,
+        pageCount,
+      });
+
       setState((prev) => {
         const base =
           prev.noteId === targetNoteId ? prev : createInitialState(targetNoteId);
@@ -566,6 +654,13 @@ export function NoteAttachmentsPanel({
           failedImageIds: nextFailed,
           uploading: false,
           errorMessage: null,
+          clientMetadata: {
+            ...base.clientMetadata,
+            [createdAttachment.id]: {
+              originalName: originalFileName,
+              pageCount,
+            },
+          },
         };
       });
 
@@ -639,6 +734,8 @@ export function NoteAttachmentsPanel({
         return;
       }
 
+      deleteClientAttachmentMetadata(targetAttachment.id);
+
       setState((prev) => {
         const base =
           prev.noteId === targetNoteId ? prev : createInitialState(targetNoteId);
@@ -652,6 +749,9 @@ export function NoteAttachmentsPanel({
             nextAttachments,
           ).catch(() => undefined);
         }
+        const nextClientMeta = { ...base.clientMetadata };
+        delete nextClientMeta[targetAttachment.id];
+
         return {
           ...base,
           attachments: nextAttachments,
@@ -665,6 +765,7 @@ export function NoteAttachmentsPanel({
               : base.pdfAttachment,
           deleteTarget: null,
           deletingId: null,
+          clientMetadata: nextClientMeta,
         };
       });
 
@@ -812,7 +913,16 @@ export function NoteAttachmentsPanel({
             const hasLoadError = activeState.failedImageIds.has(item.id);
 
             if (isPdf) {
-              const filename = `attachment-${item.id.slice(0, 8)}.pdf`;
+              const meta = activeState.clientMetadata[item.id] || {};
+              const displayName =
+                item.originalFileName ||
+                meta.originalName ||
+                `attachment-${item.id.slice(0, 8)}.pdf`;
+              const pageCount = item.pageCount ?? meta.pageCount;
+              const pageCountText = pageCount
+                ? formatPageCount(pageCount, t)
+                : null;
+
               return (
                 <li
                   key={item.id}
@@ -827,14 +937,22 @@ export function NoteAttachmentsPanel({
                       <div className="min-w-0 flex-1">
                         <div
                           className="truncate text-xs font-semibold text-[var(--text-primary)]"
-                          title={`attachment-${item.id}.pdf`}
+                          title={displayName}
                         >
-                          {filename}
+                          {displayName}
                         </div>
                         <div className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] mt-0.5">
                           <span className="font-semibold text-rose-600 dark:text-rose-400">
                             {t.notes.attachments.pdfBadge}
                           </span>
+                          {pageCountText ? (
+                            <>
+                              <span>•</span>
+                              <span data-testid="pdf-page-count">
+                                {pageCountText}
+                              </span>
+                            </>
+                          ) : null}
                           <span>•</span>
                           <span>{formatFileSize(item.sizeBytes)}</span>
                         </div>
@@ -863,7 +981,7 @@ export function NoteAttachmentsPanel({
 
                       <a
                         href={item.url}
-                        download={`attachment-${item.id}.pdf`}
+                        download={displayName}
                         aria-label={`${t.notes.attachments.downloadPdf} (${index + 1})`}
                         className="inline-flex h-7 items-center justify-center rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] transition-colors"
                       >
@@ -1087,6 +1205,35 @@ export function NoteAttachmentsPanel({
           }))
         }
         attachment={activeState.pdfAttachment}
+        displayName={
+          activeState.pdfAttachment
+            ? activeState.pdfAttachment.originalFileName ||
+              activeState.clientMetadata[activeState.pdfAttachment.id]
+                ?.originalName ||
+              `attachment-${activeState.pdfAttachment.id}.pdf`
+            : undefined
+        }
+        pageCount={
+          activeState.pdfAttachment
+            ? activeState.pdfAttachment.pageCount ??
+              activeState.clientMetadata[activeState.pdfAttachment.id]?.pageCount
+            : undefined
+        }
+        onPageCountResolved={(count) => {
+          if (!activeState.pdfAttachment) return;
+          const targetId = activeState.pdfAttachment.id;
+          saveClientAttachmentMetadata(targetId, { pageCount: count });
+          setState((prev) => ({
+            ...(prev.noteId === noteId ? prev : createInitialState(noteId)),
+            clientMetadata: {
+              ...prev.clientMetadata,
+              [targetId]: {
+                ...(prev.clientMetadata[targetId] || {}),
+                pageCount: count,
+              },
+            },
+          }));
+        }}
       />
     </section>
   );

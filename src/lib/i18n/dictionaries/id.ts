@@ -408,6 +408,8 @@ export const idDictionary: Dictionary = {
       clientFileTooLarge: "Ukuran file melebihi batas maksimal 5 MB.",
       pdfBadge: "PDF",
       pdfDocumentLabel: "Dokumen PDF",
+      pageCountBadge: "{count} hlm",
+      pageCountSingle: "{count} hlm",
       previewPdf: "Lihat Dokumen",
       downloadPdf: "Unduh Dokumen",
       pdfModalTitle: "Pratinjau Dokumen PDF",

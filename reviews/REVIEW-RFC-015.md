@@ -114,8 +114,8 @@ All automated checks were executed directly against branch `feat/rfc-015-pdf-not
 ## Overall Assessment
 
 - **Overall Risk Level:** **Low**
-- **Summary:** `RFC-015` completes Feature `F23` (PDF Note Attachments & Secure Document Viewer) with robust magic-byte inspection, strict CSP and iframe sandboxing, combined 5-attachment quota enforcement, dedicated PDF UI document cards, and full lifecycle storage cleanup. All 40 Vitest test files (249 tests) and 16 Playwright E2E tests pass cleanly with zero regressions.
+- **Summary:** `RFC-015` completes Feature `F23` (PDF Note Attachments & Secure Document Viewer) with robust magic-byte inspection, strict CSP and iframe sandboxing, combined 5-attachment quota enforcement, dedicated PDF UI document cards, and full lifecycle storage cleanup. All 40 Vitest test files (256 tests) and 16 Playwright E2E tests pass cleanly with zero regressions.
 - **Blocking Issues:** None.
 - **Improvement Suggestions (Non-blocking):**
-  1. **Client-Side Original Filename Display:** Currently, uploaded attachments are labeled with the storage convention `attachment-<id>.pdf`. Storing an optional `original_filename` metadata field in a future release would allow users to see their original desktop document filenames in the UI card.
-  2. **Page Count Indicator:** For documents loaded in the viewer, inspecting the PDF header metadata to display page counts in the document card could further enrich the document overview.
+  1. **Client-Side Original Filename Display:** *(Implemented)* Client-side metadata store (persisted in `localStorage` and managed in component state) preserves original desktop filenames from upload. Card UI and `PdfDocumentModal` display original filenames with title tooltips, truncation, and pass them as HTML5 download attributes (`<a href="..." download={displayName}>`).
+  2. **Page Count Indicator:** *(Implemented)* Lightweight isomorphic utility `extractPdfPageCount` inspects `/Type /Pages ... /Count N` and `/Type /Page` dictionaries across both server (during upload) and client (during file selection or document preview). Both the PDF attachment card and `PdfDocumentModal` display bilingual page count badges (e.g. `1 hlm` / `1 pg`, `7 hlm` / `7 pgs`).
