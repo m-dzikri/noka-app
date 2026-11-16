@@ -7,6 +7,7 @@ import type {
   DebtReceivableDto,
   UpdateDebtInput,
 } from "@/features/finance/debt-schemas";
+import { formatIdr, formatThousands, parseIdrDigits } from "@/features/finance/format";
 import { useI18n } from "@/lib/i18n/context";
 
 interface DebtFormModalProps {
@@ -37,7 +38,7 @@ function DebtFormBody({
   );
   const [personName, setPersonName] = useState(editingDebt?.personName ?? "");
   const [amountStr, setAmountStr] = useState(
-    editingDebt ? editingDebt.totalAmount.toString() : "",
+    editingDebt ? formatThousands(editingDebt.totalAmount) : "",
   );
   const [dueDateStr, setDueDateStr] = useState(
     editingDebt?.dueDate ? editingDebt.dueDate.split("T")[0] : "",
@@ -63,7 +64,7 @@ function DebtFormBody({
           notes: notes.trim() || null,
         });
       } else {
-        const parsedAmount = parseInt(amountStr, 10);
+        const parsedAmount = parseIdrDigits(amountStr) ?? 0;
         if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
           setError("Nominal harus berupa angka bulat positif");
           return;
@@ -191,15 +192,22 @@ function DebtFormBody({
                 </span>
                 <input
                   id="amount"
-                  type="number"
-                  min="1"
-                  step="1"
+                  type="text"
+                  inputMode="numeric"
                   value={amountStr}
-                  onChange={(e) => setAmountStr(e.target.value)}
+                  onChange={(e) => setAmountStr(formatThousands(e.target.value))}
                   placeholder={t.amountPlaceholder}
                   required
                   className="w-full rounded-xl border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/40 font-mono"
                 />
+                {(() => {
+                  const num = parseIdrDigits(amountStr);
+                  return num && num > 0 ? (
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      Preview: {formatIdr(num)}
+                    </p>
+                  ) : null;
+                })()}
               </div>
             </div>
           )}

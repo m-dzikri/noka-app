@@ -34,6 +34,7 @@ import {
   isLikelyNetworkError,
 } from "@/features/sync/client-api";
 import { apiFetch } from "@/lib/http-client";
+import { formatIdr, formatThousands } from "@/features/finance/format";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface RecurringTemplateModalProps {
@@ -107,7 +108,7 @@ function RecurringModalBody({
     setType(item.type);
     setWalletId(item.walletId);
     setCategoryId(item.categoryId);
-    setAmountStr(String(item.amount));
+    setAmountStr(formatThousands(item.amount));
     setDescription(item.description);
     setFrequency(item.frequency);
     setIntervalStep(item.intervalStep);
@@ -296,6 +297,8 @@ function RecurringModalBody({
     }
   }
 
+  const currentAmount = Number(amountStr.replace(/\D/g, ""));
+
   return (
     <div className="space-y-6">
       <p className="text-xs text-[var(--text-muted)]">
@@ -392,9 +395,14 @@ function RecurringModalBody({
               type="text"
               inputMode="numeric"
               value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
+              onChange={(e) => setAmountStr(formatThousands(e.target.value))}
               placeholder={t.finance.recurring.amountPlaceholder}
               className="mt-1 h-9 text-xs"
+              hint={
+                currentAmount > 0
+                  ? `Preview: ${formatIdr(currentAmount)}`
+                  : undefined
+              }
               required
             />
           </div>

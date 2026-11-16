@@ -35,6 +35,21 @@ export function formatIdr(
 /**
  * Parses a human-typed IDR string (allowing thousand separator dots/spaces) into a non-negative safe integer or null.
  */
+/**
+ * Formats a raw number or digit string with Indonesian thousand separator dots (e.g. "25000" -> "25.000", "3000000" -> "3.000.000").
+ * Strips non-digits and leading zeros (except single zero). Empty input returns empty string.
+ */
+export function formatThousands(
+  value: string | number | bigint | null | undefined,
+): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  const digitsOnly = str.replace(/\D/g, "");
+  if (digitsOnly.length === 0) return "";
+  const normalized = digitsOnly.replace(/^0+(?=\d)/, "");
+  return normalized.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 export function parseIdrDigits(raw: string): number | null {
   const digitsOnly = raw.replace(/[^\d]/g, "");
   if (digitsOnly.length === 0) {

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { formatIdr, parseIdrDigits } from "@/features/finance/format";
+import { formatIdr, formatThousands, parseIdrDigits } from "@/features/finance/format";
 import {
   bigintToSafeNumber,
   computeWalletBalances,
@@ -96,6 +96,15 @@ describe("TS-006-01: Pure Finance Ledger, formatIdr, and Zod Schemas", () => {
 
     expect(parseIdrDigits("Rp 285.000")).toBe(285_000);
     expect(parseIdrDigits("abc")).toBeNull();
+
+    expect(formatThousands("25000")).toBe("25.000");
+    expect(formatThousands("3000000")).toBe("3.000.000");
+    expect(formatThousands("500")).toBe("500");
+    expect(formatThousands("0")).toBe("0");
+    expect(formatThousands("05000")).toBe("5.000");
+    expect(formatThousands("")).toBe("");
+    expect(formatThousands(25_000)).toBe("25.000");
+    expect(formatThousands(3_000_000n)).toBe("3.000.000");
   });
 
   it("enforces strict Zod bounds on IDR amounts, client balance payloads, empty PATCH, and category PATCH", () => {

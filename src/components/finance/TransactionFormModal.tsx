@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import type { CategoryDto } from "@/features/finance/categories-service";
-import { parseIdrDigits } from "@/features/finance/format";
+import { formatIdr, formatThousands, parseIdrDigits } from "@/features/finance/format";
 import type { FinanceEntryType } from "@/features/finance/schemas";
 import type { TransactionDto } from "@/features/finance/transactions-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
@@ -60,7 +60,7 @@ function TransactionFormBody({
     editingTransaction?.categoryId ?? defaultExpenseCategory?.id ?? "",
   );
   const [amountText, setAmountText] = useState<string>(
-    editingTransaction ? String(editingTransaction.amount) : "",
+    editingTransaction ? formatThousands(editingTransaction.amount) : "",
   );
   const [description, setDescription] = useState<string>(
     editingTransaction?.description ?? "",
@@ -200,6 +200,8 @@ function TransactionFormBody({
     }
   }
 
+  const currentAmount = parseIdrDigits(amountText);
+
   if (!editingTransaction && activeWallets.length === 0) {
     return (
       <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 text-sm text-[var(--text-secondary)]">
@@ -293,7 +295,12 @@ function TransactionFormBody({
           placeholder={t.finance.transactionModal.amountPlaceholder}
           inputMode="numeric"
           value={amountText}
-          onChange={(e) => setAmountText(e.target.value)}
+          onChange={(e) => setAmountText(formatThousands(e.target.value))}
+          hint={
+            currentAmount && currentAmount > 0
+              ? `Preview: ${formatIdr(currentAmount)}`
+              : undefined
+          }
         />
 
         <Input

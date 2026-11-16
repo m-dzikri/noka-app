@@ -6,7 +6,7 @@ import type {
   CreateSettlementInput,
   DebtReceivableDto,
 } from "@/features/finance/debt-schemas";
-import { formatIdr } from "@/features/finance/format";
+import { formatIdr, formatThousands, parseIdrDigits } from "@/features/finance/format";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -32,7 +32,7 @@ function RecordSettlementBody({
   const { t: dict } = useI18n();
   const t = dict.finance.debts;
 
-  const [amountStr, setAmountStr] = useState(debt.remainingAmount.toString());
+  const [amountStr, setAmountStr] = useState(formatThousands(debt.remainingAmount));
   const [walletId, setWalletId] = useState<string>(wallets[0]?.id ?? "");
   const [settledAtStr, setSettledAtStr] = useState(
     () => new Date().toISOString().split("T")[0],
@@ -40,7 +40,7 @@ function RecordSettlementBody({
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const parsedAmount = parseInt(amountStr, 10) || 0;
+  const parsedAmount = parseIdrDigits(amountStr) || 0;
   const isFullSettlement = parsedAmount >= debt.remainingAmount;
   const isOverSettlement = parsedAmount > debt.remainingAmount;
 
@@ -144,7 +144,7 @@ function RecordSettlementBody({
               </label>
               <button
                 type="button"
-                onClick={() => setAmountStr(debt.remainingAmount.toString())}
+                onClick={() => setAmountStr(formatThousands(debt.remainingAmount))}
                 className="text-[11px] text-primary hover:underline font-medium"
               >
                 Lunasi Semua ({formatIdr(debt.remainingAmount)})
@@ -156,16 +156,19 @@ function RecordSettlementBody({
               </span>
               <input
                 id="settleAmount"
-                type="number"
-                min="1"
-                max={debt.remainingAmount}
-                step="1"
+                type="text"
+                inputMode="numeric"
                 value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
+                onChange={(e) => setAmountStr(formatThousands(e.target.value))}
                 placeholder={t.settleAmountPlaceholder}
                 required
                 className="w-full rounded-xl border border-input bg-background pl-9 pr-3 py-2 text-sm text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/40 font-mono"
               />
+              {parsedAmount > 0 && (
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
+                  Preview: {formatIdr(parsedAmount)}
+                </p>
+              )}
             </div>
             {isFullSettlement && !isOverSettlement && (
               <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">

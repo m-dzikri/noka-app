@@ -24,6 +24,7 @@ import {
   isLikelyNetworkError,
 } from "@/features/sync/client-api";
 import { apiFetch } from "@/lib/http-client";
+import { formatIdr, formatThousands } from "@/features/finance/format";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface BudgetManagerModalProps {
@@ -64,7 +65,7 @@ function BudgetManagerBody({
     setCopySuccessMsg(null);
     const existing = budgets.find((b) => b.categoryId === catId);
     if (existing) {
-      setAmountStr(String(existing.amount));
+      setAmountStr(formatThousands(existing.amount));
     } else {
       setAmountStr("");
     }
@@ -73,7 +74,7 @@ function BudgetManagerBody({
 
   function handleStartEdit(budget: CategoryBudgetDto) {
     setSelectedCategoryId(budget.categoryId);
-    setAmountStr(String(budget.amount));
+    setAmountStr(formatThousands(budget.amount));
     setCopySuccessMsg(null);
     setErrorMsg(null);
   }
@@ -359,6 +360,8 @@ function BudgetManagerBody({
     (b) => b.categoryId === selectedCategoryId,
   );
 
+  const currentAmount = Number(amountStr.replace(/\D/g, ""));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-subtle)]/50 pb-3">
@@ -445,9 +448,14 @@ function BudgetManagerBody({
                 type="text"
                 inputMode="numeric"
                 value={amountStr}
-                onChange={(e) => setAmountStr(e.target.value)}
+                onChange={(e) => setAmountStr(formatThousands(e.target.value))}
                 placeholder={t.finance.budgets.amountPlaceholder}
                 className="mt-1.5"
+                hint={
+                  currentAmount > 0
+                    ? `Preview: ${formatIdr(currentAmount)}`
+                    : undefined
+                }
                 required
               />
             </div>

@@ -11,7 +11,7 @@ import { useOptionalSync } from "@/components/providers/SyncProvider";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { parseIdrDigits } from "@/features/finance/format";
+import { formatIdr, formatThousands, parseIdrDigits } from "@/features/finance/format";
 import type { TransferDto } from "@/features/finance/transfers-service";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import {
@@ -51,7 +51,7 @@ function TransferFormBody({
     editingTransfer?.toWalletId ?? defaultTo?.id ?? "",
   );
   const [amountText, setAmountText] = useState<string>(
-    editingTransfer ? String(editingTransfer.amount) : "",
+    editingTransfer ? formatThousands(editingTransfer.amount) : "",
   );
   const [note, setNote] = useState<string>(editingTransfer?.note ?? "");
   const [occurredAtLocal, setOccurredAtLocal] = useState<string>(() =>
@@ -167,6 +167,8 @@ function TransferFormBody({
     }
   }
 
+  const currentAmount = parseIdrDigits(amountText);
+
   if (!editingTransfer && activeWallets.length < 2) {
     return (
       <p className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] p-4 text-sm text-[var(--text-secondary)]">
@@ -238,7 +240,12 @@ function TransferFormBody({
           placeholder={t.finance.transferModal.amountPlaceholder}
           inputMode="numeric"
           value={amountText}
-          onChange={(e) => setAmountText(e.target.value)}
+          onChange={(e) => setAmountText(formatThousands(e.target.value))}
+          hint={
+            currentAmount && currentAmount > 0
+              ? `Preview: ${formatIdr(currentAmount)}`
+              : undefined
+          }
         />
 
         <Input

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
+import { formatThousands } from "@/features/finance/format";
 import type { PendingRecurringDto } from "@/features/finance/recurring-schemas";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import { apiFetch } from "@/lib/http-client";
@@ -223,7 +224,7 @@ export function RecurringPendingBanner({
             {pendingItems.map((item) => {
               const isBusy = busyItemId === item.templateId;
               const curWalletId = customWallets[item.templateId] ?? item.walletId;
-              const curAmountStr = customAmounts[item.templateId] ?? String(item.amount);
+              const curAmountStr = formatThousands(customAmounts[item.templateId] ?? item.amount);
 
               return (
                 <div
@@ -269,7 +270,7 @@ export function RecurringPendingBanner({
                         onChange={(e) =>
                           setCustomAmounts((prev) => ({
                             ...prev,
-                            [item.templateId]: e.target.value,
+                            [item.templateId]: formatThousands(e.target.value),
                           }))
                         }
                         className="mt-1 h-8 text-xs"

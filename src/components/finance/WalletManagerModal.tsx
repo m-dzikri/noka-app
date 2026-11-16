@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
-import { parseIdrDigits } from "@/features/finance/format";
+import { formatIdr, formatThousands, parseIdrDigits } from "@/features/finance/format";
 import { WALLET_TYPES, type WalletType } from "@/features/finance/schemas";
 import type { WalletWithBalanceDto } from "@/features/finance/wallets-service";
 import { apiFetch } from "@/lib/http-client";
@@ -66,7 +66,7 @@ function WalletManagerBody({
     setEditingWallet(wallet);
     setName(wallet.name);
     setType(wallet.type);
-    setInitialBalanceText(String(wallet.initialBalance));
+    setInitialBalanceText(formatThousands(wallet.initialBalance));
     setIncludeInSafeToSpend(wallet.includeInSafeToSpend);
     setIsDefault(wallet.isDefault);
     setErrorMsg(null);
@@ -211,6 +211,8 @@ function WalletManagerBody({
     ? wallets.find((w) => w.id === archiveOfferWalletId)
     : undefined;
 
+  const currentBalance = parseIdrDigits(initialBalanceText);
+
   return (
     <div className="flex flex-col gap-5">
       {!isOnline ? (
@@ -300,7 +302,12 @@ function WalletManagerBody({
           label={t.finance.walletModal.initialBalanceLabel}
           inputMode="numeric"
           value={initialBalanceText}
-          onChange={(e) => setInitialBalanceText(e.target.value)}
+          onChange={(e) => setInitialBalanceText(formatThousands(e.target.value))}
+          hint={
+            currentBalance !== null && currentBalance > 0
+              ? `Preview: ${formatIdr(currentBalance)}`
+              : undefined
+          }
         />
 
         <div className="flex flex-col gap-2">
