@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, Download, FolderKanban, Plus, Wallet } from "lucide-react";
+import { ArrowLeftRight, Download, FolderKanban, Plus, Target, Wallet } from "lucide-react";
+import { BudgetManagerModal } from "@/components/finance/BudgetManagerModal";
 import { CashflowSummaryCards } from "@/components/finance/CashflowSummaryCards";
+import { CategoryBudgetSection } from "@/components/finance/CategoryBudgetSection";
 import { CategoryManagerModal } from "@/components/finance/CategoryManagerModal";
 import { ExportDataModal } from "@/components/finance/ExportDataModal";
 import {
@@ -35,6 +37,7 @@ import {
 } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { PrivacyAmount } from "@/components/ui/PrivacyAmount";
+import type { CategoryBudgetSummaryDto } from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import type { FinanceSummaryDto } from "@/features/finance/summary-service";
 import type { TransactionDto } from "@/features/finance/transactions-service";
@@ -43,13 +46,17 @@ import {
   executeOfflineCapableMutation,
   isLikelyNetworkError,
 } from "@/features/sync/client-api";
-import { computeLocalFinanceSummary } from "@/features/sync/local-queries";
+import {
+  computeLocalCategoryBudgets,
+  computeLocalFinanceSummary,
+} from "@/features/sync/local-queries";
 import { apiFetch } from "@/lib/http-client";
 import { useI18n } from "@/lib/i18n/context";
 
 export interface FinanceWorkspaceProps {
   initialSummary: FinanceSummaryDto;
   initialCategories: CategoryDto[];
+  initialBudgets?: CategoryBudgetSummaryDto | null;
 }
 
 const DEFAULT_FILTERS: LedgerFiltersState = {
@@ -96,12 +103,17 @@ function normalizeLedgerDateBounds(
 export function FinanceWorkspace({
   initialSummary,
   initialCategories,
+  initialBudgets,
 }: FinanceWorkspaceProps) {
   const { t } = useI18n();
   const sync = useOptionalSync();
 
   const [summary, setSummary] = useState<FinanceSummaryDto>(initialSummary);
   const [categories, setCategories] = useState<CategoryDto[]>(initialCategories);
+  const [budgetsSummary, setBudgetsSummary] =
+    useState<CategoryBudgetSummaryDto | null>(initialBudgets ?? null);
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false);
+  const [loadingBudgets, setLoadingBudgets] = useState(false);
 
   const [showArchivedWallets, setShowArchivedWallets] = useState(false);
   const [filters, setFilters] = useState<LedgerFiltersState>(DEFAULT_FILTERS);
@@ -191,6 +203,8 @@ export function FinanceWorkspace({
       if (syncMirror.categories.length > 0) {
         setCategories(syncMirror.categories);
       }
+      const localBudgets = computeLocalCategoryBudgets(syncMirror);
+      setBudgetsSummary(localBudgets);
       return true;
     },
     [syncMirror],
@@ -210,9 +224,13 @@ export function FinanceWorkspace({
 
       const summaryParams = buildSummaryQuery(nextFilters, null);
       try {
-        const [summaryRes, catsRes] = await Promise.all([
+        setLoadingBudgets(true);
+        const [summaryRes, catsRes, budgetsRes] = await Promise.all([
           apiFetch(`/api/finance/summary?${summaryParams.toString()}`),
           apiFetch("/api/categories"),
+          apiFetch(
+            `/api/finance/budgets?tzOffset=${-new Date().getTimezoneOffset()}`,
+          ),
         ]);
 
         if (summaryRes.ok) {
@@ -236,6 +254,17 @@ export function FinanceWorkspace({
         } else {
           await surfaceNonOkError(catsRes);
         }
+
+        if (budgetsRes.ok) {
+          const payload = await readJsonSafe<{
+            data: CategoryBudgetSummaryDto;
+          }>(budgetsRes);
+          if (payload?.data?.items && Array.isArray(payload.data.items)) {
+            setBudgetsSummary(payload.data);
+          }
+        } else {
+          await surfaceNonOkError(budgetsRes);
+        }
       } catch (err) {
         if (
           isLikelyNetworkError(err) &&
@@ -244,6 +273,8 @@ export function FinanceWorkspace({
           return;
         }
         setErrorMsg(t.errors.generic);
+      } finally {
+        setLoadingBudgets(false);
       }
     },
     [
@@ -550,6 +581,15 @@ export function FinanceWorkspace({
 
           <Button
             variant="secondary"
+            onClick={() => setBudgetModalOpen(true)}
+            data-testid="finance-manage-budgets-button"
+          >
+            <Target className="h-4 w-4" aria-hidden="true" />
+            <span>{t.finance.budgets.manageBudgetsButton}</span>
+          </Button>
+
+          <Button
+            variant="secondary"
             onClick={() => setExportModalOpen(true)}
             data-testid="finance-export-button"
           >
@@ -571,6 +611,12 @@ export function FinanceWorkspace({
       <SafeToSpendCard
         safeToSpend={summary.safeToSpend}
         cycle={summary.cycle}
+      />
+
+      <CategoryBudgetSection
+        summary={budgetsSummary}
+        loading={loadingBudgets}
+        onManageBudgets={() => setBudgetModalOpen(true)}
       />
 
       <WalletListSection
@@ -707,6 +753,17 @@ export function FinanceWorkspace({
         wallets={activeWallets}
         categories={categories}
         cycle={summary.cycle}
+      />
+
+      <BudgetManagerModal
+        open={budgetModalOpen}
+        onClose={() => setBudgetModalOpen(false)}
+        categories={categories}
+        budgets={budgetsSummary?.items ?? []}
+        currentPeriod={
+          budgetsSummary?.period ?? summary.cycle.startDate.slice(0, 7)
+        }
+        onMutated={refreshAllFinanceData}
       />
     </div>
   );

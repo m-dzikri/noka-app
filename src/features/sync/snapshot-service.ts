@@ -3,6 +3,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { getDb, type DbOrTx } from "@/db";
 import {
   categories,
+  categoryBudgets,
   transactions,
   transfers,
   wallets,
@@ -15,6 +16,7 @@ import {
   tags,
 } from "@/db/schema/notes";
 import type { AuthUser } from "@/features/auth/session";
+import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
 import { listCategories } from "@/features/finance/categories-service";
 import type { FinanceEntryType } from "@/features/finance/schemas";
 import type { TransactionDto } from "@/features/finance/transactions-service";
@@ -47,6 +49,7 @@ export async function buildUserSyncSnapshot(
     attachmentRows,
     walletDtos,
     categoryDtos,
+    budgetRows,
     transactionRows,
     transferRows,
   ] = await Promise.all([
@@ -96,6 +99,26 @@ export async function buildUserSyncSnapshot(
       .orderBy(asc(noteAttachments.createdAt)),
     loadWalletsWithBalances(db, user.id, { includeArchived: true }),
     listCategories(user.id, {}, db),
+    db
+      .select({
+        id: categoryBudgets.id,
+        categoryId: categoryBudgets.categoryId,
+        categoryName: categories.name,
+        amount: categoryBudgets.amount,
+        periodMonth: categoryBudgets.periodMonth,
+        createdAt: categoryBudgets.createdAt,
+        updatedAt: categoryBudgets.updatedAt,
+      })
+      .from(categoryBudgets)
+      .innerJoin(
+        categories,
+        and(
+          eq(categories.id, categoryBudgets.categoryId),
+          eq(categories.userId, user.id),
+          isNull(categories.deletedAt),
+        ),
+      )
+      .where(eq(categoryBudgets.userId, user.id)),
     db
       .select({
         id: transactions.id,
@@ -247,6 +270,20 @@ export async function buildUserSyncSnapshot(
     updatedAt: row.updatedAt.toISOString(),
   }));
 
+  const categoryBudgetDtos: CategoryBudgetDto[] = budgetRows.map((row) => ({
+    id: row.id,
+    categoryId: row.categoryId,
+    categoryName: row.categoryName,
+    amount: row.amount,
+    periodMonth: row.periodMonth,
+    spentAmount: 0,
+    remainingAmount: row.amount,
+    percentage: 0,
+    status: "normal",
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }));
+
   return {
     user,
     notes: noteDtos,
@@ -255,6 +292,7 @@ export async function buildUserSyncSnapshot(
     noteAttachments: attachmentDtos,
     wallets: walletDtos,
     categories: categoryDtos,
+    categoryBudgets: categoryBudgetDtos,
     transactions: transactionDtos,
     transfers: transferDtos,
     serverTime: new Date().toISOString(),

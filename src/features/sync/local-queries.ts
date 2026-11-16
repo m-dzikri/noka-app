@@ -1,10 +1,16 @@
 import {
+  calculateBudgetMetrics,
+  type CategoryBudgetDto,
+  type CategoryBudgetSummaryDto,
+} from "@/features/finance/budgets-schemas";
+import {
   bigintToSafeNumber,
   computeWalletBalances,
 } from "@/features/finance/ledger";
 import {
   calculateSafeToSpend,
   resolveActiveCycleWindow,
+  resolveCycleWindowForPeriod,
 } from "@/features/finance/safe-to-spend";
 import {
   DEFAULT_TZ_OFFSET_MINUTES,
@@ -374,3 +380,105 @@ export function queryLocalTransactionsForPicker(
     nextCursor: nextOffset < sorted.length ? encodeOffsetCursor(nextOffset) : null,
   };
 }
+
+/**
+ * Computes category budget summaries and threshold alerts locally from the offline mirror (`RFC-012`, `F20`, `OFFLINE-2`).
+ */
+export function computeLocalCategoryBudgets(
+  state: MirrorDataState,
+  options: {
+    period?: string;
+    nowDate?: Date;
+    tzOffsetMinutes?: number;
+  } = {},
+): CategoryBudgetSummaryDto {
+  const nowDate = options.nowDate ?? new Date();
+  const tzOffset = options.tzOffsetMinutes ?? DEFAULT_TZ_OFFSET_MINUTES;
+  const cycleStartDay = state.userProfile?.cycleStartDay ?? "1";
+
+  const activeCycle = resolveActiveCycleWindow(
+    nowDate,
+    cycleStartDay,
+    tzOffset,
+  );
+  const activePeriod = activeCycle.startDate.slice(0, 7);
+
+  const targetPeriod =
+    options.period && /^\d{4}-(0[1-9]|1[0-2])$/.test(options.period)
+      ? options.period
+      : activePeriod;
+
+  const cycle = resolveCycleWindowForPeriod(
+    targetPeriod,
+    cycleStartDay,
+    tzOffset,
+    nowDate,
+  );
+
+  const startMs = Date.parse(cycle.startUtcIso);
+  const endExclusiveMs = Date.parse(cycle.endExclusiveUtcIso);
+
+  const spendingMap = new Map<string, number>();
+  for (const tx of state.transactions) {
+    if (tx.type !== "expense") continue;
+    const occMs = Date.parse(tx.occurredAt);
+    if (occMs < startMs || occMs >= endExclusiveMs) continue;
+    const current = spendingMap.get(tx.categoryId) ?? 0;
+    spendingMap.set(tx.categoryId, current + tx.amount);
+  }
+
+  const categoryNameMap = new Map<string, string>(
+    state.categories.map((c) => [c.id, c.name]),
+  );
+
+  const budgets = (state.categoryBudgets ?? []).filter(
+    (b) => b.periodMonth === targetPeriod,
+  );
+
+  let totalBudgeted = 0;
+  let totalSpent = 0;
+
+  const items: CategoryBudgetDto[] = budgets.map((b) => {
+    const categoryName = categoryNameMap.get(b.categoryId) ?? b.categoryName;
+    const spentAmount = spendingMap.get(b.categoryId) ?? 0;
+    const metrics = calculateBudgetMetrics(spentAmount, b.amount);
+    totalBudgeted += b.amount;
+    totalSpent += spentAmount;
+
+    return {
+      id: b.id,
+      categoryId: b.categoryId,
+      categoryName,
+      amount: b.amount,
+      periodMonth: b.periodMonth,
+      spentAmount,
+      remainingAmount: metrics.remainingAmount,
+      percentage: metrics.percentage,
+      status: metrics.status,
+      createdAt: b.createdAt,
+      updatedAt: b.updatedAt,
+    };
+  });
+
+  const statusRank: Record<string, number> = {
+    exceeded: 3,
+    warning: 2,
+    normal: 1,
+  };
+
+  items.sort((a, b) => {
+    const rankDiff = (statusRank[b.status] ?? 0) - (statusRank[a.status] ?? 0);
+    if (rankDiff !== 0) return rankDiff;
+    if (b.percentage !== a.percentage) return b.percentage - a.percentage;
+    return a.categoryName.localeCompare(b.categoryName);
+  });
+
+  return {
+    period: targetPeriod,
+    cycle,
+    totalBudgeted,
+    totalSpent,
+    items,
+  };
+}
+

@@ -384,6 +384,43 @@ export interface FinanceDictionary {
   exportButton: string;
   exportModal: FinanceExportModalDictionary;
   reportPage: FinanceReportPageDictionary;
+  budgets: FinanceBudgetsDictionary;
+}
+
+export interface FinanceBudgetsDictionary {
+  sectionTitle: string;
+  sectionSubtitle: string;
+  manageBudgetsButton: string;
+  totalBudgetedLabel: string;
+  totalSpentLabel: string;
+  spentOfTotal: string;
+  remainingLabel: string;
+  overbudgetLabel: string;
+  normalStatus: string;
+  warningStatus: string;
+  exceededStatus: string;
+  warningThresholdAlert: string;
+  exceededThresholdAlert: string;
+  noBudgetsTitle: string;
+  noBudgetsDescription: string;
+  createFirstBudgetCta: string;
+  modalTitle: string;
+  modalDescription: string;
+  categorySelectLabel: string;
+  selectCategoryPlaceholder: string;
+  amountLabel: string;
+  amountPlaceholder: string;
+  periodLabel: string;
+  saveButton: string;
+  savingButton: string;
+  deleteButton: string;
+  deletingButton: string;
+  deleteConfirm: string;
+  confirmDeleteButton: string;
+  cancelButton: string;
+  onlyExpenseCategoriesNote: string;
+  noExpenseCategoriesError: string;
+  invalidAmountError: string;
 }
 
 export interface FinanceExportModalDictionary {

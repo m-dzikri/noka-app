@@ -196,6 +196,76 @@ export function resolveActiveCycleWindow(
 }
 
 /**
+ * Resolves the billing/payday cycle window for a specific YYYY-MM period based on cycleStartDay.
+ */
+export function resolveCycleWindowForPeriod(
+  periodMonth: string,
+  rawCycleStartDay?: string | number | null | undefined | unknown,
+  tzOffsetMinutes = DEFAULT_TZ_OFFSET_MINUTES,
+  nowDate: Date = new Date(),
+): CycleWindowInfo {
+  const tzOffset = normalizeTzOffsetMinutes(tzOffsetMinutes);
+  const cycleStartDay = normalizeCycleStartDay(rawCycleStartDay);
+
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(periodMonth);
+  if (!match) {
+    return resolveActiveCycleWindow(nowDate, cycleStartDay, tzOffset);
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+
+  const startDay = resolveCycleStartDayForMonth(year, month, cycleStartDay);
+  const start: CalendarDateParts = { year, month, day: startDay };
+
+  const nextYm = shiftMonth(year, month, 1);
+  const nextStartDay = resolveCycleStartDayForMonth(
+    nextYm.year,
+    nextYm.month,
+    cycleStartDay,
+  );
+  const endUtc = new Date(
+    Date.UTC(nextYm.year, nextYm.month - 1, nextStartDay) - MS_PER_DAY,
+  );
+  const end: CalendarDateParts = {
+    year: endUtc.getUTCFullYear(),
+    month: endUtc.getUTCMonth() + 1,
+    day: endUtc.getUTCDate(),
+  };
+
+  const shiftedNow = new Date(nowDate.getTime() + tzOffset * MS_PER_MINUTE);
+  const todayMidnightUtc = Date.UTC(
+    shiftedNow.getUTCFullYear(),
+    shiftedNow.getUTCMonth(),
+    shiftedNow.getUTCDate(),
+  );
+  const endMidnightUtc = Date.UTC(end.year, end.month - 1, end.day);
+  const remainingDays = Math.max(
+    0,
+    Math.round((endMidnightUtc - todayMidnightUtc) / MS_PER_DAY) + 1,
+  );
+
+  const startUtcIso = new Date(
+    Date.UTC(start.year, start.month - 1, start.day, 0, 0, 0, 0) -
+      tzOffset * MS_PER_MINUTE,
+  ).toISOString();
+
+  const endExclusiveUtcIso = new Date(
+    Date.UTC(end.year, end.month - 1, end.day + 1, 0, 0, 0, 0) -
+      tzOffset * MS_PER_MINUTE,
+  ).toISOString();
+
+  return {
+    startDate: formatYmd(start),
+    endDate: formatYmd(end),
+    startUtcIso,
+    endExclusiveUtcIso,
+    remainingDays,
+    cycleStartDay,
+  };
+}
+
+/**
  * Calculates deterministic daily Safe-to-Spend allowance from active included wallets (`DATA-5`, `DEC-12`, `HIGH-2`).
  */
 export function calculateSafeToSpend(

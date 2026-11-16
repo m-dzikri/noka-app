@@ -1,4 +1,5 @@
 import type { AuthUser } from "@/features/auth/session";
+import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import type { TransactionDto } from "@/features/finance/transactions-service";
 import type { TransferDto } from "@/features/finance/transfers-service";
@@ -22,6 +23,7 @@ export interface SnapshotDto {
   noteAttachments: SnapshotNoteAttachmentDto[];
   wallets: WalletWithBalanceDto[];
   categories: CategoryDto[];
+  categoryBudgets?: CategoryBudgetDto[];
   transactions: TransactionDto[];
   transfers: TransferDto[];
   serverTime: string;
@@ -34,7 +36,8 @@ export type OutboxEntity =
   | "folder"
   | "transaction"
   | "transfer"
-  | "noteLink";
+  | "noteLink"
+  | "budget";
 
 export type OutboxOp = "upsert" | "delete" | "link" | "unlink";
 
@@ -89,6 +92,14 @@ export type OutboxOptimisticPayload =
       kind: "note_unlink";
       noteId: string;
       transactionId: string;
+    }
+  | {
+      kind: "budget_upsert";
+      budget: CategoryBudgetDto;
+    }
+  | {
+      kind: "budget_delete";
+      id: string;
     };
 
 export interface OutboxItemRecord {

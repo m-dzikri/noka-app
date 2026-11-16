@@ -305,8 +305,8 @@ Gerbang wajib tiap RFC sebelum status menjadi `Implemented`: **`npm run lint` + 
 
 | Test ID | Status | File & Lapisan | Prioritas | Skenario & Langkah | Prasyarat | Hasil yang Diharapkan & Kriteria Gagal |
 |---|---|---|---|---|---|---|
-| **TS-012-01** | Proposed | `tests/unit/category-budgets.test.ts` (Unit) | Could | Uji kalkulasi persentase pemakaian anggaran, sisa anggaran, penanganan overbudget (`percentage > 100%`), klasifikasi status ambang batas (`normal`, `warning` ≥ 80%, `exceeded` ≥ 100%), dan UI progress bar. | `jsdom` + fake timers | Persentase integer floor deterministik; warna bilah & badge status tepat; nominal IDR integer `bigint`. |
-| **TS-012-02** | Proposed | `tests/integration/category-budgets-api.test.ts` (Integration) | Could | Uji `GET /api/finance/budgets`, `POST /api/finance/budgets` (upsert atomik, constraint unik `(userId, categoryId, period)`, `idempotencyKey`), `DELETE /api/finance/budgets/[id]`, kaskade hapus kategori, dan isolasi tenant. | PostgreSQL uji | Upsert berhasil tanpa duplikasi; hapus kategori menghapus anggaran otomatis (*CASCADE*); tenant terisolasi ketat. |
+| **TS-012-01** | Implemented | `tests/unit/category-budgets.test.tsx` (Unit) | Could | Uji kalkulasi persentase pemakaian anggaran, sisa anggaran, penanganan overbudget (`percentage > 100%`), klasifikasi status ambang batas (`normal`, `warning` ≥ 80%, `exceeded` ≥ 100%), dan UI progress bar. | `jsdom` + fake timers | Persentase integer floor deterministik; warna bilah & badge status tepat; nominal IDR integer `bigint`. |
+| **TS-012-02** | Implemented | `tests/integration/category-budgets-api.test.ts` (Integration) | Could | Uji `GET /api/finance/budgets`, `POST /api/finance/budgets` (upsert atomik, constraint unik `(userId, categoryId, period)`, `idempotencyKey`), `DELETE /api/finance/budgets/[id]`, kaskade hapus kategori, dan isolasi tenant. | PostgreSQL uji | Upsert berhasil tanpa duplikasi; hapus kategori menghapus anggaran otomatis (*CASCADE*); tenant terisolasi ketat. |
 
 ---
 

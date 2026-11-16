@@ -641,6 +641,47 @@ export const enDictionary: Dictionary = {
       footerNotice:
         "Printed from Noka — Light as a Notepad, Tidy as a Ledger.",
     },
+    budgets: {
+      sectionTitle: "Category Budgets",
+      sectionSubtitle: "Monitor spending and monthly category limits",
+      manageBudgetsButton: "Manage Budgets",
+      totalBudgetedLabel: "Total Budgeted",
+      totalSpentLabel: "Total Spent",
+      spentOfTotal: "spent of",
+      remainingLabel: "Remaining",
+      overbudgetLabel: "Over Budget",
+      normalStatus: "On Track",
+      warningStatus: "Warning",
+      exceededStatus: "Exceeded",
+      warningThresholdAlert: "Approaching budget limit (≥ 80%)",
+      exceededThresholdAlert: "Spending has exceeded budget limit!",
+      noBudgetsTitle: "No Category Budgets Yet",
+      noBudgetsDescription:
+        "Set monthly spending limits per category to manage your cashflow with greater confidence.",
+      createFirstBudgetCta: "Set First Budget",
+      modalTitle: "Manage Category Budgets",
+      modalDescription:
+        "Set maximum monthly spending limits per category for this cycle.",
+      categorySelectLabel: "Select Category",
+      selectCategoryPlaceholder: "-- Choose Expense Category --",
+      amountLabel: "Budget Limit (IDR)",
+      amountPlaceholder: "e.g., 1,000,000",
+      periodLabel: "Cycle Period",
+      saveButton: "Save Budget",
+      savingButton: "Saving...",
+      deleteButton: "Delete Budget",
+      deletingButton: "Deleting...",
+      deleteConfirm:
+        "Are you sure you want to remove the budget limit for this category?",
+      confirmDeleteButton: "Yes, Delete Limit",
+      cancelButton: "Cancel",
+      onlyExpenseCategoriesNote:
+        "Budgets can only be set for expense categories.",
+      noExpenseCategoriesError:
+        "No active expense categories found. Please create an expense category first.",
+      invalidAmountError:
+        "Budget amount must be a positive integer greater than 0.",
+    },
   },
   privacy: {
     hideLabel: "Hide Amounts (Privacy Blur)",

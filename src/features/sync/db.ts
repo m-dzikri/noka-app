@@ -1,5 +1,6 @@
 import { openDB, deleteDB, type DBSchema, type IDBPDatabase } from "idb";
 import type { AuthUser } from "@/features/auth/session";
+import type { CategoryBudgetDto } from "@/features/finance/budgets-schemas";
 import type { CategoryDto } from "@/features/finance/categories-service";
 import { bigintToSafeNumber, computeWalletBalances } from "@/features/finance/ledger";
 import type { TransactionDto } from "@/features/finance/transactions-service";
@@ -15,7 +16,7 @@ import type {
 } from "@/features/sync/types";
 
 export const OFFLINE_DB_PREFIX = "noka-offline-";
-export const OFFLINE_DB_VERSION = 1;
+export const OFFLINE_DB_VERSION = 2;
 
 export function getOfflineDbName(userId: string): string {
   return `${OFFLINE_DB_PREFIX}${userId}`;
@@ -47,6 +48,11 @@ export interface NokaOfflineDbSchema extends DBSchema {
   categories: {
     key: string;
     value: CategoryDto;
+  };
+  categoryBudgets: {
+    key: string;
+    value: CategoryBudgetDto;
+    indexes: { "by-periodMonth": string };
   };
   transactions: {
     key: string;
@@ -82,6 +88,7 @@ export interface MirrorDataState {
   noteAttachments: SnapshotNoteAttachmentDto[];
   wallets: WalletWithBalanceDto[];
   categories: CategoryDto[];
+  categoryBudgets: CategoryBudgetDto[];
   transactions: TransactionDto[];
   transfers: TransferDto[];
   outbox: OutboxItemRecord[];
@@ -145,6 +152,12 @@ export async function getOfflineDb(
         }
         if (!db.objectStoreNames.contains("categories")) {
           db.createObjectStore("categories", { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains("categoryBudgets")) {
+          const budgetStore = db.createObjectStore("categoryBudgets", {
+            keyPath: "id",
+          });
+          budgetStore.createIndex("by-periodMonth", "periodMonth");
         }
         if (!db.objectStoreNames.contains("transactions")) {
           const txStore = db.createObjectStore("transactions", {
@@ -392,6 +405,7 @@ export function applyOptimisticPayloadInMemory(
     noteAttachments: [...state.noteAttachments],
     wallets: [...state.wallets],
     categories: [...state.categories],
+    categoryBudgets: [...(state.categoryBudgets ?? [])],
     transactions: [...state.transactions],
     transfers: [...state.transfers],
     outbox: [...state.outbox],
@@ -491,6 +505,26 @@ export function applyOptimisticPayloadInMemory(
       );
       break;
     }
+    case "budget_upsert": {
+      const idx = next.categoryBudgets.findIndex(
+        (b) =>
+          b.id === payload.budget.id ||
+          (b.categoryId === payload.budget.categoryId &&
+            b.periodMonth === payload.budget.periodMonth),
+      );
+      if (idx >= 0) {
+        next.categoryBudgets[idx] = payload.budget;
+      } else {
+        next.categoryBudgets.unshift(payload.budget);
+      }
+      break;
+    }
+    case "budget_delete": {
+      next.categoryBudgets = next.categoryBudgets.filter(
+        (b) => b.id !== payload.id,
+      );
+      break;
+    }
   }
 
   recomputeNoteRelationsAndBalances(next);
@@ -509,6 +543,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     noteAttachments,
     wallets,
     categories,
+    categoryBudgets,
     transactions,
     transfers,
     metaRows,
@@ -520,6 +555,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     db.getAll("noteAttachments"),
     db.getAll("wallets"),
     db.getAll("categories"),
+    db.getAll("categoryBudgets"),
     db.getAll("transactions"),
     db.getAll("transfers"),
     db.getAll("meta"),
@@ -545,6 +581,7 @@ export async function readFullMirror(userId: string): Promise<MirrorDataState> {
     noteAttachments,
     wallets,
     categories,
+    categoryBudgets: categoryBudgets ?? [],
     transactions,
     transfers,
     outbox: [...outboxRows].sort((a, b) => a.createdAt - b.createdAt),
@@ -567,6 +604,7 @@ async function writeDomainMirrorState(
     | "noteAttachments"
     | "wallets"
     | "categories"
+    | "categoryBudgets"
     | "transactions"
     | "transfers"
     | "userProfile"
@@ -581,6 +619,7 @@ async function writeDomainMirrorState(
       "noteAttachments",
       "wallets",
       "categories",
+      "categoryBudgets",
       "transactions",
       "transfers",
       "meta",
@@ -594,6 +633,7 @@ async function writeDomainMirrorState(
   const attachmentsStore = tx.objectStore("noteAttachments");
   const walletsStore = tx.objectStore("wallets");
   const categoriesStore = tx.objectStore("categories");
+  const categoryBudgetsStore = tx.objectStore("categoryBudgets");
   const transactionsStore = tx.objectStore("transactions");
   const transfersStore = tx.objectStore("transfers");
   const metaStore = tx.objectStore("meta");
@@ -605,6 +645,7 @@ async function writeDomainMirrorState(
     attachmentsStore.clear(),
     walletsStore.clear(),
     categoriesStore.clear(),
+    categoryBudgetsStore.clear(),
     transactionsStore.clear(),
     transfersStore.clear(),
   ]);
@@ -616,6 +657,9 @@ async function writeDomainMirrorState(
     ...state.noteAttachments.map((item) => attachmentsStore.put(item)),
     ...state.wallets.map((item) => walletsStore.put(item)),
     ...state.categories.map((item) => categoriesStore.put(item)),
+    ...(state.categoryBudgets ?? []).map((item) =>
+      categoryBudgetsStore.put(item),
+    ),
     ...state.transactions.map((item) => transactionsStore.put(item)),
     ...state.transfers.map((item) => transfersStore.put(item)),
     ...(state.userProfile
@@ -651,6 +695,7 @@ export async function applySnapshotWithPendingReplay(
     noteAttachments: snapshot.noteAttachments,
     wallets: snapshot.wallets,
     categories: snapshot.categories,
+    categoryBudgets: snapshot.categoryBudgets ?? [],
     transactions: snapshot.transactions,
     transfers: snapshot.transfers,
     outbox: currentOutbox,

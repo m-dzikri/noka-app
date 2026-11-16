@@ -3,6 +3,7 @@ import { getDb } from "@/db";
 import { sessions, users } from "@/db/schema/auth";
 import {
   categories,
+  categoryBudgets,
   transactions,
   transfers,
   wallets,
@@ -180,6 +181,7 @@ export async function deleteAccount(
     await tx.delete(transfers).where(eq(transfers.userId, userId));
     await tx.delete(transactions).where(eq(transactions.userId, userId));
     await tx.delete(wallets).where(eq(wallets.userId, userId));
+    await tx.delete(categoryBudgets).where(eq(categoryBudgets.userId, userId));
     await tx.delete(categories).where(eq(categories.userId, userId));
     await tx.delete(users).where(eq(users.id, userId));
   });

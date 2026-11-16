@@ -116,14 +116,34 @@ function createSummaryFixture(
   };
 }
 
+const defaultMockBudgets = {
+  period: "2026-11",
+  cycle: {
+    startDate: "2026-11-01",
+    endDate: "2026-11-30",
+    startUtcIso: "2026-10-31T17:00:00.000Z",
+    endExclusiveUtcIso: "2026-11-30T17:00:00.000Z",
+    remainingDays: 19,
+    cycleStartDay: "1",
+  },
+  totalBudgeted: 0,
+  totalSpent: 0,
+  items: [],
+};
+
 function renderWorkspace(
   summary: FinanceSummaryDto = createSummaryFixture(),
   cats: CategoryDto[] = sampleCategories,
+  budgets = defaultMockBudgets,
 ) {
   return render(
     <PreferencesProvider initialLocale="id" initialTheme="light">
       <PrivacyProvider initialCookieBlurred={false}>
-        <FinanceWorkspace initialSummary={summary} initialCategories={cats} />
+        <FinanceWorkspace
+          initialSummary={summary}
+          initialCategories={cats}
+          initialBudgets={budgets}
+        />
       </PrivacyProvider>
     </PreferencesProvider>,
   );
@@ -176,6 +196,13 @@ describe("FinanceWorkspace Component & noka:finance-updated Sync", () => {
       if (url.startsWith("/api/categories")) {
         return new Response(
           JSON.stringify({ ok: true, data: { categories: sampleCategories } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.startsWith("/api/finance/budgets")) {
+        return new Response(
+          JSON.stringify({ ok: true, data: defaultMockBudgets }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
@@ -241,6 +268,13 @@ describe("FinanceWorkspace Component & noka:finance-updated Sync", () => {
       if (url.startsWith("/api/categories")) {
         return new Response(
           JSON.stringify({ ok: true, data: { categories: sampleCategories } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.startsWith("/api/finance/budgets")) {
+        return new Response(
+          JSON.stringify({ ok: true, data: defaultMockBudgets }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
@@ -324,6 +358,13 @@ describe("FinanceWorkspace Component & noka:finance-updated Sync", () => {
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
+
+      if (url.startsWith("/api/finance/budgets")) {
+        return new Response(
+          JSON.stringify({ ok: true, data: defaultMockBudgets }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
       return new Response(JSON.stringify({ ok: true, data: {} }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -388,6 +429,13 @@ describe("FinanceWorkspace Component & noka:finance-updated Sync", () => {
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }
+
+      if (url.startsWith("/api/finance/budgets")) {
+        return new Response(
+          JSON.stringify({ ok: true, data: defaultMockBudgets }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
       return new Response(JSON.stringify({ ok: true, data: {} }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -435,6 +483,13 @@ describe("FinanceWorkspace Component & noka:finance-updated Sync", () => {
       if (url.startsWith("/api/categories")) {
         return new Response(
           JSON.stringify({ ok: true, data: { categories: sampleCategories } }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      if (url.startsWith("/api/finance/budgets")) {
+        return new Response(
+          JSON.stringify({ ok: true, data: defaultMockBudgets }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
       }

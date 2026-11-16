@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { getDb, type DbOrTx } from "@/db";
-import { categories, transactions } from "@/db/schema/finance";
+import { categories, categoryBudgets, transactions } from "@/db/schema/finance";
 import type {
   CategoryListQueryInput,
   CreateCategoryInput,
@@ -335,6 +335,15 @@ export async function deleteCategory(
         ),
       )
       .returning({ id: transactions.id });
+
+    await tx
+      .delete(categoryBudgets)
+      .where(
+        and(
+          eq(categoryBudgets.userId, userId),
+          eq(categoryBudgets.categoryId, categoryId),
+        ),
+      );
 
     await tx
       .update(categories)

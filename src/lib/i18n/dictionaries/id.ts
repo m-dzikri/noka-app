@@ -641,6 +641,47 @@ export const idDictionary: Dictionary = {
       footerNotice:
         "Dicetak dari Noka — Seringan Notepad, Serapi Buku Kas.",
     },
+    budgets: {
+      sectionTitle: "Anggaran Kategori",
+      sectionSubtitle: "Pantau pemakaian dan batas pengeluaran bulanan",
+      manageBudgetsButton: "Kelola Anggaran",
+      totalBudgetedLabel: "Total Dianggarkan",
+      totalSpentLabel: "Total Terpakai",
+      spentOfTotal: "terpakai dari",
+      remainingLabel: "Sisa",
+      overbudgetLabel: "Melebihi Anggaran",
+      normalStatus: "Aman",
+      warningStatus: "Waspada",
+      exceededStatus: "Melebihi Batas",
+      warningThresholdAlert: "Mendekati batas anggaran (≥ 80%)",
+      exceededThresholdAlert: "Pengeluaran telah melewati batas anggaran!",
+      noBudgetsTitle: "Belum Ada Anggaran Kategori",
+      noBudgetsDescription:
+        "Tentukan batas pengeluaran bulanan per kategori untuk mengontrol arus kas dengan lebih terencana.",
+      createFirstBudgetCta: "Atur Anggaran Pertama",
+      modalTitle: "Kelola Anggaran Kategori",
+      modalDescription:
+        "Tetapkan batas maksimal pengeluaran bulanan per kategori untuk siklus ini.",
+      categorySelectLabel: "Pilih Kategori",
+      selectCategoryPlaceholder: "-- Pilih Kategori Pengeluaran --",
+      amountLabel: "Batas Anggaran (IDR)",
+      amountPlaceholder: "Contoh: 1.000.000",
+      periodLabel: "Periode Siklus",
+      saveButton: "Simpan Anggaran",
+      savingButton: "Menyimpan...",
+      deleteButton: "Hapus Anggaran",
+      deletingButton: "Menghapus...",
+      deleteConfirm:
+        "Apakah Anda yakin ingin menghapus batas anggaran kategori ini?",
+      confirmDeleteButton: "Ya, Hapus Batas",
+      cancelButton: "Batal",
+      onlyExpenseCategoriesNote:
+        "Anggaran hanya dapat ditetapkan untuk kategori pengeluaran.",
+      noExpenseCategoriesError:
+        "Belum ada kategori pengeluaran aktif. Tambahkan kategori pengeluaran terlebih dahulu.",
+      invalidAmountError:
+        "Nominal anggaran harus berupa angka positif lebih dari 0.",
+    },
   },
   privacy: {
     hideLabel: "Sembunyikan Nominal (Privacy Blur)",

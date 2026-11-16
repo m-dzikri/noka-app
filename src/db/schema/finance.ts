@@ -148,3 +148,37 @@ export const transactions = pgTable(
   ],
 );
 
+export const categoryBudgets = pgTable(
+  "category_budgets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    amount: bigint("amount", { mode: "number" }).notNull(),
+    periodMonth: varchar("period_month", { length: 7 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("category_budgets_user_cat_period_unique_idx").on(
+      table.userId,
+      table.categoryId,
+      table.periodMonth,
+    ),
+    index("category_budgets_user_period_idx").on(
+      table.userId,
+      table.periodMonth,
+    ),
+    check("category_budgets_amount_positive", sql`${table.amount} > 0`),
+  ],
+);
+
+

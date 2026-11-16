@@ -99,12 +99,12 @@ Mengimplementasikan fitur penetapan anggaran bulanan per kategori pengeluaran (`
 
 ## Acceptance Criteria
 
-- [ ] **AC-12.1 (Skema Database & Integritas IDR — `F20`, `DATA-1`, `DATA-4`):** Tabel `category_budgets` menyimpan nominal batas anggaran dalam `bigint` (integer IDR > 0), terikat ke `userId` dan `categoryId` dengan constraint UNIQUE per `(user_id, category_id, period_month)`. Penghapusan kategori otomatis mengalir (*CASCADE*) ke anggarannya.
-- [ ] **AC-12.2 (Kalkulasi Persentase & Status Ambang Batas — `F20`, `UI-1`):** Sistem menghitung pemakaian anggaran secara real-time terhadap transaksi pengeluaran dalam rentang tanggal siklus aktif. Status diklasifikasikan dengan akurat: `<80%` (Normal), `80%–99%` (Warning), dan `≥100%` (Exceeded).
-- [ ] **AC-12.3 (API Lifecycle & Upsert Idempoten — `F20`, `API-1`, `API-2`):** `POST /api/finance/budgets` dapat membuat batas baru atau memperbarui batas yang ada secara atomik dan idempoten berdasarkan parameter `idempotencyKey`.
-- [ ] **AC-12.4 (Offline Mirror & Outbox Sync — `F20`, `OFFLINE-2`, `OFFLINE-3`):** Batas anggaran tersimpan di IndexedDB mirror; pengguna dapat menetapkan anggaran saat offline dan perubahan disinkronkan tanpa konflik saat online kembali.
-- [ ] **AC-12.5 (Peringatan Visual & UI Responsif — `F20`, `UI-3`, `I18N-1`):** Komponen `CategoryBudgetSection` menampilkan bilah progres interaktif dan badge peringatan visual yang mudah dibaca di mobile dan desktop dalam bahasa Indonesia dan Inggris.
-- [ ] **AC-12.6 (Pembersihan Data saat Logout — `F20`, `OFFLINE-5`):** Seluruh data anggaran lokal di IndexedDB terhapus bersih saat pengguna melakukan Logout atau terjadi sesi 401.
+- [x] **AC-12.1 (Skema Database & Integritas IDR — `F20`, `DATA-1`, `DATA-4`):** Tabel `category_budgets` menyimpan nominal batas anggaran dalam `bigint` (integer IDR > 0), terikat ke `userId` dan `categoryId` dengan constraint UNIQUE per `(user_id, category_id, period_month)`. Penghapusan kategori otomatis mengalir (*CASCADE*) ke anggarannya.
+- [x] **AC-12.2 (Kalkulasi Persentase & Status Ambang Batas — `F20`, `UI-1`):** Sistem menghitung pemakaian anggaran secara real-time terhadap transaksi pengeluaran dalam rentang tanggal siklus aktif. Status diklasifikasikan dengan akurat: `<80%` (Normal), `80%–99%` (Warning), dan `≥100%` (Exceeded).
+- [x] **AC-12.3 (API Lifecycle & Upsert Idempoten — `F20`, `API-1`, `API-2`):** `POST /api/finance/budgets` dapat membuat batas baru atau memperbarui batas yang ada secara atomik dan idempoten berdasarkan parameter `idempotencyKey`.
+- [x] **AC-12.4 (Offline Mirror & Outbox Sync — `F20`, `OFFLINE-2`, `OFFLINE-3`):** Batas anggaran tersimpan di IndexedDB mirror; pengguna dapat menetapkan anggaran saat offline dan perubahan disinkronkan tanpa konflik saat online kembali.
+- [x] **AC-12.5 (Peringatan Visual & UI Responsif — `F20`, `UI-3`, `I18N-1`):** Komponen `CategoryBudgetSection` menampilkan bilah progres interaktif dan badge peringatan visual yang mudah dibaca di mobile dan desktop dalam bahasa Indonesia dan Inggris.
+- [x] **AC-12.6 (Pembersihan Data saat Logout — `F20`, `OFFLINE-5`):** Seluruh data anggaran lokal di IndexedDB terhapus bersih saat pengguna melakukan Logout atau terjadi sesi 401.
 
 ---
 
@@ -112,3 +112,12 @@ Mengimplementasikan fitur penetapan anggaran bulanan per kategori pengeluaran (`
 
 - **Siklus Tanggal Kustom (`cycleStartDay`):** Format `period_month` merepresentasikan bulan awal siklus. Jika siklus pengguna dimulai tanggal 25, maka periode `2026-11` mencakup rentang `25 Nov 2026 – 24 Des 2026`.
 - **Handling Kategori Tanpa Anggaran:** Kategori yang belum memiliki anggaran tidak menampilkan bilah persentase, tetapi tersedia di daftar pembuat anggaran baru.
+
+---
+
+## Implementation Notes
+
+- **Database Migration:** Menggunakan `0003_category_budgets.sql` dengan constraint unik `(user_id, category_id, period_month)` dan `amount > 0`.
+- **Referential Cascades (`DATA-4`):** Pada penghapusan akun mandiri (`deleteAccount`) dan penghapusan kategori kustom (`deleteCategory`), seluruh baris `category_budgets` terkait dihapus secara atomik.
+- **Offline Mirror & Outbox Sync (`OFFLINE-2`, `OFFLINE-3`):** IndexedDB versi 2 menambahkan store `categoryBudgets` dengan index `by-periodMonth`. Mutasi offline didukung melalui `OutboxEntity = "budget"`, payload `budget_upsert` dan `budget_delete`, serta fungsi agregasi lokal `computeLocalCategoryBudgets`.
+- **Test Strategy Parity:** Implementasi memenuhi `TS-012-01` (`tests/unit/category-budgets.test.tsx`) dan `TS-012-02` (`tests/integration/category-budgets-api.test.ts`), seluruh 34 berkas tes (179 tes) lulus 100%.
