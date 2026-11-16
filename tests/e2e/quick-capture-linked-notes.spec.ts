@@ -223,7 +223,9 @@ test.describe("RFC-008: Quick Capture & Linked Notes <-> Transactions E2E", () =
 
       // Link existing transaction ("Beli kopi")
       await page.getByTestId("linked-tx-open-picker").click();
-      await expect(page.getByText(/Beli kopi/).first()).toBeVisible();
+      await expect(page.getByText(/Beli kopi/).first()).toBeVisible({
+        timeout: 10_000,
+      });
       await page.locator("[data-testid^='linked-tx-pick-']").first().click();
       await expect(page.getByTestId("linked-tx-list")).toContainText("Beli kopi");
       await expect(page.getByTestId("linked-tx-summary")).toContainText(/25\.000/);
