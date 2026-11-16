@@ -766,6 +766,15 @@ export const enDictionary: Dictionary = {
       noActiveWalletsError: "No active wallets available for recurring plans.",
       noCategoriesError: "No active categories available for this transaction type.",
       invalidAmountError: "Amount must be a positive integer greater than 0.",
+      offlineNotice:
+        "Offline mode: New recurring plans will be saved to your local outbox and synced when you are back online.",
+      intervalPresetsLabel: "Quick Interval Presets",
+      monthlyPreset: "1 Month (Monthly)",
+      quarterlyPreset: "3 Months (Quarterly)",
+      semiannualPreset: "6 Months (Semiannual)",
+      annualPreset: "12 Months (Annual)",
+      quickCardActiveCount: "{count} active recurring plans",
+      quickCardNextDue: "Next due: {date}",
     },
   },
   privacy: {

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { RecurringPendingBanner } from "@/components/finance/RecurringPendingBanner";
 import { RecurringTemplateModal } from "@/components/finance/RecurringTemplateModal";
+import * as syncProviderModule from "@/components/providers/SyncProvider";
 import { PreferencesProvider } from "@/components/providers/PreferencesProvider";
 import { PrivacyProvider } from "@/components/providers/PrivacyProvider";
 import type {
@@ -441,6 +442,72 @@ describe("TS-013-01: Recurring Transactions Scheduler Unit Suite", () => {
       const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
       expect(firstCall[1]?.method).toBe("DELETE");
       expect(mutatedMock).toHaveBeenCalled();
+    });
+
+    it("supports quick interval preset pills (1, 3, 6, 12) for monthly frequency", () => {
+      renderWithProviders(
+        <RecurringTemplateModal
+          open={true}
+          onClose={() => {}}
+          templates={[]}
+          wallets={sampleWallets}
+          categories={sampleCategories}
+          onMutated={() => {}}
+        />,
+      );
+
+      const intervalInput = screen.getByLabelText("Setiap") as HTMLInputElement;
+      expect(intervalInput.value).toBe("1");
+
+      // Click preset 12 (annual)
+      const preset12 = screen.getByTestId("interval-preset-12");
+      fireEvent.click(preset12);
+      expect(intervalInput.value).toBe("12");
+
+      // Click preset 3 (quarterly)
+      const preset3 = screen.getByTestId("interval-preset-3");
+      fireEvent.click(preset3);
+      expect(intervalInput.value).toBe("3");
+    });
+
+    it("renders visual offline notice banner when offline", () => {
+      vi.spyOn(syncProviderModule, "useOptionalSync").mockReturnValue({
+        isOnline: false,
+        userId: "u-1",
+        storageAvailable: true,
+        swAvailable: true,
+        pendingCount: 0,
+        failedItems: [],
+        lastSyncedAt: null,
+        mirror: null,
+        mirrorVersion: 1,
+        status: "offline",
+        userProfile: {
+          id: "u-1",
+          name: "User",
+          email: "user@noka.test",
+          locale: "id",
+          theme: "light",
+          cycleStartDay: "1",
+        },
+        syncNow: async () => {},
+        discardFailedMutation: async () => {},
+        reloadMirror: async () => null,
+        updateUserMeta: async () => {},
+      });
+
+      renderWithProviders(
+        <RecurringTemplateModal
+          open={true}
+          onClose={() => {}}
+          templates={[]}
+          wallets={sampleWallets}
+          categories={sampleCategories}
+          onMutated={() => {}}
+        />,
+      );
+
+      expect(screen.getByTestId("recurring-offline-notice")).toBeDefined();
     });
   });
 });

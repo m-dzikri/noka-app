@@ -766,6 +766,15 @@ export const idDictionary: Dictionary = {
       noActiveWalletsError: "Belum ada dompet aktif untuk jadwal rutin.",
       noCategoriesError: "Belum ada kategori aktif untuk jenis transaksi ini.",
       invalidAmountError: "Nominal harus berupa angka bulat positif lebih dari 0.",
+      offlineNotice:
+        "Mode offline: Jadwal baru akan disimpan di antrean lokal dan disinkronkan saat kembali online.",
+      intervalPresetsLabel: "Pilihan Cepat Siklus",
+      monthlyPreset: "1 Bulan (Bulanan)",
+      quarterlyPreset: "3 Bulan (Kuartal)",
+      semiannualPreset: "6 Bulan (Semester)",
+      annualPreset: "12 Bulan (Tahunan)",
+      quickCardActiveCount: "{count} jadwal rutin aktif",
+      quickCardNextDue: "Jatuh tempo terdekat: {date}",
     },
   },
   privacy: {

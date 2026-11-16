@@ -9,6 +9,7 @@ import {
   Play,
   Plus,
   Trash2,
+  WifiOff,
 } from "lucide-react";
 import {
   dispatchFinanceUpdated,
@@ -311,6 +312,17 @@ function RecurringModalBody({
         </div>
       ) : null}
 
+      {sync && !sync.isOnline ? (
+        <div
+          role="status"
+          data-testid="recurring-offline-notice"
+          className="flex items-center gap-2 rounded-xl border border-[var(--status-warning)]/40 bg-[var(--status-warning)]/10 px-3.5 py-2.5 text-xs text-[var(--status-warning)]"
+        >
+          <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{t.finance.recurring.offlineNotice}</span>
+        </div>
+      ) : null}
+
       {/* Form: Create or Edit */}
       <form
         onSubmit={handleSubmit}
@@ -493,6 +505,36 @@ function RecurringModalBody({
               className="mt-1 h-9 text-xs"
               required
             />
+            {frequency === "monthly" ? (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] text-[var(--text-muted)]">
+                  {t.finance.recurring.intervalPresetsLabel}:
+                </span>
+                {[
+                  { step: 1, label: t.finance.recurring.monthlyPreset },
+                  { step: 3, label: t.finance.recurring.quarterlyPreset },
+                  { step: 6, label: t.finance.recurring.semiannualPreset },
+                  { step: 12, label: t.finance.recurring.annualPreset },
+                ].map((preset) => {
+                  const isSelected = intervalStep === preset.step;
+                  return (
+                    <button
+                      key={preset.step}
+                      type="button"
+                      onClick={() => setIntervalStep(preset.step)}
+                      data-testid={`interval-preset-${preset.step}`}
+                      className={`rounded-lg px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                        isSelected
+                          ? "bg-[var(--accent-primary)] text-white"
+                          : "border border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:bg-[var(--bg-muted)]"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           {frequency === "monthly" ? (

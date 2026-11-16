@@ -737,6 +737,14 @@ export function FinanceWorkspace({
             <span>
               {t.finance?.recurring?.manageRecurringButton ?? "Atur Jadwal Rutin"}
             </span>
+            {recurringTemplates.length > 0 ? (
+              <span
+                data-testid="recurring-active-count-badge"
+                className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--accent-primary)]/15 px-1.5 text-[10px] font-bold text-[var(--accent-primary)]"
+              >
+                {recurringTemplates.filter((t) => t.isActive).length}
+              </span>
+            ) : null}
           </Button>
 
           <Button
@@ -835,6 +843,68 @@ export function FinanceWorkspace({
         activeCyclePeriod={activeCyclePeriod}
         onSelectPeriod={handleSelectBudgetPeriod}
       />
+
+      {recurringTemplates.length > 0 ? (
+        <Card data-testid="recurring-quick-summary-card">
+          <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]">
+                <Repeat className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <CardTitle as="h3" className="text-base">
+                  {t.finance?.recurring?.sectionTitle ?? "Jadwal Rutin"}
+                </CardTitle>
+                <CardDescription>
+                  {(
+                    t.finance?.recurring?.quickCardActiveCount ??
+                    "{count} jadwal rutin aktif"
+                  ).replace(
+                    "{count}",
+                    String(recurringTemplates.filter((t) => t.isActive).length),
+                  )}
+                  {(() => {
+                    const nextActive = recurringTemplates
+                      .filter((t) => t.isActive)
+                      .sort(
+                        (a, b) =>
+                          new Date(a.nextRunAt).getTime() -
+                          new Date(b.nextRunAt).getTime(),
+                      )[0];
+                    if (!nextActive) return null;
+                    return (
+                      <>
+                        {" • "}
+                        {(
+                          t.finance?.recurring?.quickCardNextDue ??
+                          "Jatuh tempo terdekat: {date}"
+                        ).replace(
+                          "{date}",
+                          nextActive.nextRunAt.slice(0, 10),
+                        )}
+                        {" ("}
+                        {nextActive.description}
+                        {")"}
+                      </>
+                    );
+                  })()}
+                </CardDescription>
+              </div>
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setRecurringModalOpen(true)}
+              data-testid="recurring-quick-card-manage-btn"
+            >
+              <span>
+                {t.finance?.recurring?.manageRecurringButton ?? "Atur Jadwal Rutin"}
+              </span>
+            </Button>
+          </CardHeader>
+        </Card>
+      ) : null}
 
       <WalletListSection
         wallets={summary.wallets}

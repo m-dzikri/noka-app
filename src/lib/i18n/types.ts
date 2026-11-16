@@ -499,6 +499,14 @@ export interface FinanceRecurringDictionary {
   noActiveWalletsError: string;
   noCategoriesError: string;
   invalidAmountError: string;
+  offlineNotice: string;
+  intervalPresetsLabel: string;
+  monthlyPreset: string;
+  quarterlyPreset: string;
+  semiannualPreset: string;
+  annualPreset: string;
+  quickCardActiveCount: string;
+  quickCardNextDue: string;
 }
 
 export interface FinanceExportModalDictionary {
