@@ -19,6 +19,8 @@
   "dependencies": {
     "@aws-sdk/client-s3": "3.1166.0",
     "@aws-sdk/s3-request-presigner": "3.1166.0",
+    "@neon/config": "^1.14.2",
+    "@neon/env": "^2.1.5",
     "bcryptjs": "3.0.3",
     "clsx": "2.1.1",
     "drizzle-orm": "0.45.4",
@@ -58,4 +60,3 @@
     "vitest": "5.1.0"
   }
 }
-

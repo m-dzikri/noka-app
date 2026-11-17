@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { defineConfig } from "drizzle-kit";
 
-if (!process.env.DATABASE_URL && existsSync(".env")) {
+if ((!process.env.DATABASE_URL && !process.env.DATABASE_URL_UNPOOLED) && existsSync(".env")) {
   try {
     process.loadEnvFile(".env");
   } catch {
@@ -14,7 +14,7 @@ export default defineConfig({
   out: "./src/db/migrations",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "",
+    url: process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL || "",
   },
 });
 
