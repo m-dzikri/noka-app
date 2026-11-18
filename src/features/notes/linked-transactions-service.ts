@@ -228,29 +228,30 @@ export async function listNoteLinkedTransactions(
   noteId: string,
   txOrDb: DbOrTx = getDb(),
 ): Promise<LinkedTransactionsListResult> {
-  await assertActiveNoteOwnership(txOrDb, userId, noteId);
-
-  const rows = await txOrDb
-    .select({
-      tx: transactions,
-      walletName: wallets.name,
-      categoryName: categories.name,
-    })
-    .from(transactions)
-    .innerJoin(wallets, eq(transactions.walletId, wallets.id))
-    .innerJoin(categories, eq(transactions.categoryId, categories.id))
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.noteId, noteId),
-        isNull(transactions.deletedAt),
+  const [, rows] = await Promise.all([
+    assertActiveNoteOwnership(txOrDb, userId, noteId),
+    txOrDb
+      .select({
+        tx: transactions,
+        walletName: wallets.name,
+        categoryName: categories.name,
+      })
+      .from(transactions)
+      .innerJoin(wallets, eq(transactions.walletId, wallets.id))
+      .innerJoin(categories, eq(transactions.categoryId, categories.id))
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.noteId, noteId),
+          isNull(transactions.deletedAt),
+        ),
+      )
+      .orderBy(
+        desc(transactions.occurredAt),
+        desc(transactions.createdAt),
+        desc(transactions.id),
       ),
-    )
-    .orderBy(
-      desc(transactions.occurredAt),
-      desc(transactions.createdAt),
-      desc(transactions.id),
-    );
+  ]);
 
   const items = rows.map(serializeTransactionRow);
   return {

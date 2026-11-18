@@ -91,6 +91,7 @@ export function RegisterForm() {
 
       if (!response.ok) {
         setFormError(resolveAuthErrorMessage(t, response, payload));
+        setSubmitting(false);
         return;
       }
 
@@ -98,7 +99,6 @@ export function RegisterForm() {
       router.refresh();
     } catch {
       setFormError(t.errors.generic);
-    } finally {
       setSubmitting(false);
     }
   };

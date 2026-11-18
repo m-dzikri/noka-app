@@ -58,53 +58,53 @@ export async function listCategoryBudgets(
     nowDate,
   );
 
-  // 1. Fetch budgets for user and target period joining active categories
-  const budgetRows = await txOrDb
-    .select({
-      id: categoryBudgets.id,
-      categoryId: categoryBudgets.categoryId,
-      categoryName: categories.name,
-      amount: categoryBudgets.amount,
-      periodMonth: categoryBudgets.periodMonth,
-      createdAt: categoryBudgets.createdAt,
-      updatedAt: categoryBudgets.updatedAt,
-    })
-    .from(categoryBudgets)
-    .innerJoin(
-      categories,
-      and(
-        eq(categories.id, categoryBudgets.categoryId),
-        eq(categories.userId, userId),
-        isNull(categories.deletedAt),
-      ),
-    )
-    .where(
-      and(
-        eq(categoryBudgets.userId, userId),
-        eq(categoryBudgets.periodMonth, targetPeriod),
-      ),
-    );
-
-  // 2. Fetch spending aggregations for expense transactions within cycle bounds
   const startUtc = new Date(cycle.startUtcIso);
   const endExclusiveUtc = new Date(cycle.endExclusiveUtcIso);
 
-  const spendingRows = await txOrDb
-    .select({
-      categoryId: transactions.categoryId,
-      spentTotal: sql<number>`COALESCE(SUM(${transactions.amount}), 0)::bigint`,
-    })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "expense"),
-        isNull(transactions.deletedAt),
-        gte(transactions.occurredAt, startUtc),
-        lt(transactions.occurredAt, endExclusiveUtc),
+  // 1 & 2. Fetch budgets and expense spending aggregations in parallel
+  const [budgetRows, spendingRows] = await Promise.all([
+    txOrDb
+      .select({
+        id: categoryBudgets.id,
+        categoryId: categoryBudgets.categoryId,
+        categoryName: categories.name,
+        amount: categoryBudgets.amount,
+        periodMonth: categoryBudgets.periodMonth,
+        createdAt: categoryBudgets.createdAt,
+        updatedAt: categoryBudgets.updatedAt,
+      })
+      .from(categoryBudgets)
+      .innerJoin(
+        categories,
+        and(
+          eq(categories.id, categoryBudgets.categoryId),
+          eq(categories.userId, userId),
+          isNull(categories.deletedAt),
+        ),
+      )
+      .where(
+        and(
+          eq(categoryBudgets.userId, userId),
+          eq(categoryBudgets.periodMonth, targetPeriod),
+        ),
       ),
-    )
-    .groupBy(transactions.categoryId);
+    txOrDb
+      .select({
+        categoryId: transactions.categoryId,
+        spentTotal: sql<number>`COALESCE(SUM(${transactions.amount}), 0)::bigint`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, userId),
+          eq(transactions.type, "expense"),
+          isNull(transactions.deletedAt),
+          gte(transactions.occurredAt, startUtc),
+          lt(transactions.occurredAt, endExclusiveUtc),
+        ),
+      )
+      .groupBy(transactions.categoryId),
+  ]);
 
   const spendingMap = new Map<string, number>();
   for (const row of spendingRows) {

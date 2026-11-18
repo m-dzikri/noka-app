@@ -93,6 +93,7 @@ export function LoginForm() {
             payload as ApiErrorPayload | null,
           ),
         );
+        setSubmitting(false);
         return;
       }
 
@@ -110,7 +111,6 @@ export function LoginForm() {
       router.refresh();
     } catch {
       setFormError(t.errors.generic);
-    } finally {
       setSubmitting(false);
     }
   };

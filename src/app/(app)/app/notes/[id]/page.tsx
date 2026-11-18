@@ -31,24 +31,46 @@ export default async function NoteDetailPage({ params }: NoteDetailPageProps) {
   const { id } = await params;
   const parsedId = uuidSchema.safeParse(id);
 
-  let note: NoteDto | null = null;
-  let initialAttachments: NoteAttachmentDto[] = [];
-  let initialLinkedTransactions: LinkedTransactionsListResult | undefined;
-  if (parsedId.success) {
-    try {
-      note = await getNoteById(user.id, parsedId.data);
-      [initialAttachments, initialLinkedTransactions] = await Promise.all([
-        listNoteAttachments(user.id, note.id),
-        listNoteLinkedTransactions(user.id, note.id),
-      ]);
-    } catch (error) {
-      if (!(error instanceof ApiError && error.status === 404)) {
-        throw error;
-      }
+  const noteBundlePromise = (async () => {
+    if (!parsedId.success) {
+      return {
+        note: null as NoteDto | null,
+        initialAttachments: [] as NoteAttachmentDto[],
+        initialLinkedTransactions: undefined as
+          | LinkedTransactionsListResult
+          | undefined,
+      };
     }
-  }
 
-  const [foldersList, initialWallets, initialCategories] = await Promise.all([
+    try {
+      const [note, initialAttachments, initialLinkedTransactions] =
+        await Promise.all([
+          getNoteById(user.id, parsedId.data),
+          listNoteAttachments(user.id, parsedId.data),
+          listNoteLinkedTransactions(user.id, parsedId.data),
+        ]);
+      return { note, initialAttachments, initialLinkedTransactions };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return {
+          note: null as NoteDto | null,
+          initialAttachments: [] as NoteAttachmentDto[],
+          initialLinkedTransactions: undefined as
+            | LinkedTransactionsListResult
+            | undefined,
+        };
+      }
+      throw error;
+    }
+  })();
+
+  const [
+    { note, initialAttachments, initialLinkedTransactions },
+    foldersList,
+    initialWallets,
+    initialCategories,
+  ] = await Promise.all([
+    noteBundlePromise,
     listFolders(user.id),
     loadWalletsWithBalances(getDb(), user.id),
     listCategories(user.id),

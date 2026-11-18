@@ -299,38 +299,39 @@ export async function listNoteAttachments(
   noteId: string,
   dbOrTx: DbOrTx = getDb(),
 ): Promise<NoteAttachmentDto[]> {
-  const [noteRow] = await dbOrTx
-    .select({ id: notes.id })
-    .from(notes)
-    .where(
-      and(
-        eq(notes.id, noteId),
-        eq(notes.userId, userId),
-        isNull(notes.deletedAt),
-      ),
-    )
-    .limit(1);
+  const [[noteRow], rows] = await Promise.all([
+    dbOrTx
+      .select({ id: notes.id })
+      .from(notes)
+      .where(
+        and(
+          eq(notes.id, noteId),
+          eq(notes.userId, userId),
+          isNull(notes.deletedAt),
+        ),
+      )
+      .limit(1),
+    dbOrTx
+      .select({
+        id: noteAttachments.id,
+        noteId: noteAttachments.noteId,
+        mimeType: noteAttachments.mimeType,
+        sizeBytes: noteAttachments.sizeBytes,
+        createdAt: noteAttachments.createdAt,
+      })
+      .from(noteAttachments)
+      .where(
+        and(
+          eq(noteAttachments.noteId, noteId),
+          eq(noteAttachments.userId, userId),
+        ),
+      )
+      .orderBy(asc(noteAttachments.createdAt), asc(noteAttachments.id)),
+  ]);
 
   if (!noteRow) {
     throw new ApiError(404, "NOTE_NOT_FOUND", "Note not found");
   }
-
-  const rows = await dbOrTx
-    .select({
-      id: noteAttachments.id,
-      noteId: noteAttachments.noteId,
-      mimeType: noteAttachments.mimeType,
-      sizeBytes: noteAttachments.sizeBytes,
-      createdAt: noteAttachments.createdAt,
-    })
-    .from(noteAttachments)
-    .where(
-      and(
-        eq(noteAttachments.noteId, noteId),
-        eq(noteAttachments.userId, userId),
-      ),
-    )
-    .orderBy(asc(noteAttachments.createdAt), asc(noteAttachments.id));
 
   return rows.map(toAttachmentDto);
 }

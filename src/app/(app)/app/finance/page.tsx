@@ -19,25 +19,39 @@ export default async function FinancePage() {
     redirect("/login");
   }
 
-  let initialPendingRecurring: PendingRecurringDto[] = [];
-  try {
-    const processResult = await processDueRecurringTemplates(user.id);
-    initialPendingRecurring = processResult.pendingConfirmations;
-  } catch {
-    // Non-blocking for page load
-  }
+  const [
+    processResult,
+    firstSummary,
+    initialCategories,
+    firstBudgets,
+    firstRecurringTemplates,
+  ] = await Promise.all([
+    processDueRecurringTemplates(user.id).catch(() => null),
+    getFinanceSummary(
+      user.id,
+      { includeArchived: true, limit: FINANCE_LIST_DEFAULT_LIMIT },
+      { cycleStartDay: user.cycleStartDay },
+    ),
+    listCategories(user.id),
+    listCategoryBudgets(user.id, { cycleStartDay: user.cycleStartDay }),
+    listRecurringTemplates(user.id),
+  ]);
 
-  const [initialSummary, initialCategories, initialBudgets, initialRecurringTemplates] =
-    await Promise.all([
-      getFinanceSummary(
-        user.id,
-        { includeArchived: true, limit: FINANCE_LIST_DEFAULT_LIMIT },
-        { cycleStartDay: user.cycleStartDay },
-      ),
-      listCategories(user.id),
-      listCategoryBudgets(user.id, { cycleStartDay: user.cycleStartDay }),
-      listRecurringTemplates(user.id),
-    ]);
+  const initialPendingRecurring: PendingRecurringDto[] =
+    processResult?.pendingConfirmations ?? [];
+
+  const [initialSummary, initialBudgets, initialRecurringTemplates] =
+    processResult && processResult.appliedCount > 0
+      ? await Promise.all([
+          getFinanceSummary(
+            user.id,
+            { includeArchived: true, limit: FINANCE_LIST_DEFAULT_LIMIT },
+            { cycleStartDay: user.cycleStartDay },
+          ),
+          listCategoryBudgets(user.id, { cycleStartDay: user.cycleStartDay }),
+          listRecurringTemplates(user.id),
+        ])
+      : [firstSummary, firstBudgets, firstRecurringTemplates];
 
   return (
     <FinanceWorkspace

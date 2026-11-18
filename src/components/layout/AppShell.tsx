@@ -207,6 +207,7 @@ export function AppShell({
         <div className="mx-auto grid max-w-md grid-cols-4 items-center gap-1">
           <Link
             href="/app/notes"
+            prefetch={true}
             aria-current={
               isWorkspaceRouteActive(resolvedPath, "/app/notes")
                 ? "page"
@@ -235,6 +236,7 @@ export function AppShell({
 
           <Link
             href="/app/finance"
+            prefetch={true}
             aria-current={
               isWorkspaceRouteActive(resolvedPath, "/app/finance")
                 ? "page"
@@ -253,6 +255,7 @@ export function AppShell({
 
           <Link
             href="/app/settings"
+            prefetch={true}
             aria-current={
               isWorkspaceRouteActive(resolvedPath, "/app/settings")
                 ? "page"

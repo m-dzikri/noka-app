@@ -46,6 +46,10 @@ export function getPool(): Pool {
   const previousPool = globalForDb.__nokaPool;
   const pool = new Pool({
     connectionString: DATABASE_URL,
+    max: 10,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000,
+    keepAlive: true,
     ssl: shouldEnableSsl(DATABASE_URL)
       ? { rejectUnauthorized: false }
       : undefined,

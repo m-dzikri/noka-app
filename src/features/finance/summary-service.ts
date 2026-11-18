@@ -444,25 +444,16 @@ export async function getFinanceSummary(
 
   const decodedCursor = query.cursor ? decodeSummaryCursor(query.cursor) : null;
 
-  const [cycleStartDay, allWallets] = await Promise.all([
-    resolveUserCycleStartDay(db, userId, options.cycleStartDay),
-    loadWalletsWithBalances(db, userId, { includeArchived: true }),
-  ]);
-
-  const activeWallets = allWallets.filter((w) => w.archivedAt === null);
-  let totalBalanceBig = 0n;
-  for (const wallet of activeWallets) {
-    totalBalanceBig += BigInt(Math.trunc(wallet.currentBalance));
-  }
-
-  const cycle = resolveActiveCycleWindow(nowDate, cycleStartDay, tzOffset);
-  const safeToSpend = calculateSafeToSpend(
-    activeWallets,
-    nowDate,
-    cycleStartDay,
-    tzOffset,
+  const walletsPromise = loadWalletsWithBalances(db, userId, {
+    includeArchived: true,
+  });
+  const cycleStartDay = await resolveUserCycleStartDay(
+    db,
+    userId,
+    options.cycleStartDay,
   );
 
+  const cycle = resolveActiveCycleWindow(nowDate, cycleStartDay, tzOffset);
   const { fromDate, toDate } = resolveDateFilterRange(
     query.from ?? cycle.startDate,
     query.to ?? cycle.endDate,
@@ -472,26 +463,41 @@ export async function getFinanceSummary(
   const resolvedFrom = fromDate ?? new Date(cycle.startUtcIso);
   const resolvedTo = toDate ?? new Date(cycle.endExclusiveUtcIso);
 
-  const [{ cashflow, categoryBreakdown }, ledger] = await Promise.all([
-    queryCashflowAndBreakdown(db, userId, resolvedFrom, resolvedTo, {
-      walletId: query.walletId,
-      categoryId: query.categoryId,
-      type: filterType,
-    }),
-    queryCombinedLedger(
-      db,
-      userId,
-      resolvedFrom,
-      resolvedTo,
-      {
+  const [allWallets, { cashflow, categoryBreakdown }, ledger] =
+    await Promise.all([
+      walletsPromise,
+      queryCashflowAndBreakdown(db, userId, resolvedFrom, resolvedTo, {
         walletId: query.walletId,
         categoryId: query.categoryId,
         type: filterType,
-        limit,
-      },
-      decodedCursor,
-    ),
-  ]);
+      }),
+      queryCombinedLedger(
+        db,
+        userId,
+        resolvedFrom,
+        resolvedTo,
+        {
+          walletId: query.walletId,
+          categoryId: query.categoryId,
+          type: filterType,
+          limit,
+        },
+        decodedCursor,
+      ),
+    ]);
+
+  const activeWallets = allWallets.filter((w) => w.archivedAt === null);
+  let totalBalanceBig = 0n;
+  for (const wallet of activeWallets) {
+    totalBalanceBig += BigInt(Math.trunc(wallet.currentBalance));
+  }
+
+  const safeToSpend = calculateSafeToSpend(
+    activeWallets,
+    nowDate,
+    cycleStartDay,
+    tzOffset,
+  );
 
   return {
     wallets: includeArchived ? allWallets : activeWallets,

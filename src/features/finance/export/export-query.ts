@@ -129,14 +129,6 @@ export async function loadFinanceExportDataset(
     );
   }
 
-  // Fetch wallets with balances
-  const allWallets = await loadWalletsWithBalances(db, userId, { includeArchived: true });
-  const walletsSummary: ExportWalletSummary[] = allWallets.map((w) => ({
-    id: w.id,
-    name: w.name,
-    currentBalance: w.currentBalance,
-  }));
-
   // Build transaction query predicates
   const txPredicates: SQL[] = [
     eq(transactions.userId, userId),
@@ -152,63 +144,80 @@ export async function loadFinanceExportDataset(
     txPredicates.push(eq(transactions.categoryId, params.categoryId));
   }
 
-  const txRows = await db
-    .select({
-      tx: transactions,
-      walletName: wallets.name,
-      categoryName: categories.name,
-      noteTitle: notes.title,
-    })
-    .from(transactions)
-    .innerJoin(wallets, eq(transactions.walletId, wallets.id))
-    .innerJoin(categories, eq(transactions.categoryId, categories.id))
-    .leftJoin(notes, and(eq(transactions.noteId, notes.id), isNull(notes.deletedAt)))
-    .where(and(...txPredicates))
-    .orderBy(desc(transactions.occurredAt), desc(transactions.createdAt), desc(transactions.id))
-    .limit(MAX_EXPORT_ROW_LIMIT);
-
   // Build transfers query if categoryId is not specified
   const shouldIncludeTransfers = !params.categoryId;
-  let transferRows: Array<{
-    transfer: typeof transfers.$inferSelect;
-    fromWalletName: string;
-    toWalletName: string;
-  }> = [];
+  const transferPromise = shouldIncludeTransfers
+    ? (() => {
+        const trPredicates: SQL[] = [
+          eq(transfers.userId, userId),
+          isNull(transfers.deletedAt),
+          gte(transfers.occurredAt, startDate),
+          lte(transfers.occurredAt, endDate),
+        ];
 
-  if (shouldIncludeTransfers) {
-    const trPredicates: SQL[] = [
-      eq(transfers.userId, userId),
-      isNull(transfers.deletedAt),
-      gte(transfers.occurredAt, startDate),
-      lte(transfers.occurredAt, endDate),
-    ];
+        if (params.walletId) {
+          const walletMatch = or(
+            eq(transfers.fromWalletId, params.walletId),
+            eq(transfers.toWalletId, params.walletId),
+          );
+          if (walletMatch) {
+            trPredicates.push(walletMatch);
+          }
+        }
 
-    if (params.walletId) {
-      const walletMatch = or(
-        eq(transfers.fromWalletId, params.walletId),
-        eq(transfers.toWalletId, params.walletId),
-      );
-      if (walletMatch) {
-        trPredicates.push(walletMatch);
-      }
-    }
+        const fromWallets = alias(wallets, "from_wallet");
+        const toWallets = alias(wallets, "to_wallet");
 
-    const fromWallets = alias(wallets, "from_wallet");
-    const toWallets = alias(wallets, "to_wallet");
+        return db
+          .select({
+            transfer: transfers,
+            fromWalletName: fromWallets.name,
+            toWalletName: toWallets.name,
+          })
+          .from(transfers)
+          .innerJoin(fromWallets, eq(transfers.fromWalletId, fromWallets.id))
+          .innerJoin(toWallets, eq(transfers.toWalletId, toWallets.id))
+          .where(and(...trPredicates))
+          .orderBy(
+            desc(transfers.occurredAt),
+            desc(transfers.createdAt),
+            desc(transfers.id),
+          )
+          .limit(MAX_EXPORT_ROW_LIMIT);
+      })()
+    : Promise.resolve([]);
 
-    transferRows = await db
+  const [allWallets, txRows, transferRows] = await Promise.all([
+    loadWalletsWithBalances(db, userId, { includeArchived: true }),
+    db
       .select({
-        transfer: transfers,
-        fromWalletName: fromWallets.name,
-        toWalletName: toWallets.name,
+        tx: transactions,
+        walletName: wallets.name,
+        categoryName: categories.name,
+        noteTitle: notes.title,
       })
-      .from(transfers)
-      .innerJoin(fromWallets, eq(transfers.fromWalletId, fromWallets.id))
-      .innerJoin(toWallets, eq(transfers.toWalletId, toWallets.id))
-      .where(and(...trPredicates))
-      .orderBy(desc(transfers.occurredAt), desc(transfers.createdAt), desc(transfers.id))
-      .limit(MAX_EXPORT_ROW_LIMIT);
-  }
+      .from(transactions)
+      .innerJoin(wallets, eq(transactions.walletId, wallets.id))
+      .innerJoin(categories, eq(transactions.categoryId, categories.id))
+      .leftJoin(
+        notes,
+        and(eq(transactions.noteId, notes.id), isNull(notes.deletedAt)),
+      )
+      .where(and(...txPredicates))
+      .orderBy(
+        desc(transactions.occurredAt),
+        desc(transactions.createdAt),
+        desc(transactions.id),
+      )
+      .limit(MAX_EXPORT_ROW_LIMIT),
+    transferPromise,
+  ]);
+
+  const walletsSummary: ExportWalletSummary[] = allWallets.map((w) => ({
+    id: w.id,
+    name: w.name,
+    currentBalance: w.currentBalance,
+  }));
 
   // Combine rows
   const ledgerRows: ExportLedgerRow[] = [];

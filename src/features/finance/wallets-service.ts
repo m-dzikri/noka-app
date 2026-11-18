@@ -83,43 +83,45 @@ export async function loadWalletsWithBalances(
 ): Promise<WalletWithBalanceDto[]> {
   const includeArchived = options.includeArchived ?? false;
 
-  const walletRows = await txOrDb
-    .select()
-    .from(wallets)
-    .where(and(eq(wallets.userId, userId), isNull(wallets.deletedAt)))
-    .orderBy(desc(wallets.isDefault), asc(wallets.createdAt));
+  const [walletRows, txSums, transferOutSums, transferInSums] =
+    await Promise.all([
+      txOrDb
+        .select()
+        .from(wallets)
+        .where(and(eq(wallets.userId, userId), isNull(wallets.deletedAt)))
+        .orderBy(desc(wallets.isDefault), asc(wallets.createdAt)),
+      txOrDb
+        .select({
+          walletId: transactions.walletId,
+          type: transactions.type,
+          total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
+        })
+        .from(transactions)
+        .where(
+          and(eq(transactions.userId, userId), isNull(transactions.deletedAt)),
+        )
+        .groupBy(transactions.walletId, transactions.type),
+      txOrDb
+        .select({
+          fromWalletId: transfers.fromWalletId,
+          total: sql<string>`COALESCE(SUM(${transfers.amount}), 0)::text`,
+        })
+        .from(transfers)
+        .where(and(eq(transfers.userId, userId), isNull(transfers.deletedAt)))
+        .groupBy(transfers.fromWalletId),
+      txOrDb
+        .select({
+          toWalletId: transfers.toWalletId,
+          total: sql<string>`COALESCE(SUM(${transfers.amount}), 0)::text`,
+        })
+        .from(transfers)
+        .where(and(eq(transfers.userId, userId), isNull(transfers.deletedAt)))
+        .groupBy(transfers.toWalletId),
+    ]);
 
   if (walletRows.length === 0) {
     return [];
   }
-
-  const txSums = await txOrDb
-    .select({
-      walletId: transactions.walletId,
-      type: transactions.type,
-      total: sql<string>`COALESCE(SUM(${transactions.amount}), 0)::text`,
-    })
-    .from(transactions)
-    .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
-    .groupBy(transactions.walletId, transactions.type);
-
-  const transferOutSums = await txOrDb
-    .select({
-      fromWalletId: transfers.fromWalletId,
-      total: sql<string>`COALESCE(SUM(${transfers.amount}), 0)::text`,
-    })
-    .from(transfers)
-    .where(and(eq(transfers.userId, userId), isNull(transfers.deletedAt)))
-    .groupBy(transfers.fromWalletId);
-
-  const transferInSums = await txOrDb
-    .select({
-      toWalletId: transfers.toWalletId,
-      total: sql<string>`COALESCE(SUM(${transfers.amount}), 0)::text`,
-    })
-    .from(transfers)
-    .where(and(eq(transfers.userId, userId), isNull(transfers.deletedAt)))
-    .groupBy(transfers.toWalletId);
 
   const ledgerTxs: LedgerTransactionInput[] = txSums.map((row) => ({
     walletId: row.walletId,
